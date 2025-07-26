@@ -7,7 +7,7 @@
 - **Docker & Docker Compose**: Latest version
 - **Git**: For version control
 - **Node.js**: 18+ (for local frontend development)
-- **Python**: 3.11+ (for local backend development)
+- **Python**: 3.11+ (required for backend development)
 
 ### 1. Clone and Setup
 
@@ -73,7 +73,7 @@ Context Cleanse/
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Backend API** | FastAPI, Python 3.11 | REST API, ML inference, OAuth |
+| **Backend API** | FastAPI, Python 3.11+ | REST API, ML inference, OAuth |
 | **Frontend** | Next.js 14, TypeScript, Tailwind | Admin dashboard, user interface |
 | **Database** | PostgreSQL + pgvector | Email storage, embeddings |
 | **ML Models** | scikit-learn, ONNX, SBERT | Spam detection, embeddings |
