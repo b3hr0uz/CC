@@ -1,0 +1,116 @@
+Spam Email Detection + Context-Aware Assistant
+CSUN Summer Session 3 2025
+Group 1Behrouz Barati B, Daniel Barlam, Sebastian Borner, Eiten Brishami, Mohammed Hussain
+Rev. 1
+
+Executive Summary
+Local fullstack spam filter application with RAG assistant
+FastAPI, scikit-learn, Ollama, pgvector, NextJS
+All contained in Docker and ships with a GitHub remote.
+Trained on 
+Under 300 ms response, ≥ 90 percent precision and recall
+Six-week sprint to MVP
+
+Project background
+The customer has a messenger service that is equivalent to email. Users are finding issues with spam filling their inboxes. Security and privacy of messages are incredibly important to the customer as well as their end users. Customer has noticed uptick is spam emails to their users which has led to complaints.    
+
+Business Objectives: 
+Accurately detect spam emails to satisfy customer requirements.
+Deliver a state-of-the-art model capable of identifying all malicious emails.
+Decrease customer issues by prioritizing a model that almost errorlessly identifies spam emails.
+Improve user experience by clearly indicating when an email is malicious, ensuring users do not interact with harmful content.
+
+Business Success Criteria 
+
+Model Accuracy 
+
+The model is accurate and finds the spam emails and users are satisfied.
+No Mistakes
+
+The user does not have any issues in the future and does not find any emails that are falsely labeled spam or are not labeled spam. 
+Customers Ease 
+
+The customer does not need to sort the emails to remove the spam emails and keep the ham emails, but the model does that itself.
+PROJECT BACKGROUND 3
+
+
+Requirements, Assumptions, & Constraints 
+
+Requirements	
+
+Data volume: collect at least fifty thousand spam messages and fifty thousand ham messages.
+Privacy: keep all mail local, strip personal fields before training, encrypt storage.
+Model workflow: block time for training, accuracy testing, and any needed recalibration.
+Client checkpoints: hold weekly demos to show metrics before moving to the next stage.
+Assumptions	
+
+ENRON plus the client honeypot give a good picture of current spam and ham.
+Laptops with sixteen GB RAM and CPU-mode Ollama can handle the load.
+Constraints
+
+Six-week timeline, no cloud compute, all data stays inside the client network.
+Stack fixed at FastAPI, scikit-learn, Ollama, PostgreSQL with pgvector, and Docker.
+Precision must stay at or above ninety percent, latency below three hundred milliseconds, assistant replies below two seconds.
+PROJECT BACKGROUND 3
+
+
+Risks and Contingencies
+Noisy data → stronger cleaning and class-weight fixes
+Accuracy < 90 % → Logistic Regression then Gradient Boost or Naive Bayes
+Latency > 300 ms → quantize, prune, batch requests
+Wrong assistant answers → raise top-k, show confidence, admin flags
+Data delay → start with public sets, pipeline ready for late inserts
+Team gap → buddy backup, documented repos
+
+Terminology
+Spam: Unwanted or unsolicited emails sent in bulk. Mostly commercial in nature. Some are more malicious in nature and have harmful links to malware or websites as phishing attempts. 
+MVP: Minimum Viable Product
+Phishing: fraudulent practice of sending emails in the attempt to get personal information such as passwords.
+Ham: Wanted emails
+NLP: Natural Language processing used to help computers understand language
+Logistic Regression (LR): is a supervised machine learning algorithm used for classification problems.
+Confidence Interval (CI): Is a range of values used to estimate unknown statistical parameter
+
+Project Plan
+W1 data pull and cleaning
+W2 vectors and embeddings in Postgres
+W3 filter ≥ 90 percent, RAG prototype answers tests
+W4 latency tune < 300 ms filter, 2 s assistant
+W5 React dashboard with feedback loop
+W6 pilot run, docs, Docker hand-off
+Risks: noisy data, low accuracy, slow latency, wrong answers
+Weekly retro and Friday demo keep us on track
+
+
+Costs and Benefits
+Costs
+Monthly subscription fee charged per computer .
+Datasets are publicly available online for free. 
+No need for cloud computing; all model training and testing can be performed locally.
+All costs including 5x developer salaries for about a month comes out to around $60,000
+Benefits
+Product can be sold to companies on a per-email-account basis to cover their employees.
+Subscription and SaaS models can generate continuous revenue for our business.
+Not much maintenance or customer support will be necessary as the product continues its lifecycle.
+
+Machine Learning Goals
+Develop a robust machine learning model to accurately classify emails as spam or not spam. 
+Minimize false positives (legitimate emails marked as spam) and false negatives (spam emails missed by the system). 
+Achieve high accuracy, precision, and recall metrics, with a target confidence interval of at least 90% for spam detection. 
+Ensure the model can process and classify emails rapidly, aiming for response times between 100-200 milliseconds to support real-time filtering. 
+Maintain data privacy and security throughout the model development and deployment process. 
+
+Initial Assessment of Tools and Techniques
+Log Reg base, Grad Boost backup
+TF IDF first, SBERT test set
+FastAPI with ONNX, low lag
+Postgres plus pgvector, single store
+GitHub and Docker, repeat build
+NextJS Tailwind UI
+
+
+Expected Outcomes
+
+Introduce us to ML, associated tools, and technologies. Get our hands on these technologies that are becoming more and more relevant.
+
+A successful project will look good on our resumes. Skills acquired can be demonstrated.

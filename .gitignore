@@ -1,0 +1,269 @@
+# ContextCleanse - Comprehensive .gitignore
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.key
+*.pem
+*.crt
+secrets/
+
+# Python Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.conda/
+
+# Python Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Next.js Frontend
+.next/
+out/
+build/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Frontend Testing
+coverage/
+.nyc_output
+
+# Package Manager Files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+Dockerfile.dev
+*.dockerfile.swp
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+database/data/
+postgres_data/
+pgdata/
+redis_data/
+
+# Machine Learning Models & Data
+models/
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.onnx
+*.pb
+data/processed/
+data/raw/
+data/interim/
+data/external/
+logs/training/
+mlruns/
+.mlflow/
+
+# Logs
+*.log
+logs/
+log/
+*.log.*
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# Documentation Build
+docs/_build/
+docs/build/
+site/
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Compiled Files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# API Keys & Credentials
+api_keys.txt
+credentials.json
+service-account-key.json
+
+# Local Configuration
+local_settings.py
+config.local.js
+.env.example.local
+
+# Testing
+test-results/
+playwright-report/
+blob-report/
+coverage/
+
+# Deployment
+deployment/
+.vercel
+.netlify
+
+# FastAPI specific
+.pytest_cache/
+alembic/versions/*.pyc
+
+# Redis
+dump.rdb
+
+# PostgreSQL
+*.sql.backup
+
+# Monitoring & Metrics
+grafana/
+prometheus/
+metrics/
+
+# SSL Certificates
+ssl/
+certs/
+
+# User uploads
+uploads/
+static/uploads/
+media/
+
+# Search Index
+search_index/
+elasticsearch/
+
+# Terraform (if used for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes (if used)
+k8s-secrets/
+*.kubeconfig
+
+# Local development overrides
+docker-compose.local.yml
+local.docker-compose.yml
+
+# Performance & Profiling
+*.prof
+*.pstats
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Editor backups
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Local data for development
+dev_data/
+sample_data/
+fixtures/
+
+# Generated API documentation
+api_docs/generated/
+
+# Email attachments storage (if applicable)
+attachments/
+email_storage/

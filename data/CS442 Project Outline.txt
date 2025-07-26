@@ -1,0 +1,209 @@
+﻿Spam Email Detection Leveraging Machine Learning
+
+
+Group 1
+Behrouz Bagherabad, Daniel Barlam, Sebastian Borner, Eiten Brishami, Mohammed Hussain
+
+
+Revision 1
+
+
+Table of contents
+2-Executive Summary…………………………………..….pg2
+3-Project Background……………………………………….pg2
+4-Business Objectives…………………………………..….pg2
+5-Business Success Criteria……………………………….pg2
+6-Inventory of Resources……………………………...…...pg2
+7-Requirements, Assumptions, and Constraints………...pg2
+8-Risks and Contingencies………………………………...pg3
+9-Terminology: Decide late Saturday…………………..…pg4
+10-Costs and Benefits………………………………………pg4
+11-Machine Learning Goals………………………………..pg4
+12-Machine Learning Success Criteria……………..…….pg5
+13-Project Plan………………………………..…………….pg5
+14-Initial Assessment of Tools and Techniques………….pg6
+15-Team and Expertise……………………………….…….pg7
+16-Expected Outcomes…………………………………….pg7
+17-Impact and Significance…………………….………….pg7
+18-Conclusion……………………………………………….pg7
+
+
+
+
+
+
+
+
+
+
+2. Executive Summary
+We will develop local apps that live fully inside the client desktop environment.
+The first is an email spam filter that detects junk mail with at least ninety percent precision and recall and answers in under three hundred milliseconds.
+The second is a context-aware assistant that uses a retrieval-augmented generation pipeline. It pulls facts from a pgvector store and lets an Ollama language model be context-aware of the emails.
+Both tools share a FastAPI backend, scikit-learn models, a PostgreSQL database with pgvector, and a simple NextJS dashboard. Everything runs in Docker, setup through a GitHub remote.
+Our five-person team will deliver a working MVP in six weeks.
+
+
+3. Project Background. 
+The customer has a messenger service that is equivalent to email. Users are finding issues with spam filling their inboxes. Security and privacy of messages are incredibly important to the customer as well as their end users. 
+
+
+4. Business Objectives:
+* Accurately detect spam emails to satisfy customer requirements.
+* Deliver a state-of-the-art model capable of identifying all malicious emails. 
+* Decrease customer issues by prioritizing a model that almost errorlessly identifies spam emails. 
+* Improve user experience by clearly indicating when an email is malicious, ensuring users do not interact with harmful content. 
+
+
+
+
+5. Business Success Criteria
+We have deployed a model that accurately detects spam emails, satisfying all of the customer's requirements. The customer can seamlessly use our model with no issues and immediately knows what emails are spam, reducing confusion and enhancing productivity. The customer also does not spend time manually sorting their email to remove spam emails, further enhancing their productivity and satisfaction. 
+
+
+6. Inventory of Resources
+Each team member has a computer, additionally one team member has an extra computer that could be used to run the model. Bruce has professional experience with NML which we can leverage for advice and direction. Data sets for this project are easily accessible online and free.
+
+
+
+
+7. Requirements, Assumptions, and Constraints
+Requirements
+1. Data volume – collect at least fifty thousand spam messages and fifty thousand ham messages.
+2. Privacy and security – keep all mail local, strip personal fields before training, encrypt storage.
+3. Model workflow – block time for training, accuracy testing, and any needed recalibration.
+4. Client checkpoints – hold weekly demos to show metrics before moving to the next stage.
+Assumptions
+* ENRON plus the client honeypot give a good picture of current spam and ham.
+* Laptops with sixteen GB RAM and CPU-mode Ollama can handle the load.
+Constraints
+* Six-week timeline, no cloud compute, all data stays inside the client network.
+* Stack fixed at FastAPI, scikit-learn, Ollama, PostgreSQL with pgvector, and Docker.
+* Precision must stay at or above ninety percent, latency below three hundred milliseconds, assistant replies below two seconds.
+8. Risks and Contingencies
+Noisy or imbalanced data lowers model quality
+• When it could appear: feature-engineering and training, Weeks 2–3
+• Contingency: strengthen text cleaning, drop duplicates, up-sample ham, use class weights, and gather extra samples if needed
+* Spam filter misses the 90 percent precision-and-recall goal
+• When it could appear: baseline modeling, Week 3
+• Contingency: switch to Gradient Boost, add features, tune hyper-parameters, or test a small transformer such as MiniLM
+* Filter latency stays above 300 milliseconds
+• When it could appear: integration and tuning, Week 4
+• Contingency: quantize the ONNX model, prune rare features, batch requests, and profile I-O to cut bottlenecks
+* Assistant produces weak or incorrect answers
+• When it could appear: RAG prototype and dashboard work, Weeks 3–5
+• Contingency: raise top-k retrieval, widen context windows, show confidence tags, and let admins flag errors for prompt tweaks
+* Data sources are delayed or smaller than expected
+• When it could appear: data-acquisition stage, Week 1
+• Contingency: begin with public corpora, scrape extra open datasets in parallel, and keep the pipeline ready for late inserts
+* Key teammate becomes unavailable
+• When it could appear: any week
+• Contingency: rely on the buddy system, keep repos well documented, and reassign Kanban tasks to another develope
+
+
+9. Terminology
+Spam: Unwanted or unsolicited emails sent in bulk. Mostly commercial in nature. Some are more malicious in nature and have harmful links to malware or websites as phishing attempts. 
+MVP: Minimum Viable Product
+Phishing: fraudulent practice of sending emails in the attempt to get personal information such as passwords.
+Ham: Wanted emails
+NLP: Natural Language processing used to help computers understand language
+Logistic Regression (LR): is a supervised machine learning algorithm used for classification problems.
+Confidence Interval (CI): Is a range of values used to estimate unknown statistical parameter
+
+
+
+10 Costs and Benefits
+Our product would be sold to companies on a computer by computer basis, to cover every workstation in the company. Our subscription service would cost an amount per month per computer and ideally turn a profit enough to cover electricity costs of running the model and paying maintenance engineers. Data sets are publicly available online for free so no training costs associated with that. Initial development costs will include but not be limited to five developers salaries for 6 weeks which comes out to around $60,000. Cloud computing is not necessary; all model training and testing can be performed locally. When it comes to benefits, this project will help students and users understand how spam detection works and the importance of email security. Team members will gain hands-on experience with machine learning, data preprocessing, feature engineering, and model evaluation. 
+
+11. Machine Learning Goals:
+   * Develop a robust machine learning model to accurately classify emails as spam or not spam. 
+   * Minimize false positives (legitimate emails marked as spam) and false negatives (spam emails missed by the system). 
+   * Achieve high accuracy, precision, and recall metrics, with a target confidence interval of at least 90% for spam detection. 
+   * Ensure the RAG pipeline store and pass relevant emails to the assistant.
+   * Ensure the model can process and classify emails rapidly, aiming for response times between 100-200 milliseconds to support real-time filtering. 
+   * Maintain data privacy and security throughout the model development and deployment process. 
+
+
+
+
+
+
+
+
+
+
+
+
+12. Machine Learning Success Criteria
+This project will be a success if we can predict whether or not an email is spam with a CI of 90%. Several judgement criteria can be given for said emails for the user to correct and remove erroneous false positives and negatives. Additionally, our model has accurately detected spam emails within 100 to 200 milliseconds to enhance customer satisfaction. Moreover, as a team, we have accurately identified the email features and found other patterns that indicate a spam email. 
+
+
+13. Project Plan
+   * Stage 1, Week 1 – Data exploration and acquisition
+Behrouz and Mohammed start by pulling three data sources: public email corpora such as ENRON, the client spam-trap messages, and a small internal wiki dump for the assistant. They clean and label every message, strip personal fields, and load the results into PostgreSQL. The main output is a first-pass dataset that is large enough to train with. If gaps appear or a new source surfaces, they loop back and add it. The Friday review asks whether the dataset is complete and whether any teammate must chase missing samples.
+   * Stage 2, Week 2 – Feature and embedding engineering
+Using the clean dataset, Mohammed and Sebastian build TF-IDF vectors for the spam filter and SBERT sentence embeddings for the assistant, then store both in pgvector so the database can serve fast similarity searches. They time each step and tighten the pipeline until it runs smoothly on a laptop. If extra data arrives or noise proves high, they rerun the entire flow. The end-of-week check confirms that vectors are queryable, noise is acceptable, and no stage is a speed bottleneck.
+   * Stage 3, Week 3 – Baseline modeling and RAG prototype
+With vectors in place, Mohammed and Sebastian train Logistic Regression and Gradient Boost models, aiming for at least ninety percent precision and recall on a holdout set. At the same time they wire a simple retrieval-augmented generation loop that feeds top-k wiki passages into Ollama and returns draft answers. They keep cycling through hyper-parameters and prompt tweaks until the spam filter hits the target metric and the assistant passes a scripted test. The Friday gate is a strict go or no-go on accuracy and answer quality.
+   * Stage 4, Week 4 – Latency tuning and service integration
+Sebastian and Daniel convert the chosen spam model to ONNX, plug both models into FastAPI, and measure real-time performance on an average laptop. They profile code paths, trim rare features, batch queries, and quantize weights until email filtering answers in under three hundred milliseconds and assistant replies arrive in under two seconds. Continuous integration tests must stay green throughout. The weekly review checks that latency targets hold and that logs capture key metrics.
+   * Stage 5, Week 5 – Dashboard and feedback loop
+Eitan joins Sebastian to build a NextJS dashboard that lists recent spam decisions, shows assistant answers with source links, and lets an admin click to correct any mistake. Each correction is written back to PostgreSQL so future training runs can use it. Testers from the class give rapid feedback on layout and usability, prompting quick UI tweaks. By Friday the team confirms that an admin can flag errors, chat responses show confidence levels, and the interface feels smooth on low hardware.
+   * Stage 6, Week 6 – Pilot run and hand-off
+All five members deploy the full Docker stack, invite real users to a short pilot, and log every result. Any bug that blocks the flow triggers a same-day fix. The team writes a user guide that explains setup, monitoring, and retraining, then packages the final Docker images and a slide deck that captures metrics and lessons learned. Documentation is clear, and the roadmap for future work is recorded.
+
+
+14. Initial Assessment of Tools and Techniques
+Layer
+	Choice
+	Reason
+	Spam model
+	Logistic Regression then Gradient Boost or Naive Bayes
+	Fast and easy to explain
+	Assistant model
+	Ollama running a small key-value LLM
+	Local inference, no cloud needed
+	Vectors
+	TF IDF for spam, SBERT embeddings for assistant
+	Covers sparse and dense text needs
+	Retrieval
+	pgvector in PostgreSQL
+	Simple, one database for all data
+	Serving
+	FastAPI with ONNX and Ollama API
+	Async calls keep latency low
+	CI and CD
+	GitHub and Docker
+	Repeat builds on any laptop
+	Front end
+	NextJS with Tailwind
+	Quick modern admin UI
+	
+
+15 Team and Expertise
+Eitan Abrishami- Not much deep learning experience but have some related programming language experience such as knowing some Python and JavaScript. 
+
+
+Mohammed Hussain: Beginner in Machine learning and expertise in Python for data science, Java, and web development. Basic understanding of machine learning and artificial intelligence. 
+
+
+Daniel Barlam: knowledge of Java and C. 
+
+
+Sebastian Borner: Java and Python knowledge. 
+
+Behrouz Barati B: Knowledge of Python, C/C++, JS, and basic understanding of ML and NLP; Worked with FastAPI, scikit-learn, Deep Learning, RAG Pipeline, Neo4j, PostgreSQL, Nextjs, Docker, Git
+
+16 Expected Outcomes 
+We expect this project to give us an introduction to ML and begin cultivating a new skillset with this extremely relevant technology. A successful project can later be leveraged both for resume/job interviews and for personal projects. This project will be able to distinguish between a spam email and a non-spam email with an accuracy of 90% or greater accuracy. 
+
+17 Impact and Significance
+Deploying a local email spam filter plus a context-aware assistant brings three levels of value.
+For end users the inbox stays clear of junk, so people trust the platform more and spend less time deleting mail. The assistant reads current messages, pulls facts from the company wiki, and writes quick draft replies, which saves even more minutes each day.
+For the organization fewer spam complaints mean fewer help-desk tickets, and the assistant deflects basic policy questions that would otherwise hit support. The full stack runs inside the firewall, so it meets privacy rules without outside services. Because the code is containerised and well-documented, it becomes a template for future machine-learning projects, such as phishing detection or document search.
+For the student team the project delivers hands-on experience with NLP pipelines, retrieval-augmented generation, and MLOps on real hardware and timelines. Parts of the code that do not expose private data can be shared with classmates or open-sourced, adding to the community and boosting resumes.
+
+
+18 Conclusion:
+This project aims to deliver a robust, on-premise spam email detection system leveraging machine learning to address the client’s pressing need for secure and accurate spam filtering. By focusing on high precision and recall, rapid response times, and strict data privacy, the team is positioned to provide a solution that not only meets but exceeds client expectations. The integration of a context-aware assistant further enhances the system’s utility, making it adaptable to evolving threats and user needs. 
+Through the collaborative efforts of a multidisciplinary team, the project will provide valuable hands-on experience in machine learning, data preprocessing, and model evaluation. The anticipated outcomes include improved user productivity, reduced manual email sorting, and a safer communication environment. Ultimately, this initiative will serve as both a technical achievement and a significant learning opportunity, laying the groundwork for future advancements in secure, intelligent messaging solutions.
