@@ -3,47 +3,95 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --foreground-rgb: 31, 41, 55;
+  --background-start-rgb: 249, 250, 251;
   --background-end-rgb: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+/* Removed dark mode auto-switching to prevent white text on white background issues */
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: #1f2937;
+  background: #f9fafb;
+}
+
+/* Ensure text is always visible on white backgrounds */
+.text-white {
+  color: #ffffff !important;
+}
+
+.text-gray-900 {
+  color: #111827 !important;
+}
+
+.text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-500 {
+  color: #6b7280 !important;
 }
 
 /* Custom styles for the ContextCleanse dashboard */
 .dashboard-card {
   @apply bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300;
+  color: #1f2937;
 }
 
 .metric-card {
   @apply bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200;
+  color: #1f2937;
 }
 
 .spam-alert {
   @apply bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg;
+  color: #1f2937;
 }
 
 .not-spam-alert {
   @apply bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg;
+  color: #1f2937;
 }
 
 /* Loading animation */
 .loading-spinner {
   @apply inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-current;
+}
+
+/* Ensure all text on white backgrounds is dark */
+.bg-white {
+  color: #1f2937;
+}
+
+.bg-white * {
+  color: inherit;
+}
+
+/* Fix for specific color classes that might cause issues */
+.text-blue-600 {
+  color: #2563eb !important;
+}
+
+.text-green-600 {
+  color: #16a34a !important;
+}
+
+.text-red-600 {
+  color: #dc2626 !important;
+}
+
+.text-purple-600 {
+  color: #9333ea !important;
+}
+
+.text-yellow-500 {
+  color: #eab308 !important;
 }

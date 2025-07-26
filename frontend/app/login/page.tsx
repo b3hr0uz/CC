@@ -228,7 +228,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-              className="text-center p-6 rounded-lg bg-white/50 backdrop-blur-sm border border-white/20"
+              className="text-center p-6 rounded-lg bg-white/90 backdrop-blur-sm border border-gray-200"
             >
               <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg text-blue-600 mb-4">
                 {feature.icon}
