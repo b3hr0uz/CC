@@ -87,13 +87,17 @@ Dockerfile.dev
 *.dockerfile.swp
 
 # Database Files
-*.db
-*.sqlite
-*.sqlite3
-database/data/
+# PostgreSQL data directories
 postgres_data/
 pgdata/
+database/data/
+*.sql.backup
+*.sql.dump
+
+# Redis data
 redis_data/
+dump.rdb
+*.rdb
 
 # Machine Learning Models & Data
 models/
@@ -198,11 +202,10 @@ deployment/
 .pytest_cache/
 alembic/versions/*.pyc
 
-# Redis
-dump.rdb
-
-# PostgreSQL
-*.sql.backup
+# Vector Embeddings & ML Cache
+embeddings/
+vector_cache/
+model_cache/
 
 # Monitoring & Metrics
 grafana/
