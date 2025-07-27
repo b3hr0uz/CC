@@ -43,6 +43,7 @@ env.bak/
 venv.bak/
 .venv/
 .conda/
+.claude/
 
 # Python Testing & Coverage
 .pytest_cache/

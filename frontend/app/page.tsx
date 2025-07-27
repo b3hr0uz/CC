@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+  PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import { 
   Brain, Target, TrendingUp, Database, Settings, 
   AlertCircle, CheckCircle, Mail, Shield, Play, BarChart3, 
-  RefreshCw, Zap, Award
+  Zap, Award
 } from 'lucide-react';
 
 // API Configuration
@@ -71,10 +71,14 @@ const SpamDetectionDashboard = () => {
   const [selectedModel, setSelectedModel] = useState<string>('gradient_boosting');
   const [selectedModelsForTraining, setSelectedModelsForTraining] = useState<string[]>([]);
   const [kFolds, setKFolds] = useState<number>(5);
-  const [loading, setLoading] = useState(false);
   const [modelsTraining, setModelsTraining] = useState(false);
   const [crossValidating, setCrossValidating] = useState(false);
-  const [predictionResult, setPredictionResult] = useState<any>(null);
+  const [predictionResult, setPredictionResult] = useState<{
+    is_spam: boolean;
+    confidence: number;
+    model_display_name: string;
+    model_used: string;
+  } | null>(null);
   const [cvResults, setCvResults] = useState<Record<string, CrossValidationResult>>({});
 
   // Load initial data
@@ -85,13 +89,10 @@ const SpamDetectionDashboard = () => {
 
   const fetchStatistics = async () => {
     try {
-      setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/statistics`);
       setStatistics(response.data);
     } catch (error) {
       console.error('Error fetching statistics:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -184,8 +185,6 @@ const SpamDetectionDashboard = () => {
     }
   };
 
-  // Chart colors
-  const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -349,7 +348,7 @@ const SpamDetectionDashboard = () => {
                 <h4 className="font-semibold mb-4">Cross Validation F1-Scores</h4>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={Object.entries(cvResults).map(([key, result]) => ({
-                    name: result.model_name.split(' ').slice(0, 2).join(' '),
+                    name: result.model_name ? result.model_name.split(' ').slice(0, 2).join(' ') : key,
                     mean_score: result.mean_score,
                     std_score: result.std_score
                   }))}>
@@ -423,7 +422,7 @@ const SpamDetectionDashboard = () => {
                 <h4 className="font-semibold mb-4">Performance Radar Chart</h4>
                 <ResponsiveContainer width="100%" height={400}>
                   <RadarChart data={Object.entries(modelResults.results).map(([key, metrics]) => ({
-                    model: metrics.name?.split(' ').slice(0, 2).join(' ') || key,
+                    model: metrics.name ? metrics.name.split(' ').slice(0, 2).join(' ') : key,
                     accuracy: metrics.accuracy,
                     precision: metrics.precision,
                     recall: metrics.recall,
@@ -452,7 +451,7 @@ const SpamDetectionDashboard = () => {
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium">{name}</p>
+                        <p className="font-medium">{name || key}</p>
                         <p className="text-sm text-gray-600">F1-Score: {f1Score.toFixed(4)}</p>
                       </div>
                       {index === 0 && <Award className="w-5 h-5 text-yellow-500" />}
@@ -595,7 +594,7 @@ const SpamDetectionDashboard = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(1) : 0}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -666,13 +665,6 @@ const SpamDetectionDashboard = () => {
                 </li>
               </ul>
             </div>
-          </div>
-          
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-blue-800">
-              <strong>🔧 Enhanced Tech Stack:</strong> FastAPI with model selection, NextJS with interactive components, 
-              K-fold cross validation, Docker deployment, comprehensive statistical analysis, and user-driven model testing.
-            </p>
           </div>
         </div>
       </div>

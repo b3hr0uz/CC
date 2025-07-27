@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ShieldCheckIcon, 
@@ -59,7 +58,6 @@ const oauthProviders: OAuthProvider[] = [
 ]
 
 export default function LoginPage() {
-  const router = useRouter()
   const [availableProviders, setAvailableProviders] = useState<string[]>([])
   const [loading, setLoading] = useState<string | null>(null)
 

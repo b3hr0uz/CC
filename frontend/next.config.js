@@ -2,7 +2,6 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  swcMinify: true,
   images: {
     domains: ['lh3.googleusercontent.com', 'graph.microsoft.com', 'appleid.apple.com'],
     unoptimized: process.env.NODE_ENV === 'development'
