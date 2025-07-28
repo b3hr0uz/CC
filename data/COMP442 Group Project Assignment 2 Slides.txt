@@ -1,0 +1,96 @@
+Data Exploration Using Statistical DescriptionsGroup 1 Assignment 2
+
+Behrouz Bagherabad Daniel Barlam
+Sebastian Borner
+Eitan Abrishami Mohammed Hussain Austin Engstrom
+
+
+
+Dataset Swap
+Central Tendencies
+Skewness
+Class Imbalance
+Correlations
+Analysis/Conclusions
+
+Dataset Swap
+
+After taking a deeper look at our original dataset, we decided to switch to one that's easier to work with.
+
+This new dataset features a few notable qualities that we decided to prioritize.
+
+-New Dataset
+-57 features to work with
+-Structured and Annotated
+-35/65 spam/ham split
+- 4,601 entries
+UCI Dataset
+
+Enron Dataset
+
+-Old Dataset
+-No features
+-unstructured
+-500,000 entries
+
+
+Central Tendencies
+
+The most common data dispersion measures are the range, quartiles, and interquartile range; the five-number summary and boxplots; and the variance and standard deviation of the data. These measures are useful for identifying outliers. We use this to ensure accuracy in our model.
+Implementation: We calculated mean, median, mode, and midrange for all 57 numerical features using pandas and numpy statistical functions through our FastAPI backend endpoint /statistics.
+Key findings show that word frequency features have generally low means (0.05-0.5%), character frequency features have variable means (0.01-0.27%), and capital letter features show higher variation (5.19-283.29).
+Most word frequencies have median near zero indicating right-skewed distributions. The majority of features have mode = 0, indicating that most emails don't contain spam words.
+Dispersion measures show word frequencies vary from 2.17% to 42.81% while capital letter features have extremely wide ranges up to 15,841. High coefficients of variation (200-2130%) indicate significant spread in feature distributions.
+
+Skewness
+
+
+Used Scipy.stats
+Results: Most word frequency features show positive skewness (right-skewed). Capital letter features show extreme positive skewness. Character frequency features vary in skewness direction.
+Interpretation: 
+Positive Skew- most emails have low spam related words
+High Skewness- shows potential outliers, needed data transformation 
+Distribution shape- guides for preprocessing and modelingUsed Scipy.stats
+Results: Most word frequency features show positive skewness (right-skewed). Capital letter features show extreme positive skewness. Character frequency features vary in skewness direction.
+Interpretation: 
+Positive Skew- most emails have low spam related words
+High Skewness- shows potential outliers, needed data transformation 
+Distribution shape- guides for preprocessing and modeling
+
+All word frequency features show positive skewness with values ranging from 2.5 to 15.8 indicating highly skewed distributions. Capital letter features show skewness greater than 10. This suggests log transformation is recommended for highly skewed features, robust classifiers like tree-based methods handle skewness better than linear models.
+
+
+
+
+Class Imbalance
+
+Discoveries:
+- Spam class: ~39.4% of dataset (1813 samples)
+- Ham Class: ~60.6% of dataset (2788 samples)
+- Imbalance Ratio: Approximately 1.54:1
+Implications: 
+- Standard ML Algorithm may be biased to ham emails
+- Implemented cross-validation to ensure robust model evaluation
+- Considered class weights and balanced sampling techniques
+
+This moderate imbalance means accuracy alone is insufficient for evaluation, so F1-score provides a balanced precision-recall measure and ROC-AUC is effective for threshold optimization. We used stratified cross-validation to maintain class ratios, implemented class weights adjustment in model training.
+
+Implementation:
+1. Pearson Correlation Coefficients- for all feature pairs
+2. Top Correlated Features with Target- (spam/ham classification)
+3. Feature-Feature Correlations- to identify redundancy
+Key Finding 1: 
+Strong Positive Correlations between certain word frequencies and spam classification
+Key Finding 2:
+Capital Letter Run Length shows high correlation with spam
+Key Finding 3:
+Some features show multicollinearity requiring feature selection
+Code Implementation-
+Python
+Correlation matrix calculation
+correlation_matrix = df.corr()
+spam_correlations = correlation_matrix['is_spam'].abs().sort_values(ascending=False)
+Correlations
+
+Analysis/Conclusions
+We implemented four different models including Logistic Regression as a linear baseline with L2 regularization, Gradient Boosting as an ensemble method with 100 estimators, Naive Bayes using multinomial with alpha smoothing, and Neural Network using 3-layer MLP with 128-64-32 architecture.Cross-validation results using 5-fold show Gradient Boosting achieved 95% accuracy with 0.94 F1-score, Neural Network achieved 94% accuracy with 0.93 F1-score, Logistic Regression achieved 93% accuracy with 0.92 F1-score, and Naive Bayes achieved 91% accuracy with 0.89 F1-score.

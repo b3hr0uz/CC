@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { signIn, getSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { 
   ShieldCheckIcon, 
   SparklesIcon, 
-  BoltIcon,
-  ExclamationTriangleIcon 
+  BoltIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -58,33 +59,38 @@ const oauthProviders: OAuthProvider[] = [
 ]
 
 export default function LoginPage() {
-  const [availableProviders, setAvailableProviders] = useState<string[]>([])
   const [loading, setLoading] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    // Check which OAuth providers are configured
-    fetchAvailableProviders()
+    // Check if user is already logged in
+    checkSession()
   }, [])
 
-  const fetchAvailableProviders = async () => {
-    try {
-      const response = await fetch('/api/v1/auth/providers')
-      if (response.ok) {
-        const data = await response.json()
-        setAvailableProviders(data.providers || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch providers:', error)
-      // Fallback to show all providers
-      setAvailableProviders(['google', 'microsoft', 'apple'])
+  const checkSession = async () => {
+    const session = await getSession()
+    if (session) {
+      router.push('/dashboard')
     }
   }
 
   const handleOAuthLogin = async (provider: string) => {
+    if (provider !== 'google') {
+      toast.error('Only Google authentication is currently supported')
+      return
+    }
+    
     setLoading(provider)
     try {
-      // Redirect to backend OAuth endpoint
-      window.location.href = `/api/v1/auth/oauth/${provider}`
+      const result = await signIn('google', {
+        callbackUrl: '/dashboard',
+        redirect: false,
+      })
+      
+      if (result?.error) {
+        toast.error('Failed to sign in with Google')
+        setLoading(null)
+      }
     } catch (error) {
       console.error(`${provider} login failed:`, error)
       toast.error(`Failed to login with ${provider}`)
@@ -92,23 +98,6 @@ export default function LoginPage() {
     }
   }
 
-  const features = [
-    {
-      icon: <ShieldCheckIcon className="w-6 h-6" />,
-                        title: 'ContextCleanse',
-      description: '≥90% precision with machine learning models'
-    },
-    {
-      icon: <SparklesIcon className="w-6 h-6" />,
-      title: 'Context-Aware Assistant',
-      description: 'RAG-powered responses in under 2 seconds'
-    },
-    {
-      icon: <BoltIcon className="w-6 h-6" />,
-      title: 'Lightning Fast',
-      description: '<300ms response time for email classification'
-    }
-  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -126,7 +115,7 @@ export default function LoginPage() {
             Welcome to <span className="text-gradient">Context Cleanse</span>
           </h1>
           <p className="text-gray-600">
-                              Advanced email classification with AI-powered assistant
+                              Email classification with assistant
           </p>
         </motion.div>
       </div>
@@ -148,27 +137,10 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {availableProviders.length === 0 && (
-              <div className="rounded-md bg-yellow-50 p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      No OAuth providers configured
-                    </h3>
-                    <div className="mt-2 text-sm text-yellow-700">
-                      <p>Please configure at least one OAuth provider to continue.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="space-y-3">
               {oauthProviders
-                .filter(provider => availableProviders.includes(provider.name))
+                .filter(provider => provider.name === 'google')
                 .map((provider) => (
                   <motion.button
                     key={provider.name}
@@ -212,35 +184,6 @@ export default function LoginPage() {
         </motion.div>
       </div>
 
-      {/* Features Section */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.4 }}
-        className="mt-12 max-w-4xl mx-auto px-4"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-              className="text-center p-6 rounded-lg bg-white/90 backdrop-blur-sm border border-gray-200"
-            >
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg text-blue-600 mb-4">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-gray-600">
-                {feature.description}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
     </div>
   )
 } 

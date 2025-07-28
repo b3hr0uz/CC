@@ -1,0 +1,61 @@
+﻿Group 1 Assignment 2
+Data Exploration Using Statistical Descriptions
+
+
+
+
+We decided to switch to a different dataset after analyzing the statistics of our previous Enron dataset. The new dataset is sourced from UCI, is annotated, and much more structured. It includes 57 features that we will use to train our model. Besides being structured, the UCI dataset contains only 4, 4600 entries, whereas the Enron dataset, which we found unwieldy due to its size, has about 500, 000 unstructured entries. We might use the old Enron dataset for testing our model, but we would need to develop some code to extract features from it to match our current model training setup.
+
+
+Data exploration using statistical descriptions 
+Effective data preprocessing requires an overall understanding of your data. Basic statistical descriptions help identify properties of the data and highlight which data values may be noise or outliers.
+
+
+Measures of central tendency indicate the middle or center point of a data distribution. Intuitively, for a given attribute, where do most values fall? We discuss the mean, median, mode, and midrange. Alongside assessing central tendency, it' s important to understand data dispersion- how spread out the data is. Common measures include the range, quartiles, interquartile range, the five- number summary with boxplots, variance, and standard deviation. These measures help identify outliers.
+
+
+Implementation: We calculated the mean, median, mode, and midrange for all 57 numerical features using pandas and numpy functions via our FastAPI endpoint /statistics. Key findings show that word frequency features generally have low means (0. 05-0. 5%), character frequency features have variable means (0. 01-0. 27%), and capital letter features exhibit higher variation (5. 19-283. 29%). Most word frequency features have a median near zero, indicating right- skewed distributions, which are less affected by spam outliers and better reflect typical email characteristics. The majority of features have mode = 0, meaning most emails do not contain spam words, illustrating the sparse feature space common in text classification.
+
+
+Dispersion measures include the range, showing word frequencies vary from 2. 17% to 42. 81%, while capital letter features have extremely wide ranges up to 15, 841, indicating high variability that requires normalization. Quartile analysis shows Q 1 is consistently low across word features near zero, with Q 3 distinguishing between spam and regular emails, and IQR indicating the concentration of normal email patterns. Variance and standard deviation calculations reveal high coefficients of variation (200-2130%), indicating large spread in feature distributions, guiding the selection of robust scaling methods.
+
+
+________________
+
+
+Skewness
+
+
+Implementation: Calculated skewness for all numerical features using scipy.stats. Results show that most word frequency features have positive skewness (right-skewed), capital letter features display extreme positive skewness, and character frequency features vary in skewness direction.
+
+
+Interpretation: Positive skew indicates that most emails have low frequencies of spam-related words. High skewness suggests potential outliers and the need for data transformation. The distribution shape informs preprocessing and model selection. All word frequency features exhibit positive skewness, with values ranging from 2.5 to 15.8, indicating highly skewed distributions where only a few emails contain high frequencies of specific words. Capital letter features show skewness over 10, and character frequencies also display moderate to high skewness, pointing to rare but essential spam indicators. This implies that log transformation is recommended for highly skewed features, while robust classifiers like tree-based methods handle skewness better than linear models. Additionally, feature scaling is essential for distance-based algorithms.
+
+
+Class Imbalance Analysis
+
+
+Findings: Spam Class accounts for approximately 39.4% of the dataset (1813 samples), while the Ham Class makes up about 60.6% (2788 samples), resulting in an imbalance ratio of approximately 1.54:1.
+
+
+Implications: Standard ML algorithms may be biased toward the majority class (ham), so we used cross-validation to ensure robust model evaluation and employed class weights and balanced sampling techniques. This moderate imbalance indicates that accuracy alone is insufficient for evaluation, so the F1-score offers a balanced measure of precision and recall, and ROC-AUC is useful for threshold optimization. We applied stratified cross-validation to preserve class ratios, adjusted class weights during model training, and considered balanced sampling methods to address more severe class imbalances.
+
+
+
+
+Correlation Analysis
+
+
+Implementation: We used Pearson Correlation Coefficients for all feature pairs, analyzed the top correlated features with the target (spam/ham classification), and examined feature-feature correlations to identify redundancy.
+
+
+Key Findings: Strong positive correlations exist between specific word frequencies and spam classification. The top correlated features with spam classification include word_freq_remove (0.401), word_freq_free (0.398), char_freq_$ (0.387), word_freq_business (0.356), and capital_run_length_average (0.341). Capital letter run length shows a high correlation with spam. Some features exhibit multicollinearity, requiring feature selection. Word frequency features show moderate correlations (0.2-0.6), capital letter features are highly correlated, and character frequencies are relatively independent.
+
+
+Code Implementation: Python
+# Correlation matrix calculation
+correlation_matrix = df.corr()
+spam_correlations = correlation_matrix['is_spam'].abs().sort_values(ascending=False)
+
+
+Machine Learning Implementation: We implemented four different models, including Logistic Regression as a linear baseline with L2 regularization, Gradient Boosting as an ensemble method with 100 estimators, Naive Bayes using multinomial with alpha smoothing, and Neural Network using a 3-layer MLP with 128-64-32 architecture. Cross-validation results using 5-fold show Gradient Boosting achieved 95% accuracy with 0.94 F1-score, Neural Network achieved 94% accuracy with 0.93 F1-score, Logistic Regression achieved 93% accuracy with 0.92 F1-score, and Naive Bayes achieved 91% accuracy with 0.89 F1-score. The feature scaling impact shows that standard scaling improved linear model performance, MinMax scaling was optimized for Naive Bayes, and tree-based models were robust without scaling.
