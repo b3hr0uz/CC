@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { 
   Mail, Search, RefreshCw, AlertCircle, 
-  CheckCircle, Clock, Tag, Inbox
+  CheckCircle, Clock, Tag, Inbox, Shield
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
 
@@ -26,6 +26,8 @@ export default function DashboardPage() {
   const [filterType, setFilterType] = useState('all'); // all, spam, ham
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [emailError, setEmailError] = useState<{type: string, message: string} | null>(null);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading session
@@ -40,13 +42,65 @@ export default function DashboardPage() {
     }
   }, [session, status, router]);
 
+  const getMockEmails = (): ExtendedEmailData[] => [
+    {
+      id: 'mock-1',
+      subject: 'Welcome to ContextCleanse!',
+      from: 'welcome@contextcleanse.ai',
+      date: new Date().toISOString(),
+      isRead: false,
+      classification: 'ham',
+      confidence: 0.95,
+      tags: ['welcome'],
+      timestamp: new Date().toISOString(),
+      read: false
+    },
+    {
+      id: 'mock-2', 
+      subject: 'URGENT: Claim your prize now!',
+      from: 'winner@suspicious-lottery.fake',
+      date: new Date(Date.now() - 3600000).toISOString(),
+      isRead: false,
+      classification: 'spam',
+      confidence: 0.98,
+      tags: ['suspicious'],
+      timestamp: new Date(Date.now() - 3600000).toISOString(),
+      read: false
+    },
+    {
+      id: 'mock-3',
+      subject: 'Weekly Team Update',
+      from: 'manager@company.com',
+      date: new Date(Date.now() - 7200000).toISOString(), 
+      isRead: true,
+      classification: 'ham',
+      confidence: 0.89,
+      tags: ['work'],
+      timestamp: new Date(Date.now() - 7200000).toISOString(),
+      read: true
+    }
+  ];
+
   const fetchEmails = async () => {
     try {
       setLoading(true);
+      setEmailError(null);
       const response = await fetch('/api/emails?limit=20');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch emails');
+        const errorData = await response.json();
+        
+        if (response.status === 403 && errorData.code === 'INSUFFICIENT_SCOPE') {
+          setEmailError({
+            type: 'auth',
+            message: 'Gmail access not authorized. Using demo data instead.'
+          });
+          setUsingMockData(true);
+          setEmails(getMockEmails());
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to fetch emails');
       }
 
       const data = await response.json();
@@ -63,10 +117,15 @@ export default function DashboardPage() {
       }));
 
       setEmails(emailsWithClassification);
+      setUsingMockData(false);
     } catch (error) {
       console.error('Error fetching emails:', error);
-      // Fall back to mock data for demo
-      setEmails([]);
+      setEmailError({
+        type: 'error',
+        message: 'Unable to fetch emails. Using demo data instead.'
+      });
+      setUsingMockData(true);
+      setEmails(getMockEmails());
     } finally {
       setLoading(false);
     }
@@ -113,6 +172,11 @@ export default function DashboardPage() {
     setIsRefreshing(false);
   };
 
+  const handleReauth = async () => {
+    await signOut({ redirect: false });
+    router.push('/login');
+  };
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -141,6 +205,67 @@ export default function DashboardPage() {
             </button>
           </div>
         </header>
+
+        {/* Error notification for Gmail access issues */}
+        {emailError && (
+          <div className="mx-6 mt-4 mb-4">
+            <div className={`p-4 rounded-lg border ${
+              emailError.type === 'auth' 
+                ? 'bg-blue-50 border-blue-200' 
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className={`p-2 rounded-lg ${
+                    emailError.type === 'auth' 
+                      ? 'bg-blue-100' 
+                      : 'bg-yellow-100'
+                  }`}>
+                    {emailError.type === 'auth' ? (
+                      <Shield className={`h-5 w-5 ${
+                        emailError.type === 'auth' ? 'text-blue-600' : 'text-yellow-600'
+                      }`} />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <h3 className={`text-sm font-medium ${
+                      emailError.type === 'auth' ? 'text-blue-800' : 'text-yellow-800'
+                    }`}>
+                      {emailError.type === 'auth' ? 'Gmail Access Required' : 'Connection Issue'}
+                    </h3>
+                    <p className={`text-sm mt-1 ${
+                      emailError.type === 'auth' ? 'text-blue-700' : 'text-yellow-700'
+                    }`}>
+                      {emailError.message}
+                      {usingMockData && ' You can explore the interface with sample data below.'}
+                    </p>
+                  </div>
+                </div>
+                {emailError.type === 'auth' && (
+                  <button
+                    onClick={handleReauth}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Grant Gmail Access
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mock data indicator */}
+        {usingMockData && (
+          <div className="mx-6 mb-4">
+            <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+              <Tag className="h-4 w-4 text-gray-600 mr-2" />
+              <span className="text-sm text-gray-600 font-medium">Demo Mode</span>
+              <span className="text-sm text-gray-500 ml-2">- Showing sample emails for demonstration</span>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="px-6 py-4">
