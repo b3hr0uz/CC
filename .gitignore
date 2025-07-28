@@ -45,6 +45,8 @@ venv.bak/
 .conda/
 .claude/
 CLAUDE.md
+.gemini/
+GEMINI.md
 
 # Python Testing & Coverage
 .pytest_cache/

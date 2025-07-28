@@ -6,9 +6,7 @@ import { motion } from 'framer-motion'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { 
-  ShieldCheckIcon, 
-  SparklesIcon, 
-  BoltIcon
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -63,16 +61,12 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is already logged in
-    checkSession()
-  }, [])
-
-  const checkSession = async () => {
-    const session = await getSession()
-    if (session) {
-      router.push('/dashboard')
-    }
-  }
+    getSession().then(session => {
+      if (session) {
+        router.push('/dashboard');
+      }
+    });
+  }, [router]);
 
   const handleOAuthLogin = async (provider: string) => {
     if (provider !== 'google') {

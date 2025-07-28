@@ -30,6 +30,79 @@ export default function DashboardPage() {
   const [usingMockData, setUsingMockData] = useState(false);
 
   useEffect(() => {
+    const fetchEmails = async () => {
+      console.log('🔄 fetchEmails called - using updated error handling');
+      try {
+        setLoading(true);
+        setEmailError(null);
+        const response = await fetch('/api/emails?limit=20');
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { error: 'Network error' };
+          }
+          
+          console.log('📧 Email fetch error:', response.status, errorData);
+          
+          if (response.status === 403 && (errorData as {code?: string}).code === 'INSUFFICIENT_SCOPE') {
+            console.log('🔐 Insufficient scope error - using demo data');
+            setEmailError({
+              type: 'auth',
+              message: 'Gmail access not authorized. Using demo data instead.'
+            });
+          } else if (response.status === 401) {
+            console.log('🔒 Authentication error - session expired');
+            setEmailError({
+              type: 'auth',
+              message: 'Session expired. Please sign in again to access Gmail.'
+            });
+          } else {
+            console.log('⚠️ Generic error - using demo data');
+            setEmailError({
+              type: 'error',
+              message: 'Unable to connect to Gmail. Using demo data instead.'
+            });
+          }
+          
+          console.log('📋 Loading mock data...');
+          setUsingMockData(true);
+          setEmails(getMockEmails());
+          return; // Don't throw, just use mock data
+        }
+
+        console.log('✅ Gmail API success - processing emails');
+        const data = await response.json();
+        
+        // Convert Gmail emails to our format and add mock classification for now
+        const emailsWithClassification: ExtendedEmailData[] = data.emails.map((email: EmailData) => ({
+          ...email,
+          timestamp: email.date,
+          read: email.isRead,
+          // Mock classification - in real app, this would come from ML model
+          classification: Math.random() > 0.7 ? 'spam' : 'ham',
+          confidence: Math.random() * 0.3 + 0.7, // Random confidence between 0.7-1.0
+          tags: generateTags(email.subject, email.from),
+        }));
+
+        setEmails(emailsWithClassification);
+        setUsingMockData(false);
+        setEmailError(null); // Clear any previous errors
+      } catch (error) {
+        console.error('Error fetching emails:', error);
+        setEmailError({
+          type: 'error',
+          message: 'Unable to fetch emails. Using demo data instead.'
+        });
+        setUsingMockData(true);
+        setEmails(getMockEmails());
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (status === 'loading') return; // Still loading session
     
     if (status === 'unauthenticated') {
@@ -49,6 +122,8 @@ export default function DashboardPage() {
       from: 'welcome@contextcleanse.ai',
       date: new Date().toISOString(),
       isRead: false,
+      preview: 'Welcome to ContextCleanse! We are excited to have you on board.',
+      threadId: 'thread-1',
       classification: 'ham',
       confidence: 0.95,
       tags: ['welcome'],
@@ -61,6 +136,8 @@ export default function DashboardPage() {
       from: 'winner@suspicious-lottery.fake',
       date: new Date(Date.now() - 3600000).toISOString(),
       isRead: false,
+      preview: 'You have won a prize! Click here to claim it now!',
+      threadId: 'thread-2',
       classification: 'spam',
       confidence: 0.98,
       tags: ['suspicious'],
@@ -73,6 +150,8 @@ export default function DashboardPage() {
       from: 'manager@company.com',
       date: new Date(Date.now() - 7200000).toISOString(), 
       isRead: true,
+      preview: 'Here is the weekly team update. Please review it before our meeting.',
+      threadId: 'thread-3',
       classification: 'ham',
       confidence: 0.89,
       tags: ['work'],
@@ -82,31 +161,53 @@ export default function DashboardPage() {
   ];
 
   const fetchEmails = async () => {
+    console.log('🔄 fetchEmails called - using updated error handling');
     try {
       setLoading(true);
       setEmailError(null);
       const response = await fetch('/api/emails?limit=20');
       
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: 'Network error' };
+        }
+        
+        console.log('📧 Email fetch error:', response.status, errorData);
         
         if (response.status === 403 && errorData.code === 'INSUFFICIENT_SCOPE') {
+          console.log('🔐 Insufficient scope error - using demo data');
           setEmailError({
             type: 'auth',
             message: 'Gmail access not authorized. Using demo data instead.'
           });
-          setUsingMockData(true);
-          setEmails(getMockEmails());
-          return;
+        } else if (response.status === 401) {
+          console.log('🔒 Authentication error - session expired');
+          setEmailError({
+            type: 'auth',
+            message: 'Session expired. Please sign in again to access Gmail.'
+          });
+        } else {
+          console.log('⚠️ Generic error - using demo data');
+          setEmailError({
+            type: 'error',
+            message: 'Unable to connect to Gmail. Using demo data instead.'
+          });
         }
         
-        throw new Error(errorData.error || 'Failed to fetch emails');
+        console.log('📋 Loading mock data...');
+        setUsingMockData(true);
+        setEmails(getMockEmails());
+        return; // Don't throw, just use mock data
       }
 
+      console.log('✅ Gmail API success - processing emails');
       const data = await response.json();
       
       // Convert Gmail emails to our format and add mock classification for now
-      const emailsWithClassification: ExtendedEmailData[] = data.emails.map((email: EmailData, index: number) => ({
+      const emailsWithClassification: ExtendedEmailData[] = data.emails.map((email: EmailData) => ({
         ...email,
         timestamp: email.date,
         read: email.isRead,
@@ -118,6 +219,7 @@ export default function DashboardPage() {
 
       setEmails(emailsWithClassification);
       setUsingMockData(false);
+      setEmailError(null); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching emails:', error);
       setEmailError({
@@ -403,7 +505,7 @@ export default function DashboardPage() {
                         </h3>
                         
                         <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                          {email.preview}
+                          {email.preview || 'No preview available'}
                         </p>
                         
                         <div className="flex items-center space-x-4 text-xs text-gray-500">
@@ -450,4 +552,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-} 
+}
