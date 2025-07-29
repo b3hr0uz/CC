@@ -1521,7 +1521,10 @@ This email is totally legitimate and not suspicious at all.`,
                         {/* User Feedback Buttons */}
                         <div className="mt-3 flex items-center justify-center space-x-2">
                           <button
-                            onClick={() => handleUserFeedback(email.id, true)}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent opening Email Details modal
+                              handleUserFeedback(email.id, true);
+                            }}
                             disabled={userFeedback[email.id] === 'correct'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'correct'
@@ -1534,7 +1537,10 @@ This email is totally legitimate and not suspicious at all.`,
                           </button>
                           
                           <button
-                            onClick={() => handleUserFeedback(email.id, false)}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent opening Email Details modal
+                              handleUserFeedback(email.id, false);
+                            }}
                             disabled={userFeedback[email.id] === 'incorrect'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'incorrect'
@@ -1776,7 +1782,10 @@ This email is totally legitimate and not suspicious at all.`,
                 <span className="text-white text-sm">Was this classification correct?</span>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handleUserFeedback(selectedEmail.id, true)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent any potential event propagation
+                      handleUserFeedback(selectedEmail.id, true);
+                    }}
                     disabled={userFeedback[selectedEmail.id] === 'correct'}
                     className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                       userFeedback[selectedEmail.id] === 'correct'
@@ -1787,7 +1796,10 @@ This email is totally legitimate and not suspicious at all.`,
                     <ThumbsUp className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleUserFeedback(selectedEmail.id, false)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent any potential event propagation
+                      handleUserFeedback(selectedEmail.id, false);
+                    }}
                     disabled={userFeedback[selectedEmail.id] === 'incorrect'}
                     className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                       userFeedback[selectedEmail.id] === 'incorrect'
