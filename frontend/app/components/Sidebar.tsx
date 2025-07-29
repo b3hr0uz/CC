@@ -84,7 +84,15 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-600">
+      <div className="p-4">
+        {/* Version and Copyright Info */}
+        <div className="mb-4 px-3 py-2 text-xs text-gray-400 border-b border-gray-600">
+          <div className="text-center space-y-1">
+            <div className="font-medium text-white">ContextCleanse v0.1.0</div>
+            <div>© 2025 ContextCleanse</div>
+          </div>
+        </div>
+        
         <div className="space-y-2">
           {bottomNavigation.map((item) => {
             const Icon = item.icon;

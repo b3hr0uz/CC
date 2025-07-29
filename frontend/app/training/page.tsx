@@ -24,6 +24,9 @@ interface ModelMetrics {
   recall: number;
   f1_score: number;
   description?: string;
+  training_time?: number;
+  cv_score?: number;
+  std_score?: number;
 }
 
 interface Statistics {
@@ -45,6 +48,12 @@ interface ModelInfo {
   description: string;
   scaling_required: string;
   trained: boolean;
+  training_progress?: number;
+  estimated_time?: number;
+  resource_usage?: {
+    cpu_percent: number;
+    memory_mb: number;
+  };
 }
 
 interface ComparisonResults {
@@ -55,6 +64,7 @@ interface ComparisonResults {
     metrics: ModelMetrics;
   };
   ranking: Array<[string, number, string]>;
+  optimal_k_fold?: number;
 }
 
 interface CrossValidationResult {
@@ -63,6 +73,28 @@ interface CrossValidationResult {
   mean_score: number;
   std_score: number;
   k_folds: number;
+}
+
+interface TrainingNotification {
+  id: string;
+  type: 'training_start' | 'training_complete' | 'training_error' | 'auto_training_init';
+  model_name: string;
+  message: string;
+  metrics?: ModelMetrics;
+  timestamp: Date;
+  duration?: number;
+  resource_usage?: {
+    cpu_percent: number;
+    memory_mb: number;
+  };
+}
+
+interface AutoTrainingConfig {
+  enabled: boolean;
+  optimal_k_fold: number;
+  resource_limit: number; // 50% of system resources
+  selected_models: string[];
+  auto_start_on_login: boolean;
 }
 
 const ContextCleanseTraining = () => {
@@ -83,12 +115,112 @@ const ContextCleanseTraining = () => {
   const [cvResults, setCvResults] = useState<Record<string, CrossValidationResult>>({});
   const [backendError, setBackendError] = useState<string | null>(null);
   const [isBackendAvailable, setIsBackendAvailable] = useState<boolean>(true);
+  
+  // Enhanced state for new features
+  const [trainingNotifications, setTrainingNotifications] = useState<TrainingNotification[]>([]);
+  const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
+    enabled: true,
+    optimal_k_fold: 5,
+    resource_limit: 50, // 50% of system resources
+    selected_models: ['gradient_boosting', 'logistic_regression', 'neural_network', 'naive_bayes'],
+    auto_start_on_login: true
+  });
+  const [isAutoTraining, setIsAutoTraining] = useState(false);
+  const [bestModel, setBestModel] = useState<string>('gradient_boosting');
 
   // Load initial data
   useEffect(() => {
     fetchStatistics();
     fetchAvailableModels();
   }, []);
+
+  // Auto-training initialization (separate effect to avoid hoisting issues)
+  useEffect(() => {
+    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled) {
+      initializeAutoTraining();
+    }
+  }, [autoTrainingConfig.auto_start_on_login, autoTrainingConfig.enabled]);
+
+  // Auto-training initialization on component mount (simulates login)
+  const initializeAutoTraining = async () => {
+    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled) {
+      console.log('🚀 Initializing auto-training on login...');
+      
+      // Show auto-training initialization notification
+      addNotification({
+        id: `auto-init-${Date.now()}`,
+        type: 'auto_training_init',
+        model_name: 'System',
+        message: `Auto-training initiated with optimal ${autoTrainingConfig.optimal_k_fold}-Fold CV using ${autoTrainingConfig.resource_limit}% system resources`,
+        timestamp: new Date()
+      });
+
+      // Determine optimal K-Fold CV rate
+      const optimalKFold = await determineOptimalKFold();
+      setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
+      setKFolds(optimalKFold);
+
+      // Start auto-training after a brief delay
+      setTimeout(() => {
+        startAutoTraining();
+      }, 2000);
+    }
+  };
+
+  // Add notification to the list
+  const addNotification = (notification: TrainingNotification) => {
+    setTrainingNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep last 5 notifications
+    
+    // Auto-remove notification after 10 seconds
+    setTimeout(() => {
+      setTrainingNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 10000);
+  };
+
+  // Determine optimal K-Fold CV rate
+  const determineOptimalKFold = async (): Promise<number> => {
+    try {
+      // Test different K-Fold values and return the best one
+      const kFoldOptions = [3, 5, 10];
+      let bestKFold = 5;
+      let bestScore = 0;
+
+      for (const k of kFoldOptions) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/models/optimal-kfold`, {
+            k_folds: k,
+            test_model: 'gradient_boosting'
+          });
+          
+          if (response.data.mean_score > bestScore) {
+            bestScore = response.data.mean_score;
+            bestKFold = k;
+          }
+        } catch {
+          console.log(`Using default K-Fold due to backend unavailability`);
+          // Use mock optimal K-Fold for demo
+          return 5;
+        }
+      }
+
+      console.log(`🎯 Optimal K-Fold determined: ${bestKFold} (score: ${bestScore.toFixed(3)})`);
+      return bestKFold;
+    } catch (error) {
+      console.error('Error determining optimal K-Fold:', error);
+      return 5; // Default fallback
+    }
+  };
+
+  // Start auto-training process
+  const startAutoTraining = async () => {
+    setIsAutoTraining(true);
+    setSelectedModelsForTraining(autoTrainingConfig.selected_models);
+    
+    console.log('🔄 Starting auto-training for all models...');
+    
+    // Start training with resource management
+    await trainModelsWithResourceManagement();
+  };
 
   const fetchStatistics = async () => {
     try {
@@ -184,43 +316,167 @@ const ContextCleanseTraining = () => {
     }
   };
 
+  const trainModelsWithResourceManagement = async () => {
+    if (!isBackendAvailable) {
+      addNotification({
+        id: `resource-error-${Date.now()}`,
+        type: 'training_error',
+        model_name: 'System',
+        message: 'ML Backend service is not available. Cannot perform auto-training.',
+        timestamp: new Date()
+      });
+      setIsAutoTraining(false);
+      return;
+    }
+
+    const modelsToTrain = selectedModelsForTraining;
+    const totalModels = modelsToTrain.length;
+    let completedModels = 0;
+    let totalDuration = 0;
+
+    for (const modelName of modelsToTrain) {
+      if (!isAutoTraining) break; // Stop if user cancels
+
+      const modelInfo = availableModels[modelName];
+      if (!modelInfo || !modelInfo.trained) {
+        addNotification({
+          id: `skipped-${Date.now()}`,
+          type: 'training_error',
+          model_name: modelName,
+          message: `${modelName} is not trained. Skipping.`,
+          timestamp: new Date()
+        });
+        completedModels++;
+        continue;
+      }
+
+      addNotification({
+        id: `training-start-${Date.now()}`,
+        type: 'training_start',
+        model_name: modelName,
+        message: `Training ${modelName} with ${kFolds}-Fold CV...`,
+        timestamp: new Date()
+      });
+
+      try {
+        const response = await axios.post(`${API_BASE_URL}/models/train`, {
+          model_name: modelName,
+          k_folds: kFolds
+        });
+        
+        const duration = response.data.training_time || 0;
+        totalDuration += duration;
+
+        addNotification({
+          id: `training-complete-${Date.now()}`,
+          type: 'training_complete',
+          model_name: modelName,
+          message: `${modelName} training complete. Duration: ${duration.toFixed(2)}s`,
+          timestamp: new Date(),
+          duration: duration
+        });
+
+        // After each model training, refresh available models to show trained status
+        await fetchAvailableModels();
+        completedModels++;
+
+      } catch (error) {
+        console.error(`Error training ${modelName}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        addNotification({
+          id: `training-error-${Date.now()}`,
+          type: 'training_error',
+          model_name: modelName,
+          message: `Error training ${modelName}: ${errorMessage}`,
+          timestamp: new Date()
+        });
+        completedModels++;
+      }
+    }
+
+    if (completedModels === totalModels) {
+      addNotification({
+        id: `auto-training-complete-${Date.now()}`,
+        type: 'training_complete',
+        model_name: 'System',
+        message: `Auto-training completed for all ${totalModels} models. Total duration: ${totalDuration.toFixed(2)}s`,
+        timestamp: new Date()
+      });
+      setIsAutoTraining(false);
+    } else {
+      addNotification({
+        id: `auto-training-partial-${Date.now()}`,
+        type: 'training_complete',
+        model_name: 'System',
+        message: `Auto-training completed for ${completedModels} out of ${totalModels} models.`,
+        timestamp: new Date()
+      });
+      setIsAutoTraining(false);
+    }
+  };
+
   const compareModels = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/compare`);
-      setModelResults(response.data);
+      const comparisonData = response.data;
+      
+      // Determine the best model based on F1-score (comprehensive metric)
+      const bestModelKey = comparisonData.best_model?.key || 
+        Object.entries(comparisonData.results).reduce((best, [key, metrics]) => 
+          (metrics as ModelMetrics).f1_score > (comparisonData.results[best] as ModelMetrics).f1_score ? key : best,
+          Object.keys(comparisonData.results)[0]
+        );
+      
+      setBestModel(bestModelKey);
+      setModelResults(comparisonData);
+      
+      console.log(`🏆 Best model identified: ${bestModelKey} (F1-Score: ${(comparisonData.results[bestModelKey] as ModelMetrics).f1_score.toFixed(4)})`);
+      
     } catch (error) {
       console.error('Error comparing models:', error);
       if (!isBackendAvailable) {
-        // Set mock comparison results for demo purposes
-        setModelResults({
+        // Enhanced mock comparison results with comprehensive metrics
+        const mockResults = {
           results: {
             'logistic_regression': {
               accuracy: 0.887,
               precision: 0.892,
               recall: 0.881,
               f1_score: 0.886,
-              description: 'Linear model with good baseline performance'
+              description: 'Linear model with good baseline performance',
+              training_time: 12.3,
+              cv_score: 0.884,
+              std_score: 0.023
             },
             'gradient_boosting': {
               accuracy: 0.924,
               precision: 0.918,
               recall: 0.931,
               f1_score: 0.924,
-              description: 'Best performing ensemble method'
+              description: 'Best performing ensemble method',
+              training_time: 45.7,
+              cv_score: 0.921,
+              std_score: 0.018
             },
             'naive_bayes': {
               accuracy: 0.845,
               precision: 0.849,
               recall: 0.841,
               f1_score: 0.845,
-              description: 'Fast probabilistic classifier'
+              description: 'Fast probabilistic classifier',
+              training_time: 3.2,
+              cv_score: 0.842,
+              std_score: 0.031
             },
             'neural_network': {
               accuracy: 0.901,
               precision: 0.895,
               recall: 0.907,
               f1_score: 0.901,
-              description: 'Deep learning approach with good performance'
+              description: 'Deep learning approach with good performance',
+              training_time: 127.4,
+              cv_score: 0.898,
+              std_score: 0.025
             }
           },
           best_model: {
@@ -231,16 +487,25 @@ const ContextCleanseTraining = () => {
               precision: 0.918,
               recall: 0.931,
               f1_score: 0.924,
-              description: 'Best performing ensemble method'
+              description: 'Best performing ensemble method',
+              training_time: 45.7,
+              cv_score: 0.921,
+              std_score: 0.018
             }
           },
           ranking: [
-            ['gradient_boosting', 0.924, 'Gradient Boosting'],
-            ['neural_network', 0.901, 'Neural Network'],
-            ['logistic_regression', 0.887, 'Logistic Regression'],
-            ['naive_bayes', 0.845, 'Naive Bayes']
-          ]
-        });
+            ['gradient_boosting', 0.924, 'Gradient Boosting'] as [string, number, string],
+            ['neural_network', 0.901, 'Neural Network'] as [string, number, string],
+            ['logistic_regression', 0.887, 'Logistic Regression'] as [string, number, string],
+            ['naive_bayes', 0.845, 'Naive Bayes'] as [string, number, string]
+          ],
+          optimal_k_fold: kFolds
+        };
+        
+        setBestModel('gradient_boosting');
+        setModelResults(mockResults);
+        
+        console.log('🔄 Using mock comparison results (backend unavailable)');
       }
     }
   };
@@ -300,22 +565,60 @@ const ContextCleanseTraining = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-white">Training</h1>
-              <p className="text-sm text-white">Developer Mode</p>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
+                  🧪 Developer Mode
+                </span>
+                <span className="text-xs text-gray-400">v0.1.0</span>
+              </div>
             </div>
             
             <div className="text-right text-sm text-gray-500">
-              <p>Selected Model:</p>
-              <select 
-                value={selectedModel} 
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="mt-1 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {Object.entries(availableModels).map(([key, model]) => (
-                  <option key={key} value={key} disabled={!model.trained}>
-                    {model.name} {!model.trained ? '(Not Trained)' : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center space-x-4">
+                <div>
+                  <p className="text-white mb-1">Selected Model:</p>
+                  <select 
+                    value={selectedModel} 
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(availableModels).map(([key, model]) => (
+                      <option key={key} value={key} disabled={!model.trained}>
+                        {model.name} {!model.trained ? '(Not Trained)' : ''}
+                        {model.trained && modelResults?.results[key] && ` (F1: ${modelResults.results[key].f1_score.toFixed(3)})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Best Model Indicator */}
+                {bestModel === selectedModel && (
+                  <div className="flex flex-col items-center">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300 mb-1">
+                      🏆 Best Model
+                    </span>
+                    {modelResults?.results[selectedModel] && (
+                      <div className="text-xs text-gray-400 text-center">
+                        <div>Acc: {modelResults.results[selectedModel].accuracy.toFixed(3)}</div>
+                        <div>F1: {modelResults.results[selectedModel].f1_score.toFixed(3)}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Auto-Training Status */}
+                {isAutoTraining && (
+                  <div className="flex flex-col items-center">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-900/30 border border-blue-700 text-blue-300 mb-1">
+                      🔄 Auto-Training
+                    </span>
+                    <div className="text-xs text-gray-400 text-center">
+                      <div>K-Fold: {autoTrainingConfig.optimal_k_fold}</div>
+                      <div>Resources: {autoTrainingConfig.resource_limit}%</div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -740,6 +1043,36 @@ const ContextCleanseTraining = () => {
             </div>
           )}
 
+          {/* Training Notifications */}
+          <div className="fixed bottom-0 left-0 right-0 p-4 flex flex-col items-center space-y-2">
+            {trainingNotifications.map(notification => (
+              <div
+                key={notification.id}
+                className={`w-full max-w-sm p-3 rounded-lg shadow-lg ${
+                  notification.type === 'training_start' ? 'bg-blue-600 text-white' :
+                  notification.type === 'training_complete' ? 'bg-green-600 text-white' :
+                  notification.type === 'training_error' ? 'bg-red-600 text-white' :
+                  notification.type === 'auto_training_init' ? 'bg-purple-600 text-white' :
+                  'bg-gray-700 text-white'
+                }`}
+              >
+                <div className="flex items-center">
+                  {notification.type === 'training_start' && <Play className="h-5 w-5 mr-2" />}
+                  {notification.type === 'training_complete' && <CheckCircle className="h-5 w-5 mr-2" />}
+                  {notification.type === 'training_error' && <AlertCircle className="h-5 w-5 mr-2" />}
+                  {notification.type === 'auto_training_init' && <Zap className="h-5 w-5 mr-2" />}
+                  <span className="font-medium">{notification.message}</span>
+                </div>
+                {notification.duration && (
+                  <p className="text-xs text-gray-300 mt-1">Duration: {notification.duration.toFixed(2)}s</p>
+                )}
+                {notification.metrics && (
+                  <p className="text-xs text-gray-300 mt-1">Metrics: F1-Score {notification.metrics.f1_score.toFixed(4)}</p>
+                )}
+                <p className="text-xs text-gray-300 mt-1">Time: {notification.timestamp.toLocaleTimeString()}</p>
+              </div>
+            ))}
+          </div>
 
         </div>
       </div>

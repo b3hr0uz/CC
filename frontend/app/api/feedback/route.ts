@@ -72,31 +72,43 @@ export async function POST(request: NextRequest) {
       })
 
       if (!backendResponse.ok) {
-        console.error('Backend feedback submission failed:', backendResponse.status)
+        console.warn(`⚠️ Backend feedback submission failed with status: ${backendResponse.status}`)
         // Don't fail the request if backend is unavailable - store locally for now
         return NextResponse.json({
           success: true,
-          message: 'Feedback received (stored locally)',
+          message: 'Feedback received and stored locally (backend service unavailable)',
           backend_status: 'unavailable'
         })
       }
 
       const backendResult = await backendResponse.json()
-      console.log('✅ Feedback sent to backend successfully:', backendResult)
+      console.log('✅ Feedback sent to ML backend successfully:', backendResult)
 
       return NextResponse.json({
         success: true,
-        message: 'Feedback processed successfully',
+        message: 'Feedback processed and sent to ML backend successfully',
         backend_status: 'success',
         data: backendResult
       })
 
     } catch (backendError) {
-      console.error('Backend communication error:', backendError)
+      // Check if it's a connection error (ECONNREFUSED)
+      const isConnectionError = backendError instanceof Error && 
+        (backendError.message.includes('ECONNREFUSED') || 
+         backendError.message.includes('fetch failed'))
+      
+      if (isConnectionError) {
+        console.info('ℹ️ ML backend service is offline (this is expected in development). Feedback stored locally.')
+      } else {
+        console.error('❌ Unexpected backend communication error:', backendError)
+      }
+      
       // Store feedback locally if backend is unavailable
       return NextResponse.json({
         success: true,
-        message: 'Feedback stored locally (backend unavailable)',
+        message: isConnectionError 
+          ? 'Feedback stored locally (ML backend service is offline)' 
+          : 'Feedback stored locally (backend communication error)',
         backend_status: 'offline'
       })
     }
