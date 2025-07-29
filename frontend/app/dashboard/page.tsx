@@ -1183,7 +1183,7 @@ This email is totally legitimate and not suspicious at all.`,
                 </select>
                 {selectedModel === 'gradient_boosting' && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
-                    🏆 Best
+                    Best Model
                   </span>
                 )}
             </div>
@@ -1654,10 +1654,17 @@ This email is totally legitimate and not suspicious at all.`,
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-white mb-1">Classification</label>
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        selectedEmail.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
-                      }`}></div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          selectedEmail.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
+                        }`}></div>
+                        {selectedEmail.confidence && (
+                          <span className="text-white text-sm">
+                            ({Math.round(selectedEmail.confidence * 100)}% confidence)
+                          </span>
+                        )}
+                      </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                         selectedEmail.classification === 'spam' 
                           ? 'bg-red-900/30 text-red-300 border border-red-700' 
@@ -1665,11 +1672,6 @@ This email is totally legitimate and not suspicious at all.`,
                       }`}>
                         {selectedEmail.classification === 'spam' ? 'Spam' : 'Ham'}
                       </span>
-                      {selectedEmail.confidence && (
-                        <span className="text-white text-sm">
-                          ({Math.round(selectedEmail.confidence * 100)}% confidence)
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>

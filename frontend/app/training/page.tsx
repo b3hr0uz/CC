@@ -128,6 +128,20 @@ export default function TrainingPage() {
   const [isBackendAvailable, setIsBackendAvailable] = useState(true);
   const [kFolds, setKFolds] = useState(5);
 
+  // Loading progress states
+  const [loadingProgress, setLoadingProgress] = useState({
+    availableModels: 0,
+    statistics: 0,
+    training: 0,
+    crossValidation: 0
+  });
+  const [loadingStates, setLoadingStates] = useState({
+    availableModels: true,
+    statistics: true,
+    training: false,
+    crossValidation: false
+  });
+
   // Enhanced state for new features
   const [trainingNotifications, setTrainingNotifications] = useState<TrainingNotification[]>([]);
   const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
@@ -161,31 +175,106 @@ export default function TrainingPage() {
     return `${type}-${modelName || 'system'}-${timestamp}-${counter}`;
   };
 
+  // Simulate loading progress for backend operations
+  const simulateProgress = (operation: keyof typeof loadingProgress, duration: number = 3000) => {
+    const interval = setInterval(() => {
+      setLoadingProgress(prev => {
+        const current = prev[operation];
+        const increment = Math.random() * 15 + 5; // 5-20% increments
+        const newProgress = Math.min(current + increment, 100);
+        
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setLoadingStates(prevStates => ({
+            ...prevStates,
+            [operation]: false
+          }));
+        }
+        
+        return {
+          ...prev,
+          [operation]: newProgress
+        };
+      });
+    }, duration / 10); // Update 10 times during the duration
+  };
+
   // Load initial data
   useEffect(() => {
-    fetchStatistics();
-    fetchAvailableModels();
+    const initializeData = async () => {
+      console.log('🚀 Initializing training page data...');
+      try {
+        // Ensure we start with fresh loading states
+        setLoadingStates(prev => ({ 
+          ...prev, 
+          availableModels: true, 
+          statistics: true 
+        }));
+        setLoadingProgress(prev => ({ 
+          ...prev, 
+          availableModels: 0, 
+          statistics: 0 
+        }));
+
+        // Load data in parallel
+        await Promise.allSettled([
+          fetchStatistics(),
+          fetchAvailableModels()
+        ]);
+
+        console.log('✅ Training page data initialization completed');
+      } catch (error) {
+        console.error('❌ Error during data initialization:', error);
+      }
+    };
+
+    initializeData();
   }, []);
 
   // Auto-training initialization (separate effect to avoid hoisting issues)
   useEffect(() => {
     if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled) {
-      initializeAutoTraining();
+      // Ensure data is loaded before starting auto-training
+      const checkDataAndInitialize = () => {
+        // Only initialize auto-training if models and stats are loaded
+        if (!loadingStates.availableModels && !loadingStates.statistics) {
+          console.log('📊 Data loaded, initializing auto-training...');
+          initializeAutoTraining();
+        } else {
+          // Re-check after a short delay if data isn't loaded yet
+          setTimeout(checkDataAndInitialize, 1000);
+        }
+      };
+      
+      checkDataAndInitialize();
     }
-  }, [autoTrainingConfig.auto_start_on_login, autoTrainingConfig.enabled]);
+  }, [autoTrainingConfig.auto_start_on_login, autoTrainingConfig.enabled, loadingStates.availableModels, loadingStates.statistics]);
 
   // Session-based auto-training trigger - runs when user logs in
   useEffect(() => {
     if (session && status === 'authenticated' && !hasTriggeredAutoTraining && autoTrainingConfig.enabled && autoTrainingConfig.auto_start_on_login) {
-      console.log('🔐 User logged in - triggering auto-training');
-      setHasTriggeredAutoTraining(true);
+      console.log('🔐 User logged in - checking data before triggering auto-training');
       
-      // Add a short delay to allow component to fully initialize
-      setTimeout(() => {
-        trainModelsSequentiallyWithNotifications();
-      }, 3000); // 3 second delay
+      const checkDataAndStartTraining = () => {
+        // Only start training if data is loaded
+        if (!loadingStates.availableModels && !loadingStates.statistics && Object.keys(availableModels).length > 0) {
+          console.log('🚀 Data verified, starting auto-training...');
+          setHasTriggeredAutoTraining(true);
+          
+          // Add a short delay to allow component to fully stabilize
+          setTimeout(() => {
+            trainModelsSequentiallyWithNotifications();
+          }, 2000); // 2 second delay
+        } else {
+          console.log('⏳ Waiting for data to load before starting auto-training...');
+          // Re-check after a delay if data isn't ready yet
+          setTimeout(checkDataAndStartTraining, 1500);
+        }
+      };
+      
+      checkDataAndStartTraining();
     }
-  }, [session, status, hasTriggeredAutoTraining, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login]);
+  }, [session, status, hasTriggeredAutoTraining, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login, loadingStates.availableModels, loadingStates.statistics, availableModels]);
 
   // Cleanup effect to prevent memory leaks
   useEffect(() => {
@@ -297,17 +386,27 @@ export default function TrainingPage() {
   };
 
   const fetchStatistics = async () => {
+    console.log('📊 Fetching statistics...');
     try {
+      // Start progress simulation
+      simulateProgress('statistics', 2500);
+      
       const response = await axios.get(`${API_BASE_URL}/statistics`);
       setStatistics(response.data);
       setIsBackendAvailable(true);
       setBackendError(null);
+      
+      // Complete progress immediately on success
+      setLoadingProgress(prev => ({ ...prev, statistics: 100 }));
+      setLoadingStates(prev => ({ ...prev, statistics: false }));
+      console.log('✅ Statistics loaded successfully');
     } catch (error) {
       console.error('Error fetching statistics:', error);
       setIsBackendAvailable(false);
       setBackendError('ML Backend service is not available. Some features may be limited.');
+      
       // Set mock statistics for demo purposes
-      setStatistics({
+      const mockStats = {
         total_samples: 1000,
         spam_percentage: 45.2,
         feature_count: 50,
@@ -320,18 +419,35 @@ export default function TrainingPage() {
           { feature_index: 15, correlation: 0.76 },
           { feature_index: 8, correlation: 0.65 }
         ]
-      });
+      };
+      
+      setStatistics(mockStats);
+      
+      // Complete progress and loading state
+      setLoadingProgress(prev => ({ ...prev, statistics: 100 }));
+      setLoadingStates(prev => ({ ...prev, statistics: false }));
+      console.log('✅ Mock statistics loaded as fallback');
     }
   };
 
   const fetchAvailableModels = async () => {
+    console.log('🤖 Fetching available models...');
     try {
+      // Start progress simulation
+      simulateProgress('availableModels', 3000);
+      
       const response = await axios.get(`${API_BASE_URL}/models/available`);
       setAvailableModels(response.data.available_models);
       // Set default selected models (all available)
       setSelectedModelsForTraining(Object.keys(response.data.available_models));
+      
+      // Complete progress immediately on success
+      setLoadingProgress(prev => ({ ...prev, availableModels: 100 }));
+      setLoadingStates(prev => ({ ...prev, availableModels: false }));
+      console.log('✅ Available models loaded successfully');
     } catch (error) {
       console.error('Error fetching available models:', error);
+      
       // Set mock available models for demo purposes
       const mockModels = {
         'logistic_regression': {
@@ -359,8 +475,14 @@ export default function TrainingPage() {
           trained: false
         }
       };
+      
       setAvailableModels(mockModels);
       setSelectedModelsForTraining(Object.keys(mockModels));
+      
+      // Complete progress and loading state
+      setLoadingProgress(prev => ({ ...prev, availableModels: 100 }));
+      setLoadingStates(prev => ({ ...prev, availableModels: false }));
+      console.log('✅ Mock available models loaded as fallback');
     }
   };
 
@@ -369,6 +491,11 @@ export default function TrainingPage() {
     
     try {
       setModelsTraining(true);
+      setLoadingStates(prev => ({ ...prev, training: true }));
+      setLoadingProgress(prev => ({ ...prev, training: 0 }));
+      
+      // Start progress simulation for training
+      simulateProgress('training', 8000); // 8 seconds for training
       
       // Validate that models are selected
       if (!selectedModelsForTraining || selectedModelsForTraining.length === 0) {
@@ -380,6 +507,7 @@ export default function TrainingPage() {
           message: 'No models selected for training. Please select at least one model.',
           timestamp: new Date()
         });
+        setLoadingStates(prev => ({ ...prev, training: false }));
         return;
       }
 
@@ -395,6 +523,10 @@ export default function TrainingPage() {
       });
       
       console.log('✅ Training API response received:', response.data);
+      
+      // Complete training progress
+      setLoadingProgress(prev => ({ ...prev, training: 100 }));
+      setLoadingStates(prev => ({ ...prev, training: false }));
       
       // Store cross-validation results if available
       if (response.data.cross_validation) {
@@ -659,10 +791,20 @@ export default function TrainingPage() {
   const performCrossValidation = async (modelName: string) => {
     try {
       setCrossValidating(true);
+      setLoadingStates(prev => ({ ...prev, crossValidation: true }));
+      setLoadingProgress(prev => ({ ...prev, crossValidation: 0 }));
+      
+      // Start progress simulation for cross-validation
+      simulateProgress('crossValidation', 5000); // 5 seconds for CV
+      
       const response = await axios.post(`${API_BASE_URL}/models/cross-validate`, {
         model_name: modelName,
         k_folds: kFolds
       });
+      
+      // Complete progress on success
+      setLoadingProgress(prev => ({ ...prev, crossValidation: 100 }));
+      setLoadingStates(prev => ({ ...prev, crossValidation: false }));
       
       setCvResults((prev: Record<string, CrossValidationResult> | null) => ({
         ...(prev || {}),
@@ -671,6 +813,9 @@ export default function TrainingPage() {
       
     } catch (error) {
       console.error('Error performing cross validation:', error);
+      // Complete progress on error
+      setLoadingProgress(prev => ({ ...prev, crossValidation: 100 }));
+      setLoadingStates(prev => ({ ...prev, crossValidation: false }));
     } finally {
       setCrossValidating(false);
     }
@@ -702,6 +847,7 @@ export default function TrainingPage() {
   // Enhanced sequential training with detailed notifications
   const trainModelsSequentiallyWithNotifications = async () => {
     if (!autoTrainingConfig.enabled || isAutoTraining) {
+      console.log('⚠️ Auto-training already running or disabled');
       return;
     }
 
@@ -729,7 +875,12 @@ export default function TrainingPage() {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
+      // Refresh available models to show updated training status
+      console.log('🔄 Refreshing models after training...');
+      await fetchAvailableModels();
+
       // After all models are trained, compare and select best
+      console.log('📊 Comparing trained models...');
       await compareModels();
       
       // Final notification
@@ -741,6 +892,8 @@ export default function TrainingPage() {
         timestamp: new Date(),
         end_time: new Date()
       });
+
+      console.log('✅ Auto-training sequence completed successfully');
 
     } catch (error) {
       console.error('❌ Error in sequential training:', error);
@@ -1026,50 +1179,79 @@ export default function TrainingPage() {
           </div>
         )}
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6 custom-scrollbar overflow-y-auto">
 
           {/* Model Training Configuration */}
-          <div className="bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-xl font-semibold mb-4 flex items-center">
-              <Settings className="mr-2" />
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+            <h3 className="text-xl font-semibold mb-4 flex items-center text-white">
+              <Settings className="mr-2 h-5 w-5" />
               Training Configuration
             </h3>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
             {/* Model Selection */}
-            <div>
-              <h4 className="font-semibold mb-3">Select Models to Train:</h4>
-              <div className="space-y-2">
-                {Object.entries(availableModels).map(([key, model]) => (
-                  <label key={key} className="flex items-center space-x-3 p-2 hover:bg-gray-800 rounded">
-                    <input
-                      type="checkbox"
-                      checked={selectedModelsForTraining.includes(key)}
-                      onChange={(e) => handleModelSelectionChange(key, e.target.checked)}
-                      className="w-4 h-4 text-blue-600"
+            <div className="space-y-4">
+              <h4 className="font-semibold mb-3 text-white">Select Models to Train:</h4>
+              
+              {/* Loading State for Available Models */}
+              {loadingStates.availableModels ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-400">Loading available models...</span>
+                    <span className="text-sm text-blue-400">{loadingProgress.availableModels.toFixed(0)}%</span>
+                  </div>
+                  <div className="progress-bar-bg h-2 w-full">
+                    <div 
+                      className="progress-bar h-full rounded-full"
+                      style={{ width: `${loadingProgress.availableModels}%` }}
                     />
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{model.name}</span>
-                        {model.trained && <CheckCircle className="w-4 h-4 text-green-500" />}
+                  </div>
+                  <div className="space-y-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="flex items-center space-x-3 p-3 bg-gray-700 rounded-lg">
+                        <div className="w-4 h-4 skeleton rounded"></div>
+                        <div className="flex-1">
+                          <div className="h-4 skeleton rounded w-3/4 mb-2"></div>
+                          <div className="h-3 skeleton rounded w-1/2"></div>
+                        </div>
                       </div>
-                      <p className="text-sm text-white">{model.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                  {Object.entries(availableModels).map(([key, model]) => (
+                    <label key={key} className="flex items-center space-x-3 p-3 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={selectedModelsForTraining.includes(key)}
+                        onChange={(e) => handleModelSelectionChange(key, e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-white truncate">{model.name}</span>
+                          {model.trained && <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                        </div>
+                        <p className="text-sm text-gray-400 truncate">{model.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Training Controls */}
-            <div>
-              <div className="mb-4">
+            <div className="space-y-4">
+              <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   K-Fold Cross Validation:
                 </label>
                 <select 
                   value={kFolds} 
                   onChange={(e) => setKFolds(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={loadingStates.availableModels}
                 >
                   <option value={3}>3-Fold</option>
                   <option value={5}>5-Fold</option>
@@ -1077,127 +1259,249 @@ export default function TrainingPage() {
                 </select>
               </div>
 
+              {/* Training Progress */}
+              {loadingStates.training && (
+                <div className="space-y-3 p-4 bg-gray-700 rounded-lg border border-blue-600">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white font-medium">Training Models...</span>
+                    <span className="text-sm text-blue-400">{loadingProgress.training.toFixed(0)}%</span>
+                  </div>
+                  <div className="progress-bar-bg h-3 w-full">
+                    <div 
+                      className="progress-bar h-full rounded-full"
+                      style={{ width: `${loadingProgress.training}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Training {selectedModelsForTraining.length} model(s) with {kFolds}-fold cross-validation
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
                 <button
                   onClick={trainModels}
-                  disabled={modelsTraining || selectedModelsForTraining.length === 0}
-                  className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black disabled:opacity-50 flex items-center justify-center"
+                  disabled={modelsTraining || selectedModelsForTraining.length === 0 || loadingStates.availableModels}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
-                  <Brain className="mr-2 w-5 h-5" />
-                  {modelsTraining ? 'Training Models...' : `Train Selected Models (${selectedModelsForTraining.length})`}
+                  {modelsTraining ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Training Models...
+                    </>
+                  ) : (
+                    `Train Selected Models (${selectedModelsForTraining.length})`
+                  )}
                 </button>
 
                 <button
                   onClick={compareModels}
-                  className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black flex items-center justify-center"
+                  disabled={loadingStates.availableModels}
+                  className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
-                  <BarChart3 className="mr-2 w-5 h-5" />
                   Compare Models
                 </button>
               </div>
             </div>
           </div>
-          </div>
+        </div>
           
           {/* Statistics Overview */}
-          {statistics && (
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-xl font-semibold mb-6">Statistics Overview</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
-                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
-                    <Database className="h-6 w-6 text-white" />
-                  </div>
-                  <p className="text-2xl font-bold text-white">{statistics.total_samples.toLocaleString()}</p>
-                  <p className="text-sm text-white">Total Samples</p>
-                </div>
-                
-                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
-                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
-                    <Mail className="h-6 w-6 text-white" />
-                  </div>
-                  <p className="text-2xl font-bold text-white">{statistics.spam_percentage.toFixed(1)}%</p>
-                  <p className="text-sm text-white">Spam Percentage</p>
-                </div>
-                
-                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
-                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
-                    <Target className="h-6 w-6 text-white" />
-                  </div>
-                  <p className="text-2xl font-bold text-white">{statistics.feature_count}</p>
-                  <p className="text-sm text-white">Features</p>
-                </div>
-                
-                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
-                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
-                    <TrendingUp className="h-6 w-6 text-white" />
-                  </div>
-                  <p className="text-2xl font-bold text-white">{kFolds}-Fold</p>
-                  <p className="text-sm text-white">K-Fold CV</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Cross Validation Results */}
-          {cvResults && Object.keys(cvResults).length > 0 && (
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-6 flex items-center">
-                  <Award className="mr-2 text-yellow-500" />
-                  Cross Validation Results ({kFolds}-Fold)
-                </h3>
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+            <h3 className="text-xl font-semibold mb-6 text-white flex items-center">
+              <Database className="mr-2 h-5 w-5" />
+              Statistics Overview
+            </h3>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* CV Scores Chart */}
-              <div>
-                <h4 className="font-semibold mb-4">Cross Validation F1-Scores</h4>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={Object.entries(cvResults).map(([key, result]) => ({
-                    name: result.model_name ? result.model_name.split(' ').slice(0, 2).join(' ') : key,
-                    mean_score: result.mean_score,
-                    std_score: result.std_score
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                    <YAxis domain={[0.8, 1]} />
-                    <Tooltip formatter={(value: number) => [value.toFixed(4), 'F1-Score']} />
-                    <Bar dataKey="mean_score" fill="#3B82F6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* CV Details Table */}
-              <div>
-                <h4 className="font-semibold mb-4">Detailed CV Statistics</h4>
-                <div className="space-y-4">
-                  {Object.entries(cvResults).map(([key, result]) => (
-                    <div key={key} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h5 className="font-medium">{result.model_name}</h5>
-                        <span className="text-sm text-gray-500">{result.k_folds}-Fold</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-white">Mean F1-Score:</p>
-                          <p className="font-semibold text-blue-600">{result.mean_score.toFixed(4)}</p>
-                        </div>
-                        <div>
-                          <p className="text-white">Std Deviation:</p>
-                          <p className="font-semibold text-purple-600">±{result.std_score.toFixed(4)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500">
-                          Individual Scores: {result.cv_scores.map(s => s.toFixed(3)).join(', ')}
-                        </p>
-                      </div>
+            {loadingStates.statistics ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">Loading statistics...</span>
+                  <span className="text-sm text-blue-400">{loadingProgress.statistics.toFixed(0)}%</span>
+                </div>
+                <div className="progress-bar-bg h-2 w-full mb-6">
+                  <div 
+                    className="progress-bar h-full rounded-full"
+                    style={{ width: `${loadingProgress.statistics}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="text-center p-4 bg-gray-700 rounded-lg">
+                      <div className="w-12 h-12 skeleton rounded-full mx-auto mb-3"></div>
+                      <div className="h-8 skeleton rounded w-20 mx-auto mb-2"></div>
+                      <div className="h-4 skeleton rounded w-16 mx-auto"></div>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            ) : statistics ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="text-center p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors">
+                  <div className="p-3 bg-blue-600 rounded-full w-fit mx-auto mb-3">
+                    <Database className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-white">{statistics.total_samples.toLocaleString()}</p>
+                  <p className="text-sm text-gray-400">Total Samples</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors">
+                  <div className="p-3 bg-red-600 rounded-full w-fit mx-auto mb-3">
+                    <AlertCircle className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-white">{statistics.spam_percentage.toFixed(1)}%</p>
+                  <p className="text-sm text-gray-400">Spam Rate</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors">
+                  <div className="p-3 bg-green-600 rounded-full w-fit mx-auto mb-3">
+                    <Target className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-white">{statistics.feature_count}</p>
+                  <p className="text-sm text-gray-400">Features</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors">
+                  <div className="p-3 bg-purple-600 rounded-full w-fit mx-auto mb-3">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-white">{((statistics.class_distribution.not_spam / statistics.total_samples) * 100).toFixed(1)}%</p>
+                  <p className="text-sm text-gray-400">Ham Rate</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <Database className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No statistics available</p>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Cross Validation Results */}
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+            <h3 className="text-xl font-semibold mb-6 text-white flex items-center">
+              <Award className="mr-2 h-5 w-5 text-yellow-500" />
+              Cross Validation Results ({kFolds}-Fold)
+            </h3>
+            
+            {loadingStates.crossValidation ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">Running cross-validation...</span>
+                  <span className="text-sm text-blue-400">{loadingProgress.crossValidation.toFixed(0)}%</span>
+                </div>
+                <div className="progress-bar-bg h-2 w-full mb-6">
+                  <div 
+                    className="progress-bar h-full rounded-full"
+                    style={{ width: `${loadingProgress.crossValidation}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="h-6 skeleton rounded w-48"></div>
+                    <div className="h-64 skeleton rounded"></div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="h-6 skeleton rounded w-32"></div>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                          <div className="h-4 skeleton rounded w-24"></div>
+                          <div className="h-4 skeleton rounded w-16"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : cvResults && Object.keys(cvResults).length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                {/* CV Scores Chart */}
+                <div>
+                  <h4 className="font-semibold mb-4 text-white">Cross Validation F1-Scores</h4>
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={Object.entries(cvResults).map(([key, result]) => ({
+                        name: result.model_name ? result.model_name.split(' ').slice(0, 2).join(' ') : key,
+                        mean_score: result.mean_score,
+                        std_score: result.std_score
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                        <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 12 }} />
+                        <YAxis tick={{ fill: '#e2e8f0', fontSize: 12 }} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#2d3748', 
+                            border: '1px solid #4a5568',
+                            borderRadius: '6px',
+                            color: '#e2e8f0'
+                          }} 
+                        />
+                        <Bar dataKey="mean_score" fill="#3b82f6" />
+                        <Bar dataKey="std_score" fill="#ef4444" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* CV Results Table */}
+                <div>
+                  <h4 className="font-semibold mb-4 text-white">Detailed Results</h4>
+                  <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                    {Object.entries(cvResults).map(([modelKey, result]) => (
+                      <div key={modelKey} className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-white truncate">{result.model_name || modelKey}</h5>
+                          <button
+                            onClick={() => performCrossValidation(modelKey)}
+                            disabled={crossValidating || loadingStates.availableModels}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-xs rounded-lg transition-colors"
+                          >
+                            {crossValidating ? (
+                              <div className="flex items-center">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                Running...
+                              </div>
+                            ) : (
+                              'Run CV'
+                            )}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-400">Mean F1:</span>
+                            <span className="ml-2 text-white font-medium">{result.mean_score.toFixed(3)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Std Dev:</span>
+                            <span className="ml-2 text-white font-medium">{result.std_score.toFixed(3)}</span>
+                          </div>
+                          {result.cv_scores && (
+                            <>
+                              <div>
+                                <span className="text-gray-400">Min:</span>
+                                <span className="ml-2 text-white font-medium">{Math.min(...result.cv_scores).toFixed(3)}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400">Max:</span>
+                                <span className="ml-2 text-white font-medium">{Math.max(...result.cv_scores).toFixed(3)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <Award className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="mb-2">No cross-validation results available</p>
+                <p className="text-sm">Run cross-validation on trained models to see results</p>
+              </div>
+            )}
+          </div>
 
           {/* Model Comparison Results */}
           {modelResults && (
@@ -1292,7 +1596,7 @@ export default function TrainingPage() {
                             {metrics.name || modelKey}
                             {isBest && (
                               <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
-                                🏆 Best
+                                Best Model
                               </span>
                             )}
                           </td>
@@ -1434,10 +1738,10 @@ export default function TrainingPage() {
         </div>
       </div>
       
-      {/* Training Notifications Sidebar */}
+      {/* Event Notifications Sidebar */}
       <NotificationSidebar 
         notifications={trainingNotifications}
-        title="Training Notifications"
+        title="Event Notifications"
         onClearNotification={(id) => {
           setTrainingNotifications(prev => {
             const notification = prev.find(n => n.id === id);
