@@ -129,6 +129,19 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         setEmailError(null);
+        
+        // Check if this is a mock user session
+        if (session?.isMockUser) {
+          console.log('🧪 Mock user detected - using mock data only');
+          setEmailError({
+            type: 'info',
+            message: 'Demo mode active - showing sample email data.'
+          });
+          setUsingMockData(true);
+          setEmails(getMockEmails());
+          return;
+        }
+        
         const response = await fetch(`/api/emails?limit=${emailLimit}`); // Use dynamic limit
         
         if (!response.ok) {
@@ -666,6 +679,19 @@ This email is totally legitimate and not suspicious at all.`,
     try {
       setLoading(true);
       setEmailError(null);
+      
+      // Check if this is a mock user session
+      if (session?.isMockUser) {
+        console.log('🧪 Mock user detected - using mock data only');
+        setEmailError({
+          type: 'info',
+          message: 'Demo mode active - showing sample email data.'
+        });
+        setUsingMockData(true);
+        setEmails(getMockEmails());
+        return;
+      }
+      
       const response = await fetch(`/api/emails?limit=${emailLimit}`); // Use dynamic limit
       
       if (!response.ok) {
@@ -864,50 +890,27 @@ This email is totally legitimate and not suspicious at all.`,
 
         {/* Error notification for Gmail access issues */}
         {emailError && (
-          <div className="mx-6 mt-4 mb-4">
-            <div className={`p-4 rounded-lg border ${
-              emailError.type === 'auth' 
-                ? 'bg-gray-800 border-gray-600' 
-                : 'bg-gray-800 border-gray-600'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className={`p-2 rounded-lg ${
-                    emailError.type === 'auth' 
-                      ? 'bg-gray-800 border border-gray-600' 
-                      : 'bg-gray-800 border border-gray-600'
-                  }`}>
-                    {emailError.type === 'auth' ? (
-                      <Shield className={`h-5 w-5 ${
-                        emailError.type === 'auth' ? 'text-white' : 'text-white'
-                      }`} />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-white" />
-                    )}
-                  </div>
-                  <div className="ml-3">
-                    <h3 className={`text-sm font-medium ${
-                      emailError.type === 'auth' ? 'text-blue-800 dark:text-blue-200' : 'text-yellow-800 dark:text-yellow-200'
-                    }`}>
-                      {emailError.type === 'auth' ? 'Gmail Access Required' : 'Connection Issue'}
-                    </h3>
-                    <p className={`text-sm mt-1 ${
-                      emailError.type === 'auth' ? 'text-blue-700 dark:text-blue-300' : 'text-yellow-700 dark:text-yellow-300'
-                    }`}>
-                      {emailError.message}
-                      {usingMockData && ' You can explore the interface with sample data below.'}
-                    </p>
-                  </div>
-                </div>
-                {emailError.type === 'auth' && (
-                  <button
-                    onClick={handleReauth}
-                    className="px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Grant Gmail Access
-                  </button>
-                )}
-              </div>
+          <div className={`mb-6 p-4 rounded-lg border ${
+            emailError.type === 'auth' 
+              ? 'bg-yellow-900/30 border-yellow-600 text-yellow-200' 
+              : emailError.type === 'info'
+                ? 'bg-blue-900/30 border-blue-600 text-blue-200'
+                : 'bg-red-900/30 border-red-600 text-red-200'
+          }`}>
+            <div className="flex items-center">
+              {emailError.type === 'auth' ? (
+                <Shield className="h-5 w-5 mr-2" />
+              ) : emailError.type === 'info' ? (
+                <Inbox className="h-5 w-5 mr-2" />
+              ) : (
+                <AlertCircle className="h-5 w-5 mr-2" />
+              )}
+              <span className="text-sm">{emailError.message}</span>
+              {session?.isMockUser && (
+                <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                  🧪 Demo Mode
+                </span>
+              )}
             </div>
           </div>
         )}

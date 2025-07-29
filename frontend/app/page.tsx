@@ -59,6 +59,8 @@ const oauthProviders: OAuthProvider[] = [
 
 export default function HomePage() {
   const [loading, setLoading] = useState<string | null>(null)
+  const [mockCredentials, setMockCredentials] = useState({ username: '', password: '' })
+  const [showMockLogin, setShowMockLogin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -101,6 +103,32 @@ export default function HomePage() {
     }
   }
 
+  const handleMockLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading('mock-data')
+    
+    try {
+      const result = await signIn('mock-data', {
+        username: mockCredentials.username,
+        password: mockCredentials.password,
+        callbackUrl: '/dashboard',
+        redirect: false,
+      })
+      
+      if (result?.error) {
+        toast.error('Invalid demo credentials. Use username: demo, password: demo')
+        setLoading(null)
+      } else if (result?.ok) {
+        toast.success('Successfully signed in with mock data!')
+        router.push('/dashboard')
+      }
+    } catch (error) {
+      console.error('Mock login failed:', error)
+      toast.error('Mock login failed')
+      setLoading(null)
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300" style={{backgroundColor: '#212121'}}>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -113,7 +141,7 @@ export default function HomePage() {
           {/* ContextCleanse Logo */}
           <div className="mx-auto mb-6 flex justify-center">
             <img 
-              src="/ContextCleanse.png" 
+              src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
               alt="ContextCleanse Logo" 
               className="h-20 w-20 sm:h-24 sm:w-24 object-contain"
             />
@@ -177,6 +205,106 @@ export default function HomePage() {
                   </span>
                 </motion.button>
               ))}
+            </div>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 text-gray-400" style={{backgroundColor: '#212121'}}>
+                  or
+                </span>
+              </div>
+            </div>
+
+            {/* Mock Data Login Section */}
+            <div className="space-y-3">
+              {!showMockLogin ? (
+                <motion.button
+                  onClick={() => setShowMockLogin(true)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-500 rounded-lg text-sm font-medium transition-all duration-200 text-gray-300 hover:text-white hover:border-gray-400 hover:bg-gray-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-center">
+                    🧪 Try with Mock Data (Demo)
+                  </span>
+                </motion.button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ duration: 0.3 }}
+                  className="border border-gray-600 rounded-lg p-4"
+                  style={{backgroundColor: '#2a2a2a'}}
+                >
+                  <div className="text-center mb-3">
+                    <h3 className="text-sm font-medium text-white mb-1">🧪 Demo Mode</h3>
+                    <p className="text-xs text-gray-400">
+                      Experience ContextCleanse with sample data
+                    </p>
+                  </div>
+                  
+                  <form onSubmit={handleMockLogin} className="space-y-3">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Username (demo)"
+                        value={mockCredentials.username}
+                        onChange={(e) => setMockCredentials({...mockCredentials, username: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-600 rounded-md text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        style={{backgroundColor: '#1a1a1a'}}
+                        disabled={loading === 'mock-data'}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="password"
+                        placeholder="Password (demo)"
+                        value={mockCredentials.password}
+                        onChange={(e) => setMockCredentials({...mockCredentials, password: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-600 rounded-md text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        style={{backgroundColor: '#1a1a1a'}}
+                        disabled={loading === 'mock-data'}
+                      />
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        type="submit"
+                        disabled={loading === 'mock-data'}
+                        className="flex-1 flex items-center justify-center px-3 py-2 border border-blue-600 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {loading === 'mock-data' ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          '🚀 Enter Demo'
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMockLogin(false)
+                          setMockCredentials({ username: '', password: '' })
+                        }}
+                        className="px-3 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                  
+                  <div className="mt-3 text-center">
+                    <p className="text-xs text-gray-500">
+                      💡 Hint: Username: <code className="text-blue-400">demo</code>, Password: <code className="text-blue-400">demo</code>
+                    </p>
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             <div className="mt-6 text-center">

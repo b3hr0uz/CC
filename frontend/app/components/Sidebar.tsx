@@ -52,7 +52,7 @@ export default function Sidebar() {
       <div className="p-4 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center">
           <img 
-            src="/ContextCleanse.png" 
+            src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
             alt="ContextCleanse Logo" 
             className="h-8 w-8 object-contain"
           />

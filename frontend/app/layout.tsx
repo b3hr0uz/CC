@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   keywords: 'email classification, machine learning, context cleanse, statistical analysis, FastAPI, NextJS',
   authors: [{ name: 'Development Team' }],
   icons: {
-    icon: '/ContextCleanse.png',
-    apple: '/ContextCleanse.png',
+    icon: '/ContextCleanse-no-padding-transparent-dark-mode.png',
+    apple: '/ContextCleanse-no-padding-transparent-dark-mode.png',
   },
 }
 

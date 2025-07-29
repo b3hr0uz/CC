@@ -5,6 +5,11 @@ declare module "next-auth" {
   interface Session {
     accessToken?: string
     refreshToken?: string
+    isMockUser?: boolean
+  }
+  
+  interface User {
+    isMockUser?: boolean
   }
 }
 
@@ -12,5 +17,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string
     refreshToken?: string
+    isMockUser?: boolean
   }
 }

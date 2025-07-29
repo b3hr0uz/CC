@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
           </Link>
           <div className="flex items-center">
             <img 
-              src="/ContextCleanse.png" 
+              src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
               alt="ContextCleanse Logo" 
               className="h-8 w-8 object-contain mr-3"
             />
@@ -227,8 +227,8 @@ export default function PrivacyPolicy() {
               </p>
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
                 <p className="text-white">
-                  <strong>Email:</strong> privacy@contextcleanse.com<br />
-                  <strong>Support:</strong> Through the ContextCleanse application<br />
+                  <strong>Email:</strong> b3h@me.com<br />
+                  <strong>Support:</strong> Through email with developers<br />
                   <strong>Response Time:</strong> We aim to respond within 48 hours
                 </p>
               </div>

@@ -16,7 +16,7 @@ export default function TermsOfService() {
           </Link>
           <div className="flex items-center">
             <img 
-              src="/ContextCleanse.png" 
+              src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
               alt="ContextCleanse Logo" 
               className="h-8 w-8 object-contain mr-3"
             />

@@ -300,7 +300,7 @@ const ContextCleanseTraining = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-white">Training</h1>
-              <p className="text-sm text-white">Advanced Model Selection & K-Fold Cross Validation</p>
+              <p className="text-sm text-white">Developer Mode</p>
             </div>
             
             <div className="text-right text-sm text-gray-500">
