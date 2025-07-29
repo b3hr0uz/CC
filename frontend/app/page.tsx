@@ -88,7 +88,7 @@ export default function HomePage() {
             Welcome to <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">ContextCleanse</span>
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Intelligent email classification with AI assistance
+            Email classification with assistance
           </p>
         </motion.div>
       </div>

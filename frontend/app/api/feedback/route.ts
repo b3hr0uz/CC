@@ -6,6 +6,7 @@ interface FeedbackRequest {
   emailId: string;
   userFeedback: 'correct' | 'incorrect';
   currentClassification: 'spam' | 'ham';
+  correctedClassification?: 'spam' | 'ham'; // The classification after user correction
   confidence: number;
   emailContent: {
     subject: string;
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: FeedbackRequest = await request.json()
-    const { emailId, userFeedback, currentClassification, confidence, emailContent } = body
+    const { emailId, userFeedback, currentClassification, correctedClassification, confidence, emailContent } = body
 
     // Validate required fields
     if (!emailId || !userFeedback || !currentClassification || !emailContent) {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       emailId,
       userFeedback,
       currentClassification,
+      correctedClassification,
       confidence,
       subject: emailContent.subject,
       user: session.user.email
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest) {
           email_id: emailId,
           feedback_type: userFeedback,
           predicted_class: currentClassification,
+          corrected_class: correctedClassification || currentClassification,
           confidence_score: confidence,
           email_features: {
             subject: emailContent.subject,

@@ -81,6 +81,8 @@ const ContextCleanseTraining = () => {
     model_used: string;
   } | null>(null);
   const [cvResults, setCvResults] = useState<Record<string, CrossValidationResult>>({});
+  const [backendError, setBackendError] = useState<string | null>(null);
+  const [isBackendAvailable, setIsBackendAvailable] = useState<boolean>(true);
 
   // Load initial data
   useEffect(() => {
@@ -92,8 +94,27 @@ const ContextCleanseTraining = () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/statistics`);
       setStatistics(response.data);
+      setIsBackendAvailable(true);
+      setBackendError(null);
     } catch (error) {
       console.error('Error fetching statistics:', error);
+      setIsBackendAvailable(false);
+      setBackendError('ML Backend service is not available. Some features may be limited.');
+      // Set mock statistics for demo purposes
+      setStatistics({
+        total_samples: 1000,
+        spam_percentage: 45.2,
+        feature_count: 50,
+        class_distribution: {
+          not_spam: 548,
+          spam: 452
+        },
+        top_correlated_features: [
+          { feature_index: 1, correlation: 0.89 },
+          { feature_index: 15, correlation: 0.76 },
+          { feature_index: 8, correlation: 0.65 }
+        ]
+      });
     }
   };
 
@@ -105,6 +126,35 @@ const ContextCleanseTraining = () => {
       setSelectedModelsForTraining(Object.keys(response.data.available_models));
     } catch (error) {
       console.error('Error fetching available models:', error);
+      // Set mock available models for demo purposes
+      const mockModels = {
+        'logistic_regression': {
+          name: 'Logistic Regression',
+          description: 'Linear model for binary classification',
+          scaling_required: 'StandardScaler',
+          trained: true
+        },
+        'gradient_boosting': {
+          name: 'Gradient Boosting',
+          description: 'Ensemble method with boosting',
+          scaling_required: 'None',
+          trained: true
+        },
+        'naive_bayes': {
+          name: 'Naive Bayes',
+          description: 'Probabilistic classifier',
+          scaling_required: 'None',
+          trained: true
+        },
+        'neural_network': {
+          name: 'Neural Network',
+          description: 'Multi-layer perceptron',
+          scaling_required: 'StandardScaler',
+          trained: false
+        }
+      };
+      setAvailableModels(mockModels);
+      setSelectedModelsForTraining(Object.keys(mockModels));
     }
   };
 
@@ -140,6 +190,58 @@ const ContextCleanseTraining = () => {
       setModelResults(response.data);
     } catch (error) {
       console.error('Error comparing models:', error);
+      if (!isBackendAvailable) {
+        // Set mock comparison results for demo purposes
+        setModelResults({
+          results: {
+            'logistic_regression': {
+              accuracy: 0.887,
+              precision: 0.892,
+              recall: 0.881,
+              f1_score: 0.886,
+              description: 'Linear model with good baseline performance'
+            },
+            'gradient_boosting': {
+              accuracy: 0.924,
+              precision: 0.918,
+              recall: 0.931,
+              f1_score: 0.924,
+              description: 'Best performing ensemble method'
+            },
+            'naive_bayes': {
+              accuracy: 0.845,
+              precision: 0.849,
+              recall: 0.841,
+              f1_score: 0.845,
+              description: 'Fast probabilistic classifier'
+            },
+            'neural_network': {
+              accuracy: 0.901,
+              precision: 0.895,
+              recall: 0.907,
+              f1_score: 0.901,
+              description: 'Deep learning approach with good performance'
+            }
+          },
+          best_model: {
+            key: 'gradient_boosting',
+            name: 'Gradient Boosting',
+            metrics: {
+              accuracy: 0.924,
+              precision: 0.918,
+              recall: 0.931,
+              f1_score: 0.924,
+              description: 'Best performing ensemble method'
+            }
+          },
+          ranking: [
+            ['gradient_boosting', 0.924, 'Gradient Boosting'],
+            ['neural_network', 0.901, 'Neural Network'],
+            ['logistic_regression', 0.887, 'Logistic Regression'],
+            ['naive_bayes', 0.845, 'Naive Bayes']
+          ]
+        });
+      }
     }
   };
 
@@ -217,6 +319,21 @@ const ContextCleanseTraining = () => {
             </div>
           </div>
         </header>
+
+        {/* Backend Error Notification */}
+        {backendError && (
+          <div className="mx-6 mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-yellow-400 mr-3 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">Backend Service Unavailable</h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {backendError} You can still view mock data and explore the interface.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="p-6 space-y-6">
 
@@ -623,50 +740,7 @@ const ContextCleanseTraining = () => {
             </div>
           )}
 
-          {/* Enhanced Assignment Summary */}
-          <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-semibold mb-4">Enhanced Features</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3">✅ Statistical Analysis</h4>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Central Tendency, Dispersion, Skewness
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Correlation Analysis & Class Imbalance
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Interactive Data Visualization
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3">🚀 Enhanced Features</h4>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Model Selection & Configuration  
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      K-Fold Cross Validation (3, 5, 10-fold)
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Interactive Model Testing & Comparison
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      Real-time Performance Monitoring
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+
         </div>
       </div>
     </div>
