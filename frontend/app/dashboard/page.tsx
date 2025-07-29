@@ -201,6 +201,12 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // Pre-load dashboard with mock emails immediately for better UX
+    if (emails.length === 0) {
+      console.log('📧 Pre-loading dashboard with mock emails for immediate content display');
+      setEmails(getMockEmails());
+    }
+    
     const fetchEmails = async () => {
       // Prevent duplicate email fetching operations
       if (isFetchingEmails) {
