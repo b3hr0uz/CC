@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Sidebar from '../components/Sidebar';
+import NotificationSidebar from '../components/NotificationSidebar';
 import { 
   Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock, 
   TrendingUp, Activity, Database, Zap, Brain, Settings, 
@@ -149,6 +150,17 @@ export default function TrainingPage() {
     model_used: string;
   } | null>(null);
 
+  // Unique ID counter for notifications to prevent duplicates
+  const [notificationCounter, setNotificationCounter] = useState(0);
+
+  // Generate unique notification ID
+  const generateNotificationId = (type: string, modelName?: string) => {
+    const timestamp = Date.now();
+    const counter = notificationCounter;
+    setNotificationCounter(prev => prev + 1);
+    return `${type}-${modelName || 'system'}-${timestamp}-${counter}`;
+  };
+
   // Load initial data
   useEffect(() => {
     fetchStatistics();
@@ -190,7 +202,7 @@ export default function TrainingPage() {
       
       // Show auto-training initialization notification
       addNotification({
-        id: `auto-init-${Date.now()}`,
+        id: generateNotificationId('auto_training_init', 'System'),
         type: 'auto_training_init',
         model_name: 'System',
         message: `Auto-training initiated with optimal ${autoTrainingConfig.optimal_k_fold}-Fold CV using ${autoTrainingConfig.resource_limit}% system resources`,
@@ -362,7 +374,7 @@ export default function TrainingPage() {
       if (!selectedModelsForTraining || selectedModelsForTraining.length === 0) {
         console.warn('⚠️ No models selected for training');
         addNotification({
-          id: `no-models-${Date.now()}`,
+          id: generateNotificationId('training_error', 'System'),
           type: 'training_error',
           model_name: 'System',
           message: 'No models selected for training. Please select at least one model.',
@@ -392,7 +404,7 @@ export default function TrainingPage() {
       
       // Add success notification
       addNotification({
-        id: `training-success-${Date.now()}`,
+        id: generateNotificationId('training_complete', 'Selected Models'),
         type: 'training_complete',
         model_name: 'Selected Models',
         message: `Training completed successfully for ${selectedModelsForTraining.length} model(s)`,
@@ -415,7 +427,7 @@ export default function TrainingPage() {
       
       // Add error notification
       addNotification({
-        id: `training-error-${Date.now()}`,
+        id: generateNotificationId('training_error', 'Training System'),
         type: 'training_error',
         model_name: 'Training System',
         message: `Training failed: ${errorMessage}`,
@@ -439,7 +451,7 @@ export default function TrainingPage() {
   const trainModelsWithResourceManagement = async () => {
     if (!isBackendAvailable) {
       addNotification({
-        id: `resource-error-${Date.now()}`,
+        id: generateNotificationId('training_error', 'System'),
         type: 'training_error',
         model_name: 'System',
         message: 'ML Backend service is not available. Cannot perform auto-training.',
@@ -460,7 +472,7 @@ export default function TrainingPage() {
       const modelInfo = availableModels[modelName];
       if (!modelInfo || !modelInfo.trained) {
         addNotification({
-          id: `skipped-${Date.now()}`,
+          id: generateNotificationId('training_error', modelName),
           type: 'training_error',
           model_name: modelName,
           message: `${modelName} is not trained. Skipping.`,
@@ -471,7 +483,7 @@ export default function TrainingPage() {
       }
 
       addNotification({
-        id: `training-start-${Date.now()}`,
+        id: generateNotificationId('training_start', modelName),
         type: 'training_start',
         model_name: modelName,
         message: `Training ${modelName} with ${kFolds}-Fold CV...`,
@@ -488,7 +500,7 @@ export default function TrainingPage() {
         totalDuration += duration;
 
         addNotification({
-          id: `training-complete-${Date.now()}`,
+          id: generateNotificationId('training_complete', modelName),
           type: 'training_complete',
           model_name: modelName,
           message: `${modelName} training complete. Duration: ${duration.toFixed(2)}s`,
@@ -504,7 +516,7 @@ export default function TrainingPage() {
         console.error(`Error training ${modelName}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         addNotification({
-          id: `training-error-${Date.now()}`,
+          id: generateNotificationId('training_error', modelName),
           type: 'training_error',
           model_name: modelName,
           message: `Error training ${modelName}: ${errorMessage}`,
@@ -516,7 +528,7 @@ export default function TrainingPage() {
 
     if (completedModels === totalModels) {
       addNotification({
-        id: `auto-training-complete-${Date.now()}`,
+        id: generateNotificationId('training_complete', 'System'),
         type: 'training_complete',
         model_name: 'System',
         message: `Auto-training completed for all ${totalModels} models. Total duration: ${totalDuration.toFixed(2)}s`,
@@ -525,7 +537,7 @@ export default function TrainingPage() {
       setIsAutoTraining(false);
     } else {
       addNotification({
-        id: `auto-training-partial-${Date.now()}`,
+        id: generateNotificationId('training_complete', 'System'),
         type: 'training_complete',
         model_name: 'System',
         message: `Auto-training completed for ${completedModels} out of ${totalModels} models.`,
@@ -698,7 +710,7 @@ export default function TrainingPage() {
 
     // Initialize training notification
     addNotification({
-      id: `auto-training-init-${Date.now()}`,
+      id: generateNotificationId('auto_training_init', 'Auto-Training System'),
       type: 'auto_training_init',
       model_name: 'Auto-Training System',
       message: `Initiating auto-training for ${autoTrainingConfig.selected_models.length} models with ${autoTrainingConfig.resource_limit}% system resources`,
@@ -722,7 +734,7 @@ export default function TrainingPage() {
       
       // Final notification
       addNotification({
-        id: `auto-training-complete-${Date.now()}`,
+        id: generateNotificationId('training_complete', 'Auto-Training System'),
         type: 'training_complete',
         model_name: 'Auto-Training System',
         message: `Auto-training completed successfully. Best model: ${bestModel}`,
@@ -733,7 +745,7 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('❌ Error in sequential training:', error);
       addNotification({
-        id: `auto-training-error-${Date.now()}`,
+        id: generateNotificationId('training_error', 'Auto-Training System'),
         type: 'training_error',
         model_name: 'Auto-Training System',
         message: `Auto-training failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -754,7 +766,7 @@ export default function TrainingPage() {
 
     // Training start notification
     addNotification({
-      id: `training-start-${modelName}-${Date.now()}`,
+      id: generateNotificationId('model_training_start', modelName),
       type: 'model_training_start',
       model_name: modelName,
       message: `Starting training for ${modelName.replace('_', ' ').toUpperCase()}`,
@@ -803,7 +815,7 @@ export default function TrainingPage() {
 
       // Training complete notification
       addNotification({
-        id: `training-complete-${modelName}-${Date.now()}`,
+        id: generateNotificationId('model_training_complete', modelName),
         type: 'model_training_complete',
         model_name: modelName,
         message: `Training completed for ${modelName.replace('_', ' ').toUpperCase()}`,
@@ -836,7 +848,7 @@ export default function TrainingPage() {
       }));
 
       addNotification({
-        id: `training-complete-${modelName}-${Date.now()}`,
+        id: generateNotificationId('model_training_complete', modelName),
         type: 'model_training_complete',
         model_name: modelName,
         message: `Training completed for ${modelName.replace('_', ' ').toUpperCase()} (using mock data)`,
@@ -971,7 +983,7 @@ export default function TrainingPage() {
                 {bestModel === selectedModel && (
                   <div className="flex flex-col items-center">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300 mb-1">
-                      🏆 Best Model
+                      Best Model
                     </span>
                     {modelResults?.results[selectedModel] && (
                       <div className="text-xs text-gray-400 text-center">
@@ -1198,7 +1210,7 @@ export default function TrainingPage() {
                 <CheckCircle className="text-white w-5 h-5 mr-2" />
                 <div>
                   <h4 className="font-semibold text-white">
-                    🏆 Best Model: {modelResults.best_model.name}
+                    Best Model: {modelResults.best_model.name}
                   </h4>
                   <p className="text-white">
                     F1-Score: {modelResults.best_model.metrics.f1_score.toFixed(4)} | 
@@ -1419,151 +1431,31 @@ export default function TrainingPage() {
             </div>
           )}
 
-          {/* Enhanced Training Notifications with Detailed Metrics */}
-<div className="fixed bottom-0 left-0 right-0 p-4 flex flex-col items-center space-y-2 z-50">
-  {trainingNotifications.map(notification => (
-    <div
-      key={notification.id}
-      className={`w-full max-w-md p-4 rounded-lg shadow-lg border-l-4 ${
-        notification.type === 'model_training_start' ? 'bg-blue-600 text-white border-blue-400' :
-        notification.type === 'model_training_complete' ? 'bg-green-600 text-white border-green-400' :
-        notification.type === 'training_error' ? 'bg-red-600 text-white border-red-400' :
-        notification.type === 'auto_training_init' ? 'bg-purple-600 text-white border-purple-400' :
-        'bg-gray-700 text-white border-gray-500'
-      }`}
-    >
-      {/* Header with Icon */}
-      <div className="flex items-center mb-2">
-        {notification.type === 'model_training_start' && <Play className="h-5 w-5 mr-2" />}
-        {notification.type === 'model_training_complete' && <CheckCircle className="h-5 w-5 mr-2" />}
-        {notification.type === 'training_error' && <AlertCircle className="h-5 w-5 mr-2" />}
-        {notification.type === 'auto_training_init' && <Zap className="h-5 w-5 mr-2" />}
-        <span className="font-semibold text-sm">
-          {notification.model_name.replace('_', ' ').toUpperCase()}
-        </span>
-        <span className="text-xs ml-auto opacity-75">
-          {notification.timestamp.toLocaleTimeString()}
-        </span>
-      </div>
-
-      {/* Main Message */}
-      <p className="text-sm font-medium mb-2">{notification.message}</p>
-
-      {/* Training Start Details */}
-      {notification.type === 'model_training_start' && (
-        <div className="text-xs space-y-1 bg-black bg-opacity-20 rounded p-2">
-          <div className="flex items-center justify-between">
-            <span>🕐 Start Time:</span>
-            <span className="font-mono">{notification.start_time?.toLocaleTimeString()}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>⏱️ Est. Duration:</span>
-            <span className="font-mono">{notification.estimated_duration}s</span>
-          </div>
-          {notification.resource_usage && (
-            <div className="flex items-center justify-between">
-              <span>💻 Resources:</span>
-              <span className="font-mono">{notification.resource_usage.cpu_percent}% CPU</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Training Complete Details with Metrics */}
-      {notification.type === 'model_training_complete' && notification.metrics && (
-        <div className="text-xs space-y-2 bg-black bg-opacity-20 rounded p-3">
-          {/* Timing Information */}
-          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-white border-opacity-20">
-            <div className="flex justify-between">
-              <span>🕐 Start:</span>
-              <span className="font-mono">{notification.start_time?.toLocaleTimeString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>🏁 End:</span>
-              <span className="font-mono">{notification.end_time?.toLocaleTimeString()}</span>
-            </div>
-            <div className="flex justify-between col-span-2">
-              <span>⏱️ Duration:</span>
-              <span className="font-mono font-semibold">{notification.duration?.toFixed(1)}s</span>
-            </div>
-          </div>
-
-          {/* Model Metrics with Change Indicators */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span>🎯 Accuracy:</span>
-              <div className="flex items-center space-x-1">
-                <span className="font-mono font-semibold">{(notification.metrics.accuracy * 100).toFixed(1)}%</span>
-                {notification.metrics.metric_changes?.accuracy_change && (
-                  <span className={`text-xs ${notification.metrics.metric_changes.accuracy_change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-                    {notification.metrics.metric_changes.accuracy_change > 0 ? '↗️' : '↘️'}
-                    {Math.abs(notification.metrics.metric_changes.accuracy_change * 100).toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span>🔍 Precision:</span>
-              <div className="flex items-center space-x-1">
-                <span className="font-mono font-semibold">{(notification.metrics.precision * 100).toFixed(1)}%</span>
-                {notification.metrics.metric_changes?.precision_change && (
-                  <span className={`text-xs ${notification.metrics.metric_changes.precision_change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-                    {notification.metrics.metric_changes.precision_change > 0 ? '↗️' : '↘️'}
-                    {Math.abs(notification.metrics.metric_changes.precision_change * 100).toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span>📊 Recall:</span>
-              <div className="flex items-center space-x-1">
-                <span className="font-mono font-semibold">{(notification.metrics.recall * 100).toFixed(1)}%</span>
-                {notification.metrics.metric_changes?.recall_change && (
-                  <span className={`text-xs ${notification.metrics.metric_changes.recall_change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-                    {notification.metrics.metric_changes.recall_change > 0 ? '↗️' : '↘️'}
-                    {Math.abs(notification.metrics.metric_changes.recall_change * 100).toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span>🏆 F1-Score:</span>
-              <div className="flex items-center space-x-1">
-                <span className="font-mono font-semibold text-yellow-300">{(notification.metrics.f1_score * 100).toFixed(1)}%</span>
-                {notification.metrics.metric_changes?.f1_score_change && (
-                  <span className={`text-xs ${notification.metrics.metric_changes.f1_score_change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-                    {notification.metrics.metric_changes.f1_score_change > 0 ? '↗️' : '↘️'}
-                    {Math.abs(notification.metrics.metric_changes.f1_score_change * 100).toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Resource Usage for Auto-Training Init */}
-      {notification.type === 'auto_training_init' && notification.resource_usage && (
-        <div className="text-xs bg-black bg-opacity-20 rounded p-2 mt-2">
-          <div className="flex items-center justify-between">
-            <span>💻 CPU Allocation:</span>
-            <span className="font-mono">{notification.resource_usage.cpu_percent}%</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>🧠 Memory:</span>
-            <span className="font-mono">{(notification.resource_usage.memory_mb / 1024).toFixed(1)}GB</span>
-          </div>
-        </div>
-      )}
-    </div>
-  ))}
-</div>
-
         </div>
       </div>
+      
+      {/* Training Notifications Sidebar */}
+      <NotificationSidebar 
+        notifications={trainingNotifications}
+        title="Training Notifications"
+        onClearNotification={(id) => {
+          setTrainingNotifications(prev => {
+            const notification = prev.find(n => n.id === id);
+            if (notification?.timeoutId) {
+              clearTimeout(notification.timeoutId);
+            }
+            return prev.filter(n => n.id !== id);
+          });
+        }}
+        onClearAll={() => {
+          trainingNotifications.forEach(notification => {
+            if (notification.timeoutId) {
+              clearTimeout(notification.timeoutId);
+            }
+          });
+          setTrainingNotifications([]);
+        }}
+      />
     </div>
   );
 };
