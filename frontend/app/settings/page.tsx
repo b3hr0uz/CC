@@ -7,7 +7,7 @@ import Sidebar from '../components/Sidebar';
 import { 
   Settings, Shield, Mail, Database, 
   Save, RefreshCw, AlertCircle, CheckCircle,
-  Lock, Sun, Moon, User, Camera, MapPin, 
+  Lock, User, Camera, MapPin, 
   Calendar, Globe, Edit, X, Eye, EyeOff,
   Download, Trash2
 } from 'lucide-react';
@@ -41,7 +41,6 @@ export default function SettingsPage() {
     autoRetrain: true,
     
     // Display Settings
-    theme: 'light',
     language: 'en',
     timezone: 'UTC',
     
@@ -50,16 +49,7 @@ export default function SettingsPage() {
     sessionTimeout: '1440' // minutes
   });
 
-  // Apply theme to document
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (settings.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, [settings.theme]);
+
 
   // Account Management state - use real user data from session
   const [profile, setProfile] = useState({
@@ -175,7 +165,6 @@ export default function SettingsPage() {
       defaultModel: 'logistic_regression',
       confidenceThreshold: 0.8,
       autoRetrain: true,
-      theme: 'light',
       language: 'en',
       timezone: 'UTC',
       twoFactorAuth: false,
@@ -341,12 +330,12 @@ export default function SettingsPage() {
   // Show loading spinner while session is loading
   if (status === 'loading') {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-800">
         <Sidebar />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading your settings...</p>
+            <p className="text-white">Loading your settings...</p>
           </div>
         </div>
       </div>
@@ -359,26 +348,26 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-dark-bg">
+    <div className="flex h-screen bg-gray-800">
       <Sidebar />
       
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <header className="bg-white dark:bg-dark-bg border-b border-gray-200 dark:border-gray-600 px-6 py-4">
+        <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+              <h1 className="text-2xl font-bold text-white flex items-center">
                 <Settings className="mr-3 text-blue-600" />
                 Settings
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Manage your preferences and system configuration</p>
+              <p className="text-sm text-white">Manage your preferences and system configuration</p>
             </div>
             
             <div className="flex space-x-3">
               <button
                 onClick={handleResetToDefaults}
-                className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors"
+                className="flex items-center px-4 py-2 text-white hover:text-white border border-gray-300 rounded-lg transition-colors"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Reset to Defaults
@@ -386,7 +375,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSaveSettings}
                 disabled={isSaving}
-                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors"
               >
                 {isSaving ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -401,7 +390,7 @@ export default function SettingsPage() {
           {/* Save Status */}
           {saveStatus !== 'idle' && (
             <div className={`mt-4 p-3 rounded-lg flex items-center ${
-              saveStatus === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+              saveStatus === 'success' ? 'bg-gray-800 text-white border border-gray-600' : 'bg-gray-800 text-white border border-gray-600'
             }`}>
               {saveStatus === 'success' ? (
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -416,17 +405,17 @@ export default function SettingsPage() {
         {/* Settings Content */}
         <div className="p-6 space-y-6">
           {/* Email Settings */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center mb-6">
               <Mail className="h-5 w-5 text-blue-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Email Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Email Settings</h2>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Email Notifications</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Receive email alerts for important events</p>
+                  <label className="text-sm font-medium text-white">Email Notifications</label>
+                  <p className="text-sm text-gray-500">Receive email alerts for important events</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -437,10 +426,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.emailNotifications 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.emailNotifications ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -449,8 +438,8 @@ export default function SettingsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Spam Alerts</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Get notified when spam is detected</p>
+                  <label className="text-sm font-medium text-white">Spam Alerts</label>
+                  <p className="text-sm text-gray-500">Get notified when spam is detected</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -461,10 +450,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.spamAlerts 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.spamAlerts ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -473,8 +462,8 @@ export default function SettingsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Daily Summary</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Receive a daily email summary</p>
+                  <label className="text-sm font-medium text-white">Daily Summary</label>
+                  <p className="text-sm text-gray-500">Receive a daily email summary</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -485,10 +474,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.dailySummary 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.dailySummary ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -498,19 +487,19 @@ export default function SettingsPage() {
           </div>
 
           {/* Privacy Settings */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center mb-6">
               <Shield className="h-5 w-5 text-blue-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Privacy Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Privacy Settings</h2>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Data Retention (days)</label>
+                <label className="block text-sm font-medium text-white mb-2">Data Retention (days)</label>
                 <select
                   value={settings.dataRetention}
                   onChange={(e) => handleSettingChange('dataRetention', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="7">7 days</option>
                   <option value="30">30 days</option>
@@ -521,8 +510,8 @@ export default function SettingsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Share Analytics</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Help improve our service with usage data</p>
+                  <label className="text-sm font-medium text-white">Share Analytics</label>
+                  <p className="text-sm text-gray-500">Help improve our service with usage data</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -533,10 +522,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.shareAnalytics 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.shareAnalytics ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -546,19 +535,19 @@ export default function SettingsPage() {
           </div>
 
           {/* Model Settings */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center mb-6">
               <Database className="h-5 w-5 text-blue-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Model Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Model Settings</h2>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Default Model</label>
+                <label className="block text-sm font-medium text-white mb-2">Default Model</label>
                 <select
                   value={settings.defaultModel}
                   onChange={(e) => handleSettingChange('defaultModel', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="logistic_regression">Logistic Regression</option>
                   <option value="gradient_boosting">Gradient Boosting</option>
@@ -568,7 +557,7 @@ export default function SettingsPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Confidence Threshold: {Math.round(settings.confidenceThreshold * 100)}%
                 </label>
                 <input
@@ -578,14 +567,14 @@ export default function SettingsPage() {
                   step="0.05"
                   value={settings.confidenceThreshold}
                   onChange={(e) => handleSettingChange('confidenceThreshold', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-200 dark:bg-dark-bg rounded-lg appearance-none cursor-pointer slider"
+                  className="w-full h-2 bg-gray-800 border border-gray-600 rounded-lg appearance-none cursor-pointer slider"
                 />
               </div>
               
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Auto-Retrain</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Automatically retrain model with new data</p>
+                  <label className="text-sm font-medium text-white">Auto-Retrain</label>
+                  <p className="text-sm text-gray-500">Automatically retrain model with new data</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -596,10 +585,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.autoRetrain 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.autoRetrain ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -609,61 +598,21 @@ export default function SettingsPage() {
           </div>
 
           {/* Display Settings */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center mb-6">
-              <Sun className="h-5 w-5 text-blue-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Display Settings</h2>
+              <Globe className="h-5 w-5 text-blue-600 mr-2" />
+              <h2 className="text-lg font-semibold text-white">Display Settings</h2>
             </div>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Theme</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="theme"
-                      value="light"
-                      checked={settings.theme === 'light'}
-                      onChange={(e) => handleSettingChange('theme', e.target.value)}
-                      className="sr-only"
-                    />
-                    <div className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
-                      settings.theme === 'light' 
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-500'
-                    }`}>
-                      <Sun className="h-4 w-4 mr-2" />
-                      Light
-                    </div>
-                  </label>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="theme"
-                      value="dark"
-                      checked={settings.theme === 'dark'}
-                      onChange={(e) => handleSettingChange('theme', e.target.value)}
-                      className="sr-only"
-                    />
-                    <div className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
-                      settings.theme === 'dark' 
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-500'
-                    }`}>
-                      <Moon className="h-4 w-4 mr-2" />
-                      Dark
-                    </div>
-                  </label>
-                </div>
-              </div>
+
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Language</label>
+                <label className="block text-sm font-medium text-white mb-2">Language</label>
                 <select
                   value={settings.language}
                   onChange={(e) => handleSettingChange('language', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="en">English</option>
                   <option value="es">Español</option>
@@ -673,11 +622,11 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Timezone</label>
+                <label className="block text-sm font-medium text-white mb-2">Timezone</label>
                 <select
                   value={settings.timezone}
                   onChange={(e) => handleSettingChange('timezone', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="UTC">UTC</option>
                   <option value="EST">Eastern Time</option>
@@ -690,17 +639,17 @@ export default function SettingsPage() {
           </div>
 
           {/* Security Settings */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center mb-6">
               <Shield className="h-5 w-5 text-blue-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Security Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Security Settings</h2>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Two-Factor Authentication</label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Add an extra layer of security</p>
+                  <label className="text-sm font-medium text-white">Two-Factor Authentication</label>
+                  <p className="text-sm text-gray-500">Add an extra layer of security</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -711,10 +660,10 @@ export default function SettingsPage() {
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     settings.twoFactorAuth 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-200 dark:bg-gray-600'
+                      ? 'bg-gray-800 border-2 border-gray-600' 
+                      : 'bg-gray-800 border-2 border-gray-600'
                   }`}>
-                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
                       settings.twoFactorAuth ? 'transform translate-x-5' : ''
                     }`}></div>
                   </div>
@@ -722,11 +671,11 @@ export default function SettingsPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Session Timeout (minutes)</label>
+                <label className="block text-sm font-medium text-white mb-2">Session Timeout (minutes)</label>
                 <select
                   value={settings.sessionTimeout}
                   onChange={(e) => handleSettingChange('sessionTimeout', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="15">15 minutes</option>
                   <option value="30">30 minutes</option>
@@ -739,25 +688,25 @@ export default function SettingsPage() {
           </div>
 
           {/* Account Management */}
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <User className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Account Management</h2>
+                <h2 className="text-lg font-semibold text-white">Account Management</h2>
               </div>
               
               {isEditingProfile ? (
                 <div className="flex space-x-3">
                   <button
                     onClick={() => setIsEditingProfile(false)}
-                    className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors"
+                    className="px-4 py-2 text-white hover:text-white dark:hover:text-gray-100 border border-gray-600 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveProfile}
                     disabled={isSaving}
-                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                    className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors"
                   >
                     {isSaving ? (
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -770,7 +719,7 @@ export default function SettingsPage() {
               ) : (
                 <button
                   onClick={() => setIsEditingProfile(true)}
-                  className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 rounded-lg transition-colors"
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Profile
@@ -790,12 +739,12 @@ export default function SettingsPage() {
                       className="w-20 h-20 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <div className="w-20 h-20 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center">
                       <User className="h-10 w-10 text-blue-600 dark:text-blue-400" />
                     </div>
                   )}
                   {isEditingProfile && (
-                    <button className="absolute bottom-0 right-0 p-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors">
+                    <button className="absolute bottom-0 right-0 p-1 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 rounded-full transition-colors">
                       <Camera className="h-3 w-3" />
                     </button>
                   )}
@@ -805,27 +754,27 @@ export default function SettingsPage() {
               <div className="lg:col-span-2 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-white mb-2">Full Name</label>
                     {isEditingProfile ? (
                       <input
                         type="text"
                         value={profile.name}
                         onChange={(e) => handleProfileUpdate('name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                         placeholder="Enter your full name"
                       />
                     ) : (
-                      <p className="text-gray-900 dark:text-white">{profile.name}</p>
+                      <p className="text-white">{profile.name}</p>
                     )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Email Address</label>
+                    <label className="block text-sm font-medium text-white mb-2">Email Address</label>
                     <div className="flex items-center">
                       <Mail className="h-4 w-4 text-gray-400 mr-2" />
                       <div>
-                        <p className="text-gray-900 dark:text-white">{profile.email}</p>
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                        <p className="text-white">{profile.email}</p>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Verified
                         </span>
@@ -834,7 +783,7 @@ export default function SettingsPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Location</label>
+                    <label className="block text-sm font-medium text-white mb-2">Location</label>
                     {isEditingProfile ? (
                       <div className="flex items-center">
                         <MapPin className="h-4 w-4 text-gray-400 mr-2" />
@@ -842,31 +791,31 @@ export default function SettingsPage() {
                           type="text"
                           value={profile.location}
                           onChange={(e) => handleProfileUpdate('location', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                          className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                           placeholder="Enter your location"
                         />
                       </div>
                     ) : (
                       <div className="flex items-center">
                         <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                        <p className="text-gray-900 dark:text-white">{profile.location}</p>
+                        <p className="text-white">{profile.location}</p>
                       </div>
                     )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Member Since</label>
+                    <label className="block text-sm font-medium text-white mb-2">Member Since</label>
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                      <p className="text-gray-900 dark:text-white">{formatDate(profile.memberSince)}</p>
+                      <p className="text-white">{formatDate(profile.memberSince)}</p>
                     </div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Timezone</label>
+                    <label className="block text-sm font-medium text-white mb-2">Timezone</label>
                     <div className="flex items-center">
                       <Globe className="h-4 w-4 text-gray-400 mr-2" />
-                      <p className="text-gray-900 dark:text-white">{profile.timezone}</p>
+                      <p className="text-white">{profile.timezone}</p>
                     </div>
                   </div>
                 </div>
@@ -875,63 +824,63 @@ export default function SettingsPage() {
 
             {/* Account Statistics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{accountStats.emailsProcessed.toLocaleString()}</p>
-                <p className="text-xs text-blue-700 dark:text-blue-300">Emails Processed</p>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-white">{accountStats.emailsProcessed.toLocaleString()}</p>
+                <p className="text-xs text-white">Emails Processed</p>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{accountStats.accuracyRate}%</p>
-                <p className="text-xs text-green-700 dark:text-green-300">Model Accuracy</p>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-white">{accountStats.accuracyRate}%</p>
+                <p className="text-xs text-white">Model Accuracy</p>
               </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{accountStats.feedbackProvided}</p>
-                <p className="text-xs text-purple-700 dark:text-purple-300">Feedback Given</p>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-white">{accountStats.feedbackProvided}</p>
+                <p className="text-xs text-white">Feedback Given</p>
               </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-white">
                   {new Date(accountStats.lastActive).toLocaleDateString()}
                 </p>
-                <p className="text-xs text-orange-700 dark:text-orange-300">Last Active</p>
+                <p className="text-xs text-white">Last Active</p>
               </div>
             </div>
 
             {/* Account Actions */}
             <div>
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Account Actions</h3>
+              <h3 className="text-md font-semibold text-white mb-4">Account Actions</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button 
                   onClick={() => handleAccountAction('change-email')}
-                  className="flex items-center p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Change Email</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Update your email address</p>
+                    <p className="text-sm font-medium text-white">Change Email</p>
+                    <p className="text-xs text-gray-500">Update your email address</p>
                   </div>
                 </button>
                 <button 
                   onClick={() => handleAccountAction('change-password')}
-                  className="flex items-center p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Change Password</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Update your password</p>
+                    <p className="text-sm font-medium text-white">Change Password</p>
+                    <p className="text-xs text-gray-500">Update your password</p>
                   </div>
                 </button>
                 <button 
                   onClick={() => handleAccountAction('export-data')}
-                  className="flex items-center p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <Download className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Export Data</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Download your account data</p>
+                    <p className="text-sm font-medium text-white">Export Data</p>
+                    <p className="text-xs text-gray-500">Download your account data</p>
                   </div>
                 </button>
                 <button 
                   onClick={() => handleAccountAction('delete-account')}
-                  className="flex items-center p-4 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 dark:hover:bg-black transition-colors"
                 >
                   <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400 mr-3" />
                   <div className="text-left">

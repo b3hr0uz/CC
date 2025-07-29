@@ -47,7 +47,7 @@ export default function Sidebar() {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <div className="h-screen w-64 bg-white dark:bg-dark-bg border-r border-gray-200 dark:border-gray-600 flex flex-col">
+    <div className="h-screen w-64 border-r border-gray-600 flex flex-col" style={{backgroundColor: '#212121'}}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center">
@@ -71,8 +71,8 @@ export default function Sidebar() {
                 href={item.href}
                 className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive(item.href)
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
+                    : 'text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white'
                 }`}
               >
                 <Icon className="h-5 w-5 mr-3" />
@@ -94,8 +94,8 @@ export default function Sidebar() {
                 href={item.href}
                 className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive(item.href)
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
+                    : 'text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white'
                 }`}
               >
                 <Icon className="h-5 w-5 mr-3" />
@@ -108,7 +108,7 @@ export default function Sidebar() {
         {/* Sign Out Button */}
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center px-3 py-2 mt-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+          className="w-full flex items-center px-3 py-2 mt-2 rounded-lg text-sm font-medium text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white transition-colors"
         >
           <LogOut className="h-5 w-5 mr-3" />
           Sign out

@@ -1,62 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --foreground-rgb: 31, 41, 55;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 255, 255, 255;     /* White text */
+  --background-start-rgb: 33, 33, 33;  /* #212121 background */
+  --background-end-rgb: 33, 33, 33;    /* #212121 background */
 }
 
-/* Removed dark mode auto-switching to prevent white text on white background issues */
-
+/* Global body styles with single color palette */
 body {
-  color: #1f2937;
-  background: #f9fafb;
-}
-
-/* Ensure text is always visible on white backgrounds */
-.text-white {
-  color: #ffffff !important;
-}
-
-.text-gray-900 {
-  color: #111827 !important;
-}
-
-.text-gray-800 {
-  color: #1f2937 !important;
-}
-
-.text-gray-700 {
-  color: #374151 !important;
-}
-
-.text-gray-600 {
-  color: #4b5563 !important;
-}
-
-.text-gray-500 {
-  color: #6b7280 !important;
+  color: #ffffff;       /* White text */
+  background: #212121;  /* Dark gray background */
 }
 
 /* Custom styles for the ContextCleanse dashboard */
 .dashboard-card {
-  @apply bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300;
-  color: #1f2937;
+  @apply rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300;
+  background-color: #212121;
+  color: #ffffff;
+  border: 1px solid #4a4a4a;
 }
 
 .metric-card {
-  @apply bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200;
-  color: #1f2937;
+  @apply p-4 rounded-lg;
+  background-color: #212121;
+  color: #ffffff;
+  border: 1px solid #4a4a4a;
 }
 
 .spam-alert {
-  @apply bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg;
-  color: #1f2937;
+  @apply border-l-4 p-4 rounded-r-lg;
+  background-color: #212121;
+  color: #ffffff;
+  border-left-color: #ef4444;
+  border-top: 1px solid #4a4a4a;
+  border-right: 1px solid #4a4a4a;
+  border-bottom: 1px solid #4a4a4a;
 }
 
 .not-spam-alert {
-  @apply bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg;
-  color: #1f2937;
+  @apply border-l-4 p-4 rounded-r-lg;
+  background-color: #212121;
+  color: #ffffff;
+  border-left-color: #22c55e;
+  border-top: 1px solid #4a4a4a;
+  border-right: 1px solid #4a4a4a;
+  border-bottom: 1px solid #4a4a4a;
 }
 
 /* Loading animation */
@@ -64,32 +52,73 @@ body {
   @apply inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-current;
 }
 
-/* Ensure all text on white backgrounds is dark */
-.bg-white {
-  color: #1f2937;
+/* Default text colors for readability */
+.text-white {
+  color: #ffffff !important;
 }
 
-.bg-white * {
-  color: inherit;
+.text-black {
+  color: #ffffff !important; /* Override to white for visibility on dark background */
 }
 
-/* Fix for specific color classes that might cause issues */
-.text-blue-600 {
-  color: #2563eb !important;
+/* Override all text colors to ensure visibility on #212121 background */
+.text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600, .text-gray-500,
+.text-gray-400, .text-gray-300, .text-gray-200, .text-gray-100 {
+  color: #ffffff !important;
 }
 
-.text-green-600 {
-  color: #16a34a !important;
+/* Override colored text for visibility */
+.text-blue-600, .text-green-600, .text-red-600, .text-purple-600, .text-yellow-500,
+.text-blue-400, .text-green-400, .text-red-400, .text-purple-400, .text-yellow-400,
+.text-blue-800, .text-green-800, .text-red-800, .text-purple-800, .text-yellow-800,
+.text-blue-700, .text-green-700, .text-red-700, .text-purple-700, .text-yellow-700,
+.text-blue-300, .text-green-300, .text-red-300, .text-purple-300, .text-yellow-300 {
+  color: #ffffff !important;
 }
 
-.text-red-600 {
-  color: #dc2626 !important;
+/* Form inputs and interactive elements */
+input, textarea, select {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+  border-color: #4a4a4a !important;
 }
 
-.text-purple-600 {
-  color: #9333ea !important;
+input:focus, textarea:focus, select:focus {
+  border-color: #6b7280 !important;
+  box-shadow: 0 0 0 1px #6b7280 !important;
 }
 
-.text-yellow-500 {
-  color: #eab308 !important;
+/* Button styling */
+button {
+  color: #ffffff !important;
+}
+
+/* Link styling */
+a {
+  color: #ffffff !important;
+}
+
+/* Override any remaining background colors */
+.bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-gray-800 {
+  background-color: #212121 !important;
+  color: #ffffff !important;
+}
+
+/* Borders should be visible on dark background */
+.border-gray-200, .border-gray-300, .border-gray-400 {
+  border-color: #4a4a4a !important;
+}
+
+.border-gray-600, .border-gray-700, .border-gray-800 {
+  border-color: #6b7280 !important;
+}
+
+/* Hover states */
+.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover, .hover\:bg-white:hover {
+  background-color: #2a2a2a !important;
+}
+
+/* Shadow adjustments for dark theme */
+.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
 }

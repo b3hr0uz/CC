@@ -6,11 +6,9 @@ module.exports = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
       colors: {
-        'dark-bg': '#333333', // Custom dark mode background
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',

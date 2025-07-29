@@ -7,9 +7,10 @@ import Sidebar from '../components/Sidebar';
 import { 
   Mail, Search, RefreshCw, AlertCircle, 
   CheckCircle, Clock, Tag, Inbox, Shield,
-  ThumbsUp, ThumbsDown
+  ThumbsUp, ThumbsDown, X, Eye, ExternalLink, Paperclip, Smile
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
+import axios from 'axios'; // Added axios import
 
 interface ModelClassification {
   model: string;
@@ -24,6 +25,7 @@ interface ExtendedEmailData extends EmailData {
   timestamp?: string;
   read?: boolean;
   modelClassifications?: ModelClassification[]; // Different model predictions for same email
+  content?: string; // Full email content
 }
 
 export default function DashboardPage() {
@@ -40,6 +42,9 @@ export default function DashboardPage() {
   const [userFeedback, setUserFeedback] = useState<{[emailId: string]: 'correct' | 'incorrect' | null}>({});
   const [userCorrectedEmails, setUserCorrectedEmails] = useState<Set<string>>(new Set());
   const [hoveredEmail, setHoveredEmail] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<ExtendedEmailData | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [loadingEmailContent, setLoadingEmailContent] = useState(false);
 
   // Handle user feedback for email classification
   const handleUserFeedback = async (emailId: string, isCorrect: boolean) => {
@@ -238,6 +243,33 @@ export default function DashboardPage() {
         subject: 'Welcome to ContextCleanse!',
         from: 'welcome@contextcleanse.ai',
         preview: 'Welcome to ContextCleanse! We are excited to have you on board.',
+        content: `Welcome to ContextCleanse!
+
+Dear User,
+
+We are excited to have you on board with ContextCleanse - your intelligent email management solution!
+
+Here's what you can expect:
+
+🔍 **Smart Classification**: Our AI automatically categorizes your emails as spam or legitimate messages
+📊 **Detailed Analytics**: Track your email patterns and model performance
+🎯 **Continuous Learning**: Your feedback helps improve our models
+🔒 **Privacy First**: Your data stays secure and private
+
+Getting Started:
+1. Connect your Gmail account (already done!)
+2. Review the automatically classified emails
+3. Provide feedback on any misclassified emails
+4. Watch as the system learns from your preferences
+
+Need help? Contact our support team at support@contextcleanse.ai
+
+Best regards,
+The ContextCleanse Team
+
+---
+© 2024 ContextCleanse AI. All rights reserved.
+Privacy Policy | Terms of Service | Unsubscribe`,
         classification: 'ham' as const,
         confidence: 0.95,
         tags: ['welcome'],
@@ -247,6 +279,35 @@ export default function DashboardPage() {
         subject: 'URGENT: Claim your prize now!', 
         from: 'winner@suspicious-lottery.fake',
         preview: 'You have won a prize! Click here to claim it now!',
+        content: `🎉 CONGRATULATIONS! YOU'VE WON! 🎉
+
+WINNER NOTIFICATION #784592
+
+Dear Lucky Winner,
+
+You have been selected as the GRAND PRIZE WINNER in our international lottery! 
+
+YOUR PRIZE: $1,000,000 USD + Brand New Mercedes-Benz
+
+To claim your prize:
+1. Click here: http://suspicious-lottery.fake/claim?token=xyz123
+2. Provide your bank details
+3. Pay the processing fee of $299
+4. Receive your prize within 24 hours!
+
+⚠️ URGENT: This offer expires in 2 hours!
+
+Don't miss this once-in-a-lifetime opportunity!
+
+Contact our claims department:
+Email: claims@suspicious-lottery.fake
+Phone: +1-800-SCAMMER
+
+Best regards,
+John Scammer
+International Prize Committee
+
+LEGAL DISCLAIMER: This email is totally legitimate and not a scam at all. Trust us.`,
         classification: 'spam' as const,
         confidence: 0.98,
         tags: ['suspicious'],
@@ -256,6 +317,41 @@ export default function DashboardPage() {
         subject: 'Weekly Team Update',
         from: 'manager@company.com',
         preview: 'Here is the weekly team update. Please review it before our meeting.',
+        content: `Weekly Team Update - Week of December 16, 2024
+
+Team,
+
+Here's our weekly update covering key accomplishments and upcoming priorities:
+
+📈 **This Week's Achievements:**
+• Project Alpha: Completed user authentication module (Sarah, Mike)
+• Project Beta: Deployed v2.1 to staging environment (Alex)
+• Code reviews: 15 PRs reviewed and merged
+• Client Demo: Successfully presented new features to MegaCorp
+
+🎯 **Next Week's Priorities:**
+• Project Alpha: Begin payment integration (Sarah)
+• Project Beta: Performance optimization (Alex, Jordan)
+• Team Training: React 18 workshop on Wednesday
+• Sprint Planning: Friday 2 PM
+
+📊 **Metrics:**
+• Velocity: 42 story points (↑ from 38 last week)
+• Bug count: 3 critical, 8 minor
+• Test coverage: 87% (target: 90%)
+
+🚨 **Action Items:**
+• All: Update time tracking in Jira by EOD Friday
+• Sarah: Prepare payment integration architecture doc
+• Mike: Review security audit findings
+
+Meeting: Friday 10 AM in Conference Room B
+
+Questions? Slack me.
+
+Best,
+Jennifer Martinez
+Engineering Manager`,
         classification: 'ham' as const,
         confidence: 0.89,
         tags: ['work'],
@@ -265,6 +361,40 @@ export default function DashboardPage() {
         subject: 'Limited Time Offer - Buy Now!',
         from: 'deals@spamstore.net',
         preview: 'Special discount available for the next 24 hours only!',
+        content: `🔥 FLASH SALE ALERT! 🔥
+
+LIMITED TIME OFFER - 24 HOURS ONLY!
+
+GET 90% OFF EVERYTHING IN STORE!
+
+Our biggest sale of the year is here! 
+
+FEATURED DEALS:
+💊 Miracle Weight Loss Pills - Was $199, Now $19!
+💎 "Genuine" Rolex Watches - Was $5000, Now $99!
+📱 Latest iPhone (Definitely Real) - Was $999, Now $149!
+🏠 Work From Home Opportunities - Earn $5000/week!
+
+⏰ HURRY! Sale ends in: 23:59:47
+
+Shop now or regret forever!
+
+👆 CLICK HERE TO SAVE BIG! 👆
+[Definitely Not Malware Button]
+
+Special bonuses:
+• Free shipping worldwide*
+• Money back guarantee**
+• No questions asked***
+
+*Shipping fee only $89.99
+**Guarantee void where prohibited
+***We will ask lots of questions
+
+From your friends at Totally Legitimate Store,
+SpamStore Inc.
+
+Unsubscribe | Privacy Policy | Why Are You Still Reading This?`,
         classification: 'spam' as const,
         confidence: 0.92,
         tags: ['promotional'],
@@ -274,6 +404,48 @@ export default function DashboardPage() {
         subject: 'Meeting Reminder: Project Review',
         from: 'calendar@workplace.com',
         preview: 'Reminder about your upcoming project review meeting.',
+        content: `Meeting Reminder
+
+📅 **Project Review Meeting**
+
+When: Tomorrow, December 17, 2024 at 2:00 PM PST
+Where: Conference Room A (Building 2, Floor 3)
+Duration: 1 hour
+
+**Attendees:**
+• You
+• Sarah Johnson (Product Manager)
+• Mike Chen (Tech Lead)
+• Alex Rivera (QA Lead)
+• Dr. Jennifer Martinez (Engineering Manager)
+
+**Agenda:**
+1. Q4 Progress Review (15 min)
+2. Technical Architecture Discussion (20 min)
+3. Resource Allocation for Q1 2025 (15 min)
+4. Risk Assessment and Mitigation (10 min)
+
+**Required Materials:**
+✓ Project status report
+✓ Technical documentation
+✓ Budget projections for Q1
+✓ Risk register updates
+
+**Video Conference Link:**
+Join Zoom Meeting: https://workplace.zoom.us/j/123456789
+Meeting ID: 123 456 789
+Passcode: ProjectReview
+
+**Preparation Notes:**
+Please review the attached documents before the meeting:
+• Project_Status_Q4_2024.pdf
+• Technical_Architecture_v3.2.docx
+• Budget_Projections_Q1_2025.xlsx
+
+If you need to reschedule, please contact Sarah Johnson at sarah.johnson@workplace.com
+
+This meeting was scheduled by: Workplace Calendar System
+Questions? Contact IT Support: help@workplace.com`,
         classification: 'ham' as const,
         confidence: 0.87,
         tags: ['meeting'],
@@ -283,6 +455,49 @@ export default function DashboardPage() {
         subject: 'Free Money - No Strings Attached!',
         from: 'money@scammer.fake',
         preview: 'Get free money with no questions asked! Act now!',
+        content: `💰 FREE MONEY ALERT! 💰
+
+NO STRINGS ATTACHED!*
+
+Hello Friend,
+
+I am Prince Abubakar from Nigeria and I have GREAT NEWS for you!
+
+My late father (King of Nigeria) left $50 MILLION USD in a secret bank account, and I need your help to transfer it out of the country. 
+
+In exchange for your assistance, I will give you 50% of the money ($25 MILLION USD)!
+
+All you need to do:
+1. Send me your bank account details
+2. Pay small processing fee of $5,000 USD
+3. Wait for your $25 MILLION to arrive!
+
+I am 100% LEGITIMATE PRINCE (not scammer). Here is proof:
+• I said I'm a prince (this is proof)
+• My email looks very official
+• I promise this is real
+
+Time is running out! The government is trying to take this money. We must act NOW!
+
+Send money via:
+• Western Union to: Prince Abubakar, Lagos, Nigeria
+• Bitcoin: 1ScammerWallet123456789
+• Gift cards: iTunes, Google Play, Steam
+
+Contact me immediately:
+Email: totally.real.prince@scammer.fake
+WhatsApp: +234-800-SCAMMER
+Telegram: @DefinitelyARealPrince
+
+Your future business partner,
+Prince Abubakar Scammerson III
+Crown Prince of Nigeria
+CEO of Legitimate Business Enterprises
+PhD in Not Being A Scammer
+
+*Strings may be attached. Many strings. All the strings.
+
+P.S. Please don't Google "Nigerian Prince Scam" - those are fake princes, not me!`,
         classification: 'spam' as const,
         confidence: 0.99,
         tags: ['scam'],
@@ -292,6 +507,63 @@ export default function DashboardPage() {
         subject: 'Your Invoice #12345',
         from: 'billing@service.com',
         preview: 'Your monthly invoice is ready for review.',
+        content: `Invoice #12345
+
+CloudService Pro
+123 Tech Street, Suite 100
+San Francisco, CA 94105
+support@service.com
+
+**INVOICE**
+
+Bill To:
+Your Company Name
+Your Address
+City, State ZIP
+
+**Invoice Details:**
+Invoice Number: #12345
+Invoice Date: December 15, 2024
+Due Date: January 15, 2025
+Payment Terms: Net 30
+
+**Services:**
+
+CloudService Pro - Premium Plan
+Period: December 1-31, 2024
+• 500GB Storage: $29.99
+• Advanced Analytics: $19.99
+• Priority Support: $9.99
+• API Access (10K calls): $14.99
+
+Subtotal: $74.96
+Tax (8.5%): $6.37
+**Total Due: $81.33**
+
+**Payment Methods:**
+
+💳 Credit Card: ending in ****-1234 (Auto-pay enabled)
+🏦 Bank Transfer: Account ending in ****-5678
+📧 PayPal: billing@yourcompany.com
+
+**Usage Summary:**
+• Storage Used: 387GB of 500GB (77%)
+• API Calls: 8,247 of 10,000 (82%)
+• Support Tickets: 2 (resolved)
+• Uptime: 99.9%
+
+**Next Billing Date:** January 15, 2025
+
+Need help? Contact our support team:
+📧 Email: support@service.com
+📞 Phone: 1-800-SUPPORT
+💬 Live Chat: service.com/chat
+
+Thank you for choosing CloudService Pro!
+
+**Important:** This invoice will be automatically charged to your default payment method on the due date unless you update your billing preferences.
+
+View Online | Download PDF | Update Billing Info | Contact Support`,
         classification: 'ham' as const,
         confidence: 0.91,
         tags: ['billing'],
@@ -301,6 +573,59 @@ export default function DashboardPage() {
         subject: 'Congratulations Winner!!!',
         from: 'lottery@fake-contest.org',
         preview: 'You are our lucky winner! Click to claim your million dollars!',
+        content: `🎊 CONGRATULATIONS WINNER!!! 🎊
+
+OFFICIAL WINNER NOTIFICATION
+Confirmation Code: SCAM-2024-FAKE-001
+
+🏆 YOU HAVE WON THE MEGA INTERNATIONAL LOTTERY! 🏆
+
+Prize Amount: $1,000,000.00 USD
+Bonus Prize: Brand New Tesla Model S
+Additional Bonus: iPhone 15 Pro Max
+
+**How did you win?**
+Your email was randomly selected from billions of internet users worldwide! (This is definitely how lotteries work)
+
+**URGENT ACTION REQUIRED:**
+You have 48 hours to claim your prize or it will be given to someone else!
+
+📋 **To Claim Your Prize:**
+1. Send us your full name and address ✓
+2. Provide your bank account details ✓  
+3. Pay the insurance fee of $299 ✓
+4. Pay the processing fee of $199 ✓
+5. Pay the anti-terrorism fee of $99 ✓
+6. Pay the "we need more money" fee of $499 ✓
+
+**Payment Methods:**
+• Western Union (preferred)
+• MoneyGram
+• Bitcoin
+• Gift Cards (iTunes, Google Play, Steam)
+• Cash in unmarked envelope
+
+**Contact Our Claims Department:**
+📧 Email: claims@fake-contest.org
+📱 WhatsApp: +1-800-FAKE-WIN
+🌐 Website: www.totally-not-a-scam.fake
+
+**Testimonials from Previous Winners:**
+"I paid the fees and got my million dollars!" - Definitely Real Person
+"This is 100% legitimate! I'm rich now!" - Not A Bot
+"I wish I had suspicious thoughts but I don't!" - Gullible Person
+
+⚠️ WARNING: Do not research "lottery scams" on Google. Our lawyers say this is illegal.
+
+Congratulations again!
+
+Dr. John Fakewinner
+Director of Legitimate Prize Distribution
+International Fake Lottery Commission
+Certified by the Bureau of Definitely Real Things
+
+© 2024 Fake Contest Organization. All rights reserved.
+This email is totally legitimate and not suspicious at all.`,
         classification: 'spam' as const,
         confidence: 0.97,
         tags: ['lottery', 'suspicious'],
@@ -455,34 +780,71 @@ export default function DashboardPage() {
     router.push('/');
   };
 
+  const handleEmailClick = async (email: ExtendedEmailData) => {
+    setSelectedEmail(email);
+    setIsEmailModalOpen(true);
+    
+    // Fetch full content if not already loaded
+    if (!email.content && !usingMockData) {
+      setLoadingEmailContent(true);
+      try {
+        const response = await axios.post('/api/emails', { messageId: email.id });
+        const fullContent = response.data.content;
+        
+        // Update the email object with full content
+        const updatedEmail = { ...email, content: fullContent };
+        setSelectedEmail(updatedEmail);
+        
+        // Also update the emails array
+        setEmails(prevEmails => 
+          prevEmails.map(e => 
+            e.id === email.id ? updatedEmail : e
+          )
+        );
+      } catch (error) {
+        console.error('Error fetching email content:', error);
+        // Fallback to preview if full content fails
+        const updatedEmail = { ...email, content: email.preview };
+        setSelectedEmail(updatedEmail);
+      } finally {
+        setLoadingEmailContent(false);
+      }
+    }
+  };
+
+  const closeEmailModal = () => {
+    setIsEmailModalOpen(false);
+    setSelectedEmail(null);
+  };
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-800">
       <Sidebar />
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white dark:bg-dark-bg border-b border-gray-200 dark:border-gray-600 px-6 py-4">
+        <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inbox</h1>
+              <h1 className="text-2xl font-bold text-white">Inbox</h1>
             </div>
             
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors shadow-sm"
               title={`Sync emails from ${session?.user?.email || 'your Google account'}`}
             >
               {/* Google Logo with refresh icon */}
               <div className="flex items-center mr-2">
                 <div className="relative">
                   {/* Google Logo Background */}
-                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mr-1">
+                  <div className="w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center mr-1">
                     <svg className="w-3 h-3" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -505,22 +867,22 @@ export default function DashboardPage() {
           <div className="mx-6 mt-4 mb-4">
             <div className={`p-4 rounded-lg border ${
               emailError.type === 'auth' 
-                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
-                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                ? 'bg-gray-800 border-gray-600' 
+                : 'bg-gray-800 border-gray-600'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className={`p-2 rounded-lg ${
                     emailError.type === 'auth' 
-                      ? 'bg-blue-100 dark:bg-blue-800/30' 
-                      : 'bg-yellow-100 dark:bg-yellow-800/30'
+                      ? 'bg-gray-800 border border-gray-600' 
+                      : 'bg-gray-800 border border-gray-600'
                   }`}>
                     {emailError.type === 'auth' ? (
                       <Shield className={`h-5 w-5 ${
-                        emailError.type === 'auth' ? 'text-blue-600 dark:text-blue-400' : 'text-yellow-600 dark:text-yellow-400'
+                        emailError.type === 'auth' ? 'text-white' : 'text-white'
                       }`} />
                     ) : (
-                      <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                      <AlertCircle className="h-5 w-5 text-white" />
                     )}
                   </div>
                   <div className="ml-3">
@@ -540,7 +902,7 @@ export default function DashboardPage() {
                 {emailError.type === 'auth' && (
                   <button
                     onClick={handleReauth}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 text-sm font-medium rounded-lg transition-colors"
                   >
                     Grant Gmail Access
                   </button>
@@ -553,10 +915,10 @@ export default function DashboardPage() {
         {/* Mock data indicator */}
         {usingMockData && (
           <div className="mx-6 mb-4">
-            <div className="flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <Tag className="h-4 w-4 text-gray-600 dark:text-gray-300 mr-2" />
-              <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Demo Mode</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">- Showing sample emails for demonstration</span>
+            <div className="flex items-center px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg">
+              <Tag className="h-4 w-4 text-white mr-2" />
+              <span className="text-sm text-white font-medium">Demo Mode</span>
+              <span className="text-sm text-gray-500 ml-2">- Showing sample emails for demonstration</span>
             </div>
           </div>
         )}
@@ -564,50 +926,50 @@ export default function DashboardPage() {
         {/* Stats Cards */}
         <div className="px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
               <div className="flex items-center">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                  <Inbox className="h-5 w-5 text-white" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                  <p className="text-sm font-medium text-white">Total</p>
+                  <p className="text-xl font-bold text-white">{stats.total}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
               <div className="flex items-center">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                  <Mail className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                  <Mail className="h-5 w-5 text-white" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Unread</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.unread}</p>
+                  <p className="text-sm font-medium text-white">Unread</p>
+                  <p className="text-xl font-bold text-white">{stats.unread}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
               <div className="flex items-center">
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div className="p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-white" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Ham</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.ham}</p>
+                  <p className="text-sm font-medium text-white">Ham</p>
+                  <p className="text-xl font-bold text-white">{stats.ham}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
               <div className="flex items-center">
-                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <div className="p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-white" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Spam</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.spam}</p>
+                  <p className="text-sm font-medium text-white">Spam</p>
+                  <p className="text-xl font-bold text-white">{stats.spam}</p>
                 </div>
               </div>
             </div>
@@ -616,24 +978,24 @@ export default function DashboardPage() {
 
         {/* Controls */}
         <div className="px-6 pb-4">
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
+          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <input
                     type="text"
                     placeholder="Search emails..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="pl-10 pr-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white placeholder-gray-500 dark:placeholder-gray-400"
                   />
                 </div>
                 
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                  className="px-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                 >
                   <option value="all">All Emails</option>
                   <option value="ham">Ham Only</option>
@@ -641,11 +1003,11 @@ export default function DashboardPage() {
                 </select>
               </div>
 
-              <div className="text-sm text-gray-600 dark:text-gray-300">
+              <div className="text-sm text-white">
                 <div className="flex items-center space-x-3">
                   <span>Showing {filteredEmails.length} of {emails.length} emails</span>
                   <div className="flex items-center space-x-2">
-                    <label htmlFor="email-limit" className="text-gray-500 dark:text-gray-400">
+                    <label htmlFor="email-limit" className="text-gray-500">
                       Sample size:
                     </label>
                     <input
@@ -658,9 +1020,9 @@ export default function DashboardPage() {
                         const newLimit = Math.max(1, Math.min(100, parseInt(e.target.value) || 20));
                         setEmailLimit(newLimit);
                       }}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-bg text-gray-900 dark:text-white"
+                      className="w-16 px-2 py-1 text-sm border border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
                     />
-                    <span className="text-gray-500 dark:text-gray-400">emails</span>
+                    <span className="text-gray-500">emails</span>
                   </div>
                 </div>
               </div>
@@ -670,32 +1032,36 @@ export default function DashboardPage() {
 
         {/* Email List */}
         <div className="flex-1 px-6 pb-6 overflow-hidden">
-          <div className="bg-white dark:bg-dark-bg rounded-lg shadow border border-gray-200 dark:border-gray-600 h-full flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Latest Emails</h2>
+          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 h-full flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-600">
+              <h2 className="text-lg font-semibold text-white">Latest Emails</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
-                  <span className="ml-3 text-gray-600 dark:text-gray-300">Loading emails...</span>
+                  <span className="ml-3 text-white">Loading emails...</span>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200 dark:divide-gray-600">
                   {filteredEmails.map((email) => (
-                  <div key={email.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${!email.read ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}>
+                  <div 
+                    key={email.id} 
+                    className={`p-4 hover:bg-gray-700 transition-colors cursor-pointer ${!email.read ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}
+                    onClick={() => handleEmailClick(email)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3 mb-2">
                           <div className={`flex-shrink-0 w-3 h-3 rounded-full ${
                             email.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
                           }`}></div>
-                          <p className={`text-sm font-medium truncate ${!email.read ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                          <p className={`text-sm font-medium truncate ${!email.read ? 'text-white' : 'text-white'}`}>
                             {email.from}
                           </p>
                           {!email.read && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
                               New
                             </span>
                           )}
@@ -703,7 +1069,7 @@ export default function DashboardPage() {
                             {email.tags?.slice(0, 2).map((tag) => (
                               <span
                                 key={tag}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300"
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white"
                               >
                                 <Tag className="h-3 w-3 mr-1" />
                                 {tag}
@@ -712,15 +1078,15 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         
-                        <h3 className={`text-base font-semibold mb-1 ${!email.read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                        <h3 className={`text-base font-semibold mb-1 ${!email.read ? 'text-white' : 'text-white'}`}>
                           {email.subject}
                         </h3>
                         
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                        <p className="text-sm text-white mb-2 line-clamp-2">
                           {email.preview || 'No preview available'}
                         </p>
                         
-                        <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
                           <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-1" />
                             {formatTime(email.timestamp || email.date)}
@@ -732,8 +1098,8 @@ export default function DashboardPage() {
                         <div 
                           className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer transition-all ${
                             email.classification === 'spam' 
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50' 
-                              : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50'
+                              ? 'bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-black border border-gray-600' 
+                              : 'bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-black border border-gray-600'
                           } ${userCorrectedEmails.has(email.id) ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}`}
                           onMouseEnter={() => setHoveredEmail(email.id)}
                           onMouseLeave={() => setHoveredEmail(null)}
@@ -751,21 +1117,21 @@ export default function DashboardPage() {
 
                         {/* Model Classifications Tooltip */}
                         {hoveredEmail === email.id && email.modelClassifications && (
-                          <div className="absolute z-50 left-0 top-full mt-2 bg-white dark:bg-dark-bg border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-4 min-w-64">
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                          <div className="absolute z-50 left-0 top-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg p-4 min-w-64">
+                            <h4 className="text-sm font-semibold text-white mb-3">
                               Model Classifications
                             </h4>
                             <div className="space-y-2">
                               {email.modelClassifications.map((modelClass, index) => (
                                 <div key={index} className="flex items-center justify-between">
-                                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                                  <span className="text-sm text-white">
                                     {modelClass.model}:
                                   </span>
                                   <div className="flex items-center space-x-2">
                                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                       modelClass.classification === 'spam'
-                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                                        : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                        ? 'bg-gray-800 text-white border border-gray-600'
+                                        : 'bg-gray-800 text-white border border-gray-600'
                                     }`}>
                                       {modelClass.classification === 'spam' ? (
                                         <AlertCircle className="h-3 w-3 mr-1" />
@@ -774,24 +1140,24 @@ export default function DashboardPage() {
                                       )}
                                       {modelClass.classification === 'spam' ? 'Spam' : 'Ham'}
                                     </span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="text-xs text-gray-500">
                                       {Math.round(modelClass.confidence * 100)}%
                                     </span>
                                   </div>
                                 </div>
                               ))}
                             </div>
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="mt-3 pt-3 border-t border-gray-600">
+                              <p className="text-xs text-gray-500">
                                 Hover to see how different ML models classified this email
                               </p>
                             </div>
                           </div>
                         )}
                         
-                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+                        <div className="mt-2 text-xs text-gray-500 text-center">
                           {userCorrectedEmails.has(email.id) ? (
-                            <span className="text-blue-600 dark:text-blue-400 font-medium">User Corrected</span>
+                            <span className="text-white font-medium">User Corrected</span>
                           ) : (
                             <span>{Math.round((email.confidence || 0) * 100)}% confidence</span>
                           )}
@@ -804,8 +1170,8 @@ export default function DashboardPage() {
                             disabled={userFeedback[email.id] === 'correct'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'correct'
-                                ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
-                                : 'bg-white dark:bg-dark-bg border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-700 hover:text-green-600 dark:hover:text-green-400'
+                                ? 'bg-gray-800 border-gray-600 text-white'
+                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-800 dark:hover:bg-black hover:border-gray-400 dark:hover:border-gray-500 hover:text-white'
                             }`}
                             title="Classification is correct"
                           >
@@ -817,8 +1183,8 @@ export default function DashboardPage() {
                             disabled={userFeedback[email.id] === 'incorrect'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'incorrect'
-                                ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400'
-                                : 'bg-white dark:bg-dark-bg border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 hover:text-red-600 dark:hover:text-red-400'
+                                ? 'bg-gray-800 border-gray-600 text-white'
+                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-800 dark:hover:bg-black hover:border-gray-400 dark:hover:border-gray-500 hover:text-white'
                             }`}
                             title="Classification is incorrect"
                           >
@@ -831,8 +1197,8 @@ export default function DashboardPage() {
                           <div className="mt-2 text-xs text-center">
                             <span className={`px-2 py-1 rounded-full ${
                               userFeedback[email.id] === 'correct'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
+                                ? 'bg-gray-800 text-white border border-gray-600'
+                                : 'bg-gray-800 text-white border border-gray-600'
                             }`}>
                               {userFeedback[email.id] === 'correct' ? '✓ Feedback: Correct' : '✗ Feedback: Incorrect'}
                             </span>
@@ -855,6 +1221,239 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Email Modal */}
+      {isEmailModalOpen && selectedEmail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden" style={{backgroundColor: '#212121'}}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-600">
+              <div className="flex items-center space-x-3">
+                <Eye className="h-6 w-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">Email Details</h2>
+              </div>
+              <button
+                onClick={closeEmailModal}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="h-6 w-6 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Email Headers */}
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">From</label>
+                    <p className="text-white bg-gray-700 p-3 rounded border border-gray-600">{selectedEmail.from}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">Classification</label>
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        selectedEmail.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
+                      }`}></div>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedEmail.classification === 'spam' 
+                          ? 'bg-red-900/30 text-red-300 border border-red-700' 
+                          : 'bg-green-900/30 text-green-300 border border-green-700'
+                      }`}>
+                        {selectedEmail.classification === 'spam' ? 'Spam' : 'Ham'}
+                      </span>
+                      {selectedEmail.confidence && (
+                        <span className="text-white text-sm">
+                          ({Math.round(selectedEmail.confidence * 100)}% confidence)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1">Subject</label>
+                  <p className="text-white bg-gray-700 p-3 rounded border border-gray-600 font-medium">{selectedEmail.subject}</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">Date</label>
+                    <p className="text-white bg-gray-700 p-3 rounded border border-gray-600">
+                      {selectedEmail.timestamp ? formatTime(selectedEmail.timestamp) : 'Unknown'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">Status</label>
+                    <div className="flex items-center space-x-2">
+                      {selectedEmail.read ? (
+                        <span className="px-3 py-1 bg-gray-700 text-gray-300 rounded border border-gray-600 text-sm">
+                          Read
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 bg-blue-900/30 text-blue-300 rounded border border-blue-700 text-sm">
+                          Unread
+                        </span>
+                      )}
+                      {userCorrectedEmails.has(selectedEmail.id) && (
+                        <span className="px-3 py-1 bg-blue-900/30 text-blue-300 rounded border border-blue-700 text-sm">
+                          User Corrected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedEmail.tags && selectedEmail.tags.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">Tags</label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedEmail.tags.map((tag, index) => (
+                        <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 border border-gray-600 text-white">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Email Content */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-3">Email Content</label>
+                <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                  {loadingEmailContent ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      <span className="ml-3 text-white">Loading full content...</span>
+                    </div>
+                  ) : (
+                    <div className="prose prose-invert max-w-none">
+                      {selectedEmail.content ? (
+                        <div className="space-y-4">
+                          {/* Render email content with enhanced formatting */}
+                          <div className="text-white whitespace-pre-wrap leading-relaxed font-mono text-sm bg-gray-800 p-4 rounded border border-gray-600 max-h-96 overflow-y-auto">
+                            {selectedEmail.content}
+                          </div>
+                          
+                          {/* Media content indicators */}
+                          {selectedEmail.content.includes('http://') || selectedEmail.content.includes('https://') ? (
+                            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600 rounded">
+                              <div className="flex items-center text-blue-300">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                <span className="text-sm font-medium">This email contains external links</span>
+                              </div>
+                              <p className="text-xs text-blue-400 mt-1">
+                                Exercise caution when clicking links from unknown senders
+                              </p>
+                            </div>
+                          ) : null}
+
+                          {/* Attachment indicators */}
+                          {selectedEmail.content.toLowerCase().includes('attachment') || 
+                           selectedEmail.content.toLowerCase().includes('.pdf') ||
+                           selectedEmail.content.toLowerCase().includes('.doc') ||
+                           selectedEmail.content.toLowerCase().includes('.jpg') ||
+                           selectedEmail.content.toLowerCase().includes('.png') ? (
+                            <div className="mt-4 p-3 bg-green-900/20 border border-green-600 rounded">
+                              <div className="flex items-center text-green-300">
+                                <Paperclip className="h-4 w-4 mr-2" />
+                                <span className="text-sm font-medium">This email references file attachments</span>
+                              </div>
+                              <p className="text-xs text-green-400 mt-1">
+                                Attachments are not displayed in this preview
+                              </p>
+                            </div>
+                          ) : null}
+
+                          {/* Rich content indicators */}
+                          {selectedEmail.content.includes('🎉') || selectedEmail.content.includes('💰') || 
+                           selectedEmail.content.includes('🔥') || selectedEmail.content.includes('⚠️') ? (
+                            <div className="mt-4 p-3 bg-purple-900/20 border border-purple-600 rounded">
+                              <div className="flex items-center text-purple-300">
+                                <Smile className="h-4 w-4 mr-2" />
+                                <span className="text-sm font-medium">This email contains emojis and rich formatting</span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 italic">
+                          {selectedEmail.preview || 'Email content not available'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Model Classifications */}
+              {selectedEmail.modelClassifications && selectedEmail.modelClassifications.length > 0 && (
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-white mb-3">Model Predictions</label>
+                  <div className="space-y-3">
+                    {selectedEmail.modelClassifications.map((modelClass, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-700 border border-gray-600 rounded">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-white font-medium">{modelClass.model}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            modelClass.classification === 'spam'
+                              ? 'bg-red-900/30 text-red-300 border border-red-700'
+                              : 'bg-green-900/30 text-green-300 border border-green-700'
+                          }`}>
+                            {modelClass.classification === 'spam' ? 'Spam' : 'Ham'}
+                          </span>
+                        </div>
+                        <span className="text-white text-sm">
+                          {Math.round(modelClass.confidence * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-6 border-t border-gray-600">
+              <div className="flex items-center space-x-4">
+                <span className="text-white text-sm">Was this classification correct?</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleUserFeedback(selectedEmail.id, true)}
+                    disabled={userFeedback[selectedEmail.id] === 'correct'}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+                      userFeedback[selectedEmail.id] === 'correct'
+                        ? 'bg-green-900/30 border-green-700 text-green-300'
+                        : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    <ThumbsUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleUserFeedback(selectedEmail.id, false)}
+                    disabled={userFeedback[selectedEmail.id] === 'incorrect'}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+                      userFeedback[selectedEmail.id] === 'incorrect'
+                        ? 'bg-red-900/30 border-red-700 text-red-300'
+                        : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    <ThumbsDown className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={closeEmailModal}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg border border-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

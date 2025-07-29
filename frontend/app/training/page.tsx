@@ -290,17 +290,17 @@ const ContextCleanseTraining = () => {
 
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-800">
       <Sidebar />
       
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-gray-800 border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Training</h1>
-              <p className="text-sm text-gray-600">Advanced Model Selection & K-Fold Cross Validation</p>
+              <h1 className="text-2xl font-bold text-white">Training</h1>
+              <p className="text-sm text-white">Advanced Model Selection & K-Fold Cross Validation</p>
             </div>
             
             <div className="text-right text-sm text-gray-500">
@@ -322,12 +322,12 @@ const ContextCleanseTraining = () => {
 
         {/* Backend Error Notification */}
         {backendError && (
-          <div className="mx-6 mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+          <div className="mx-6 mt-4 p-4 bg-gray-800 border-l-4 border-gray-600 rounded-md">
             <div className="flex">
-              <AlertCircle className="h-5 w-5 text-yellow-400 mr-3 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-white mr-3 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-yellow-800">Backend Service Unavailable</h3>
-                <p className="text-sm text-yellow-700 mt-1">
+                <h3 className="text-sm font-medium text-white">Backend Service Unavailable</h3>
+                <p className="text-sm text-white mt-1">
                   {backendError} You can still view mock data and explore the interface.
                 </p>
               </div>
@@ -338,7 +338,7 @@ const ContextCleanseTraining = () => {
         <div className="p-6 space-y-6">
 
           {/* Model Training Configuration */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-xl font-semibold mb-4 flex items-center">
               <Settings className="mr-2" />
               Training Configuration
@@ -350,7 +350,7 @@ const ContextCleanseTraining = () => {
               <h4 className="font-semibold mb-3">Select Models to Train:</h4>
               <div className="space-y-2">
                 {Object.entries(availableModels).map(([key, model]) => (
-                  <label key={key} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                  <label key={key} className="flex items-center space-x-3 p-2 hover:bg-gray-800 rounded">
                     <input
                       type="checkbox"
                       checked={selectedModelsForTraining.includes(key)}
@@ -362,7 +362,7 @@ const ContextCleanseTraining = () => {
                         <span className="font-medium">{model.name}</span>
                         {model.trained && <CheckCircle className="w-4 h-4 text-green-500" />}
                       </div>
-                      <p className="text-sm text-gray-600">{model.description}</p>
+                      <p className="text-sm text-white">{model.description}</p>
                     </div>
                   </label>
                 ))}
@@ -372,7 +372,7 @@ const ContextCleanseTraining = () => {
             {/* Training Controls */}
             <div>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   K-Fold Cross Validation:
                 </label>
                 <select 
@@ -390,7 +390,7 @@ const ContextCleanseTraining = () => {
                 <button
                   onClick={trainModels}
                   disabled={modelsTraining || selectedModelsForTraining.length === 0}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+                  className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black disabled:opacity-50 flex items-center justify-center"
                 >
                   <Brain className="mr-2 w-5 h-5" />
                   {modelsTraining ? 'Training Models...' : `Train Selected Models (${selectedModelsForTraining.length})`}
@@ -398,7 +398,7 @@ const ContextCleanseTraining = () => {
 
                 <button
                   onClick={compareModels}
-                  className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center"
+                  className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black flex items-center justify-center"
                 >
                   <BarChart3 className="mr-2 w-5 h-5" />
                   Compare Models
@@ -410,39 +410,39 @@ const ContextCleanseTraining = () => {
           
           {/* Statistics Overview */}
           {statistics && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-xl font-semibold mb-6">Statistics Overview</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="p-3 bg-blue-100 rounded-full w-fit mx-auto mb-3">
-                    <Database className="h-6 w-6 text-blue-600" />
+                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
+                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
+                    <Database className="h-6 w-6 text-white" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{statistics.total_samples.toLocaleString()}</p>
-                  <p className="text-sm text-gray-600">Total Samples</p>
+                  <p className="text-2xl font-bold text-white">{statistics.total_samples.toLocaleString()}</p>
+                  <p className="text-sm text-white">Total Samples</p>
                 </div>
                 
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="p-3 bg-red-100 rounded-full w-fit mx-auto mb-3">
-                    <Mail className="h-6 w-6 text-red-600" />
+                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
+                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
+                    <Mail className="h-6 w-6 text-white" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{statistics.spam_percentage.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-600">Spam Percentage</p>
+                  <p className="text-2xl font-bold text-white">{statistics.spam_percentage.toFixed(1)}%</p>
+                  <p className="text-sm text-white">Spam Percentage</p>
                 </div>
                 
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="p-3 bg-green-100 rounded-full w-fit mx-auto mb-3">
-                    <Target className="h-6 w-6 text-green-600" />
+                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
+                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
+                    <Target className="h-6 w-6 text-white" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{statistics.feature_count}</p>
-                  <p className="text-sm text-gray-600">Features</p>
+                  <p className="text-2xl font-bold text-white">{statistics.feature_count}</p>
+                  <p className="text-sm text-white">Features</p>
                 </div>
                 
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="p-3 bg-purple-100 rounded-full w-fit mx-auto mb-3">
-                    <TrendingUp className="h-6 w-6 text-purple-600" />
+                <div className="text-center p-4 bg-gray-800 border border-gray-600 rounded-lg">
+                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-full w-fit mx-auto mb-3">
+                    <TrendingUp className="h-6 w-6 text-white" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{kFolds}-Fold</p>
-                  <p className="text-sm text-gray-600">K-Fold CV</p>
+                  <p className="text-2xl font-bold text-white">{kFolds}-Fold</p>
+                  <p className="text-sm text-white">K-Fold CV</p>
                 </div>
               </div>
             </div>
@@ -450,7 +450,7 @@ const ContextCleanseTraining = () => {
 
           {/* Cross Validation Results */}
           {Object.keys(cvResults).length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-gray-800 rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-6 flex items-center">
                   <Award className="mr-2 text-yellow-500" />
                   Cross Validation Results ({kFolds}-Fold)
@@ -487,11 +487,11 @@ const ContextCleanseTraining = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-gray-600">Mean F1-Score:</p>
+                          <p className="text-white">Mean F1-Score:</p>
                           <p className="font-semibold text-blue-600">{result.mean_score.toFixed(4)}</p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Std Deviation:</p>
+                          <p className="text-white">Std Deviation:</p>
                           <p className="font-semibold text-purple-600">±{result.std_score.toFixed(4)}</p>
                         </div>
                       </div>
@@ -510,18 +510,18 @@ const ContextCleanseTraining = () => {
 
           {/* Model Comparison Results */}
           {modelResults && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-xl font-semibold mb-6">Enhanced Model Performance Comparison</h3>
             
             {/* Best Model Highlight */}
-            <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+            <div className="bg-gray-800 border-l-4 border-gray-600 p-4 mb-6">
               <div className="flex items-center">
-                <CheckCircle className="text-green-400 w-5 h-5 mr-2" />
+                <CheckCircle className="text-white w-5 h-5 mr-2" />
                 <div>
-                  <h4 className="font-semibold text-green-800">
+                  <h4 className="font-semibold text-white">
                     🏆 Best Model: {modelResults.best_model.name}
                   </h4>
-                  <p className="text-green-700">
+                  <p className="text-white">
                     F1-Score: {modelResults.best_model.metrics.f1_score.toFixed(4)} | 
                     Accuracy: {modelResults.best_model.metrics.accuracy.toFixed(4)} |
                     Key: {modelResults.best_model.key}
@@ -558,17 +558,17 @@ const ContextCleanseTraining = () => {
                 <h4 className="font-semibold mb-4">Model Ranking</h4>
                 <div className="space-y-3">
                   {modelResults.ranking.map(([key, f1Score, name], index) => (
-                    <div key={key} className={`flex items-center p-3 rounded-lg ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
-                        index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-gray-300'
+                    <div key={key} className={`flex items-center p-3 rounded-lg ${index === 0 ? 'bg-gray-800 border border-gray-600' : 'bg-gray-800 border border-gray-600'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mr-3 ${
+                        index === 0 ? 'bg-gray-800 border border-gray-600 text-white' : index === 1 ? 'bg-gray-800 border border-gray-600 text-white' : index === 2 ? 'bg-gray-800 border border-gray-600 text-white' : 'bg-gray-800 border border-gray-600 text-white'
                       }`}>
                         {index + 1}
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">{name || key}</p>
-                        <p className="text-sm text-gray-600">F1-Score: {f1Score.toFixed(4)}</p>
+                        <p className="text-sm text-white">F1-Score: {f1Score.toFixed(4)}</p>
                       </div>
-                      {index === 0 && <Award className="w-5 h-5 text-yellow-500" />}
+                      {index === 0 && <Award className="w-5 h-5 text-white" />}
                     </div>
                   ))}
                 </div>
@@ -580,7 +580,7 @@ const ContextCleanseTraining = () => {
               <h4 className="font-semibold mb-4">Comprehensive Performance Metrics</h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-800">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
@@ -590,26 +590,26 @@ const ContextCleanseTraining = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CV Mean (±Std)</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-gray-800 divide-y divide-gray-200">
                     {Object.entries(modelResults.results).map(([modelKey, metrics]) => {
                       const isBest = modelKey === modelResults.best_model.key;
                       const cvResult = cvResults[modelKey];
                       
                       return (
-                        <tr key={modelKey} className={isBest ? 'bg-green-50' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <tr key={modelKey} className={isBest ? 'bg-gray-800' : 'bg-gray-800'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                             {metrics.name || modelKey}
                             {isBest && (
-                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
                                 🏆 Best
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{metrics.accuracy.toFixed(4)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{metrics.precision.toFixed(4)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{metrics.recall.toFixed(4)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{metrics.f1_score.toFixed(4)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{metrics.accuracy.toFixed(4)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{metrics.precision.toFixed(4)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{metrics.recall.toFixed(4)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{metrics.f1_score.toFixed(4)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                             {cvResult ? (
                               <span>
                                 {cvResult.mean_score.toFixed(4)} 
@@ -636,7 +636,7 @@ const ContextCleanseTraining = () => {
           )}
 
           {/* Enhanced Spam Prediction Demo */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow p-6">
           <h3 className="text-xl font-semibold mb-4 flex items-center">
             <Zap className="mr-2 text-purple-600" />
             Interactive Spam Prediction
@@ -645,7 +645,7 @@ const ContextCleanseTraining = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Select Model for Prediction:
                 </label>
                 <select 
@@ -664,7 +664,7 @@ const ContextCleanseTraining = () => {
               <button
                 onClick={predictSpam}
                 disabled={!availableModels[selectedModel]?.trained}
-                className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center"
+                className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black disabled:opacity-50 flex items-center justify-center"
               >
                 <Play className="mr-2 w-4 h-4" />
                 Test Random Email Features
@@ -672,12 +672,12 @@ const ContextCleanseTraining = () => {
             </div>
 
             {predictionResult && (
-              <div className={`p-4 rounded-lg ${predictionResult.is_spam ? 'bg-red-100 border border-red-200' : 'bg-green-100 border border-green-200'}`}>
+              <div className={`p-4 rounded-lg ${predictionResult.is_spam ? 'bg-gray-800 border border-gray-600' : 'bg-gray-800 border border-gray-600'}`}>
                 <div className="flex items-center mb-2">
                   {predictionResult.is_spam ? (
-                    <AlertCircle className="w-6 h-6 text-red-600 mr-2" />
+                    <AlertCircle className="w-6 h-6 text-white mr-2" />
                   ) : (
-                    <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+                    <CheckCircle className="w-6 h-6 text-white mr-2" />
                   )}
                   <span className={`text-lg font-bold ${predictionResult.is_spam ? 'text-red-800' : 'text-green-800'}`}>
                     {predictionResult.is_spam ? '🚨 SPAM DETECTED' : '✅ NOT SPAM'}
@@ -695,7 +695,7 @@ const ContextCleanseTraining = () => {
 
           {/* Feature Distribution Chart */}
           {statistics && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-xl font-semibold mb-6">Data Analysis</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div>
