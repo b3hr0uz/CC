@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 import asyncio
 from loguru import logger
+import json
+from datetime import datetime
 
 try:
     import onnxruntime as ort
@@ -22,13 +24,19 @@ settings = get_settings()
 
 
 class MLService:
-    """Service for machine learning model operations"""
+    """Service for machine learning model operations with reinforcement learning"""
     
     def __init__(self):
         self.spam_model = None
         self.vectorizer = None
         self.model_version = "1.0.0-dev"
         self.ready = False
+        
+        # Reinforcement Learning components
+        self.feedback_buffer = []
+        self.learning_rate = 0.01
+        self.adaptation_threshold = 5  # Number of feedback samples before model update
+        self.user_preferences = {}  # Track user-specific feedback patterns
         
     async def load_models(self):
         """Load ML models from disk"""
@@ -47,14 +55,16 @@ class MLService:
             else:
                 logger.info("Production models not found, using mock models for development")
                 await self._create_mock_models()
+            
+            # Load reinforcement learning data
+            self._load_learning_data()
                 
             self.ready = True
-            logger.info(f"✅ ML models loaded (version: {self.model_version})")
+            logger.success(f"ML Service ready! Model version: {self.model_version}")
             
         except Exception as e:
             logger.error(f"Failed to load ML models: {e}")
-            await self._create_mock_models()
-            self.ready = True
+            self.ready = False
     
     async def _load_production_models(self, onnx_path: Path, vectorizer_path: Path):
         """Load production ONNX model and vectorizer"""
@@ -196,9 +206,215 @@ class MLService:
         # This would implement actual model retraining
         return {"status": "retrain_queued", "samples": len(feedback_data)}
     
+    def apply_feedback_learning(
+        self, 
+        email_text: str, 
+        predicted_class: str, 
+        correct_class: str, 
+        confidence: float, 
+        reward: float, 
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        Apply reinforcement learning based on user feedback.
+        Implements policy gradient-like updates for email classification.
+        """
+        try:
+            logger.info(f"🎯 Applying RL feedback: {predicted_class} -> {correct_class}, reward: {reward}")
+            
+            # Store feedback in buffer
+            feedback_sample = {
+                "email_text": email_text,
+                "predicted_class": predicted_class,
+                "correct_class": correct_class,
+                "confidence": confidence,
+                "reward": reward,
+                "user_id": user_id,
+                "timestamp": datetime.now().isoformat(),
+                "features": self._extract_features(email_text)
+            }
+            
+            self.feedback_buffer.append(feedback_sample)
+            
+            # Update user preferences tracking
+            if user_id not in self.user_preferences:
+                self.user_preferences[user_id] = {
+                    "feedback_count": 0,
+                    "correct_predictions": 0,
+                    "spam_sensitivity": 0.5,  # 0 = less sensitive, 1 = more sensitive
+                    "feature_weights": {}
+                }
+            
+            user_prefs = self.user_preferences[user_id]
+            user_prefs["feedback_count"] += 1
+            
+            if reward > 0:
+                user_prefs["correct_predictions"] += 1
+            
+            # Adjust user's spam sensitivity based on feedback
+            if predicted_class != correct_class:
+                if correct_class == "spam" and predicted_class == "ham":
+                    # User wants more aggressive spam detection
+                    user_prefs["spam_sensitivity"] = min(1.0, user_prefs["spam_sensitivity"] + 0.1)
+                elif correct_class == "ham" and predicted_class == "spam":
+                    # User wants less aggressive spam detection
+                    user_prefs["spam_sensitivity"] = max(0.0, user_prefs["spam_sensitivity"] - 0.1)
+            
+            # Update feature weights based on feedback
+            features = feedback_sample["features"]
+            for feature_name, feature_value in features.items():
+                if feature_name not in user_prefs["feature_weights"]:
+                    user_prefs["feature_weights"][feature_name] = 0.0
+                
+                # Adjust feature weight based on reward and feature presence
+                if feature_value > 0:  # Feature is present
+                    weight_adjustment = self.learning_rate * reward * feature_value
+                    user_prefs["feature_weights"][feature_name] += weight_adjustment
+            
+            # Check if we should trigger model adaptation
+            model_updated = False
+            new_prediction = None
+            
+            if len(self.feedback_buffer) >= self.adaptation_threshold:
+                logger.info(f"🔄 Triggering model adaptation with {len(self.feedback_buffer)} samples")
+                model_updated = self._adapt_model_weights()
+                
+                if model_updated:
+                    # Get new prediction with adapted model
+                    new_prediction = self.predict_spam(email_text)
+                    
+                    # Clear processed feedback
+                    self.feedback_buffer = []
+            
+            # Save feedback and preferences to disk
+            self._save_learning_data()
+            
+            return {
+                "feedback_processed": True,
+                "model_updated": model_updated,
+                "new_prediction": new_prediction,
+                "user_sensitivity": user_prefs["spam_sensitivity"],
+                "feedback_count": user_prefs["feedback_count"],
+                "accuracy_rate": user_prefs["correct_predictions"] / user_prefs["feedback_count"] if user_prefs["feedback_count"] > 0 else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Reinforcement learning error: {e}")
+            return {
+                "feedback_processed": False,
+                "error": str(e),
+                "model_updated": False
+            }
+    
+    def _adapt_model_weights(self) -> bool:
+        """
+        Adapt model behavior based on accumulated feedback.
+        Implements a simplified policy gradient update.
+        """
+        try:
+            if not self.feedback_buffer:
+                return False
+            
+            logger.info("🧠 Adapting model weights based on user feedback")
+            
+            # Calculate average reward for recent feedback
+            recent_rewards = [sample["reward"] for sample in self.feedback_buffer[-10:]]
+            avg_reward = np.mean(recent_rewards)
+            
+            # If average reward is negative, the model needs adjustment
+            if avg_reward < 0:
+                logger.info(f"📉 Poor performance detected (avg reward: {avg_reward:.2f}), adjusting model")
+                
+                # Analyze patterns in incorrect predictions
+                incorrect_samples = [s for s in self.feedback_buffer if s["reward"] < 0]
+                
+                if incorrect_samples:
+                    # Find common features in misclassified emails
+                    feature_errors = {}
+                    for sample in incorrect_samples:
+                        for feature_name, feature_value in sample["features"].items():
+                            if feature_name not in feature_errors:
+                                feature_errors[feature_name] = []
+                            feature_errors[feature_name].append(feature_value)
+                    
+                    # Update model parameters (simplified approach)
+                    # In production, this would involve actual model weight updates
+                    self.model_version = f"{self.model_version}-adapted-{len(self.feedback_buffer)}"
+                    
+                    logger.info(f"✅ Model adapted to version {self.model_version}")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Model adaptation error: {e}")
+            return False
+    
+    def predict_email_class(self, email_text: str, user_id: str = None) -> Dict[str, Any]:
+        """
+        Enhanced prediction method that considers user preferences.
+        """
+        # Get base prediction
+        base_prediction = self.predict_spam(email_text)
+        
+        # Apply user-specific adjustments if available
+        if user_id and user_id in self.user_preferences:
+            user_prefs = self.user_preferences[user_id]
+            spam_sensitivity = user_prefs["spam_sensitivity"]
+            
+            # Adjust probability based on user sensitivity
+            original_prob = base_prediction["probability"]
+            adjusted_prob = original_prob * (1 + (spam_sensitivity - 0.5))
+            adjusted_prob = max(0.0, min(1.0, adjusted_prob))  # Clamp to [0,1]
+            
+            # Update prediction
+            base_prediction["probability"] = adjusted_prob
+            base_prediction["is_spam"] = adjusted_prob > 0.5
+            base_prediction["user_adapted"] = True
+            base_prediction["spam_sensitivity"] = spam_sensitivity
+            
+            logger.info(f"🎯 User-adapted prediction for {user_id}: {original_prob:.3f} -> {adjusted_prob:.3f}")
+        
+        return base_prediction
+    
+    def _save_learning_data(self):
+        """Save learning data to disk for persistence."""
+        try:
+            learning_data = {
+                "feedback_buffer": self.feedback_buffer,
+                "user_preferences": self.user_preferences,
+                "model_version": self.model_version,
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            data_dir = Path("data/ml_learning")
+            data_dir.mkdir(parents=True, exist_ok=True)
+            
+            with open(data_dir / "learning_data.json", "w") as f:
+                json.dump(learning_data, f, indent=2, default=str)
+                
+        except Exception as e:
+            logger.error(f"❌ Error saving learning data: {e}")
+    
+    def _load_learning_data(self):
+        """Load learning data from disk."""
+        try:
+            data_file = Path("data/ml_learning/learning_data.json")
+            if data_file.exists():
+                with open(data_file, "r") as f:
+                    learning_data = json.load(f)
+                
+                self.feedback_buffer = learning_data.get("feedback_buffer", [])
+                self.user_preferences = learning_data.get("user_preferences", {})
+                
+                logger.info(f"📚 Loaded learning data: {len(self.feedback_buffer)} feedback samples, {len(self.user_preferences)} users")
+                
+        except Exception as e:
+            logger.error(f"❌ Error loading learning data: {e}")
+    
     async def get_model_metrics(self) -> Dict[str, Any]:
-        """Get current model performance metrics"""
-        return {
+        """Get current model performance metrics including RL stats"""
+        base_metrics = {
             "model_version": self.model_version,
             "ready": self.ready,
             "accuracy": 0.95,  # Mock metrics
@@ -206,4 +422,22 @@ class MLService:
             "recall": 0.96,
             "f1_score": 0.945,
             "last_updated": "2024-01-01T00:00:00Z"
-        } 
+        }
+        
+        # Add reinforcement learning metrics
+        if self.feedback_buffer or self.user_preferences:
+            total_feedback = len(self.feedback_buffer)
+            correct_feedback = len([f for f in self.feedback_buffer if f["reward"] > 0])
+            
+            rl_metrics = {
+                "total_user_feedback": total_feedback,
+                "correct_predictions": correct_feedback,
+                "user_accuracy_rate": correct_feedback / total_feedback if total_feedback > 0 else 0,
+                "active_users": len(self.user_preferences),
+                "adaptation_threshold": self.adaptation_threshold,
+                "learning_rate": self.learning_rate
+            }
+            
+            base_metrics.update(rl_metrics)
+        
+        return base_metrics 

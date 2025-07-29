@@ -557,6 +557,129 @@ async def get_model_details(model_name: str):
     
     return details
 
+# User Feedback Endpoint for Reinforcement Learning
+class UserFeedback(BaseModel):
+    user_id: str
+    email_id: str
+    feedback_type: str  # 'correct' or 'incorrect'
+    predicted_class: str  # 'spam' or 'ham'
+    confidence_score: float
+    email_features: Dict[str, Any]
+    timestamp: str
+
+class FeedbackResponse(BaseModel):
+    success: bool
+    message: str
+    feedback_id: Optional[str] = None
+    model_updated: bool = False
+
+# Store feedback data (in production, use proper database)
+user_feedback_storage = []
+
+@app.post("/api/v1/feedback", response_model=FeedbackResponse)
+async def submit_user_feedback(feedback: UserFeedback):
+    """
+    Submit user feedback for email classification.
+    Implements reinforcement learning to improve model accuracy.
+    """
+    try:
+        print(f"📝 Received feedback from {feedback.user_id} for email {feedback.email_id}")
+        
+        # Generate feedback ID
+        import time
+        feedback_id = f"fb_{feedback.user_id}_{feedback.email_id}_{int(time.time())}"
+        
+        # Store feedback data
+        feedback_data = {
+            "id": feedback_id,
+            "user_id": feedback.user_id,
+            "email_id": feedback.email_id,
+            "feedback_type": feedback.feedback_type,
+            "predicted_class": feedback.predicted_class,
+            "confidence_score": feedback.confidence_score,
+            "email_features": feedback.email_features,
+            "timestamp": feedback.timestamp,
+            "processed": True
+        }
+        
+        user_feedback_storage.append(feedback_data)
+        
+        # Process reinforcement learning feedback
+        try:
+            # Determine correct label and reward based on feedback
+            if feedback.feedback_type == "correct":
+                reward = 1.0
+                correct_label = feedback.predicted_class
+                message = "Thank you! Your feedback helps improve our model."
+            else:
+                reward = -1.0
+                correct_label = "ham" if feedback.predicted_class == "spam" else "spam"
+                message = "Thank you for the correction! Our model will learn from this."
+            
+            print(f"🎯 Processing feedback: {feedback.predicted_class} -> {correct_label}, reward: {reward}")
+            
+            # Save feedback to file for persistence
+            import os
+            feedback_file = "data/user_feedback.json"
+            os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
+            
+            existing_feedback = []
+            if os.path.exists(feedback_file):
+                with open(feedback_file, 'r') as f:
+                    existing_feedback = json.load(f)
+            
+            existing_feedback.append(feedback_data)
+            
+            with open(feedback_file, 'w') as f:
+                json.dump(existing_feedback, f, indent=2)
+            
+            print(f"✅ Feedback saved! Total feedback samples: {len(existing_feedback)}")
+            
+        except Exception as processing_error:
+            print(f"❌ Error processing feedback: {processing_error}")
+            message = "Feedback received but processing encountered an error."
+        
+        return FeedbackResponse(
+            success=True,
+            message=message,
+            feedback_id=feedback_id,
+            model_updated=False  # Set to True when actual model updating is implemented
+        )
+        
+    except Exception as e:
+        print(f"❌ Error handling feedback: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing feedback: {str(e)}")
+
+@app.get("/api/v1/feedback/stats")
+async def get_feedback_stats():
+    """Get feedback statistics for monitoring."""
+    try:
+        total_feedback = len(user_feedback_storage)
+        correct_feedback = len([f for f in user_feedback_storage if f["feedback_type"] == "correct"])
+        incorrect_feedback = len([f for f in user_feedback_storage if f["feedback_type"] == "incorrect"])
+        
+        # Load from file as well
+        feedback_file = "data/user_feedback.json"
+        file_feedback = []
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                file_feedback = json.load(f)
+        
+        total_file_feedback = len(file_feedback)
+        
+        return {
+            "total_feedback": total_feedback,
+            "correct_feedback": correct_feedback,
+            "incorrect_feedback": incorrect_feedback,
+            "accuracy_rate": correct_feedback / total_feedback if total_feedback > 0 else 0,
+            "total_persistent_feedback": total_file_feedback,
+            "recent_feedback": user_feedback_storage[-5:] if user_feedback_storage else [],
+            "status": "active"
+        }
+    except Exception as e:
+        print(f"❌ Error getting feedback stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

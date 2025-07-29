@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { 
   Mail, Search, RefreshCw, AlertCircle, 
-  CheckCircle, Clock, Tag, Inbox, Shield
+  CheckCircle, Clock, Tag, Inbox, Shield,
+  ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
 
@@ -28,6 +29,52 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [emailError, setEmailError] = useState<{type: string, message: string} | null>(null);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [emailLimit, setEmailLimit] = useState(20); // New state for controlling sample size
+  const [userFeedback, setUserFeedback] = useState<{[emailId: string]: 'correct' | 'incorrect' | null}>({});
+
+  // Handle user feedback for email classification
+  const handleUserFeedback = async (emailId: string, isCorrect: boolean) => {
+    const feedbackType = isCorrect ? 'correct' : 'incorrect';
+    
+    // Update local state immediately for UI responsiveness
+    setUserFeedback(prev => ({
+      ...prev,
+      [emailId]: feedbackType
+    }));
+
+    try {
+      // Send feedback to backend for reinforcement learning
+      const email = emails.find(e => e.id === emailId);
+      if (!email) return;
+
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailId,
+          userFeedback: feedbackType,
+          currentClassification: email.classification,
+          confidence: email.confidence,
+          emailContent: {
+            subject: email.subject,
+            from: email.from,
+            preview: email.preview
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to submit feedback');
+        // Optionally revert the UI state on error
+      } else {
+        console.log('✅ Feedback submitted successfully');
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchEmails = async () => {
@@ -35,7 +82,7 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         setEmailError(null);
-        const response = await fetch('/api/emails?limit=20');
+        const response = await fetch(`/api/emails?limit=${emailLimit}`); // Use dynamic limit
         
         if (!response.ok) {
           let errorData;
@@ -106,66 +153,122 @@ export default function DashboardPage() {
     if (status === 'loading') return; // Still loading session
     
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/');
       return;
     }
 
     if (session) {
       fetchEmails();
     }
-  }, [session, status, router]);
+  }, [session, status, router, emailLimit]);
 
-  const getMockEmails = (): ExtendedEmailData[] => [
-    {
-      id: 'mock-1',
-      subject: 'Welcome to ContextCleanse!',
-      from: 'welcome@contextcleanse.ai',
-      date: new Date().toISOString(),
-      isRead: false,
-      preview: 'Welcome to ContextCleanse! We are excited to have you on board.',
-      threadId: 'thread-1',
-      classification: 'ham',
-      confidence: 0.95,
-      tags: ['welcome'],
-      timestamp: new Date().toISOString(),
-      read: false
-    },
-    {
-      id: 'mock-2', 
-      subject: 'URGENT: Claim your prize now!',
-      from: 'winner@suspicious-lottery.fake',
-      date: new Date(Date.now() - 3600000).toISOString(),
-      isRead: false,
-      preview: 'You have won a prize! Click here to claim it now!',
-      threadId: 'thread-2',
-      classification: 'spam',
-      confidence: 0.98,
-      tags: ['suspicious'],
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      read: false
-    },
-    {
-      id: 'mock-3',
-      subject: 'Weekly Team Update',
-      from: 'manager@company.com',
-      date: new Date(Date.now() - 7200000).toISOString(), 
-      isRead: true,
-      preview: 'Here is the weekly team update. Please review it before our meeting.',
-      threadId: 'thread-3',
-      classification: 'ham',
-      confidence: 0.89,
-      tags: ['work'],
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      read: true
+  const getMockEmails = (): ExtendedEmailData[] => {
+    const mockEmailTemplates = [
+      {
+        subject: 'Welcome to ContextCleanse!',
+        from: 'welcome@contextcleanse.ai',
+        preview: 'Welcome to ContextCleanse! We are excited to have you on board.',
+        classification: 'ham' as const,
+        confidence: 0.95,
+        tags: ['welcome'],
+        read: false
+      },
+      {
+        subject: 'URGENT: Claim your prize now!', 
+        from: 'winner@suspicious-lottery.fake',
+        preview: 'You have won a prize! Click here to claim it now!',
+        classification: 'spam' as const,
+        confidence: 0.98,
+        tags: ['suspicious'],
+        read: false
+      },
+      {
+        subject: 'Weekly Team Update',
+        from: 'manager@company.com',
+        preview: 'Here is the weekly team update. Please review it before our meeting.',
+        classification: 'ham' as const,
+        confidence: 0.89,
+        tags: ['work'],
+        read: true
+      },
+      {
+        subject: 'Limited Time Offer - Buy Now!',
+        from: 'deals@spamstore.net',
+        preview: 'Special discount available for the next 24 hours only!',
+        classification: 'spam' as const,
+        confidence: 0.92,
+        tags: ['promotional'],
+        read: false
+      },
+      {
+        subject: 'Meeting Reminder: Project Review',
+        from: 'calendar@workplace.com',
+        preview: 'Reminder about your upcoming project review meeting.',
+        classification: 'ham' as const,
+        confidence: 0.87,
+        tags: ['meeting'],
+        read: false
+      },
+      {
+        subject: 'Free Money - No Strings Attached!',
+        from: 'money@scammer.fake',
+        preview: 'Get free money with no questions asked! Act now!',
+        classification: 'spam' as const,
+        confidence: 0.99,
+        tags: ['scam'],
+        read: false
+      },
+      {
+        subject: 'Your Invoice #12345',
+        from: 'billing@service.com',
+        preview: 'Your monthly invoice is ready for review.',
+        classification: 'ham' as const,
+        confidence: 0.91,
+        tags: ['billing'],
+        read: true
+      },
+      {
+        subject: 'Congratulations Winner!!!',
+        from: 'lottery@fake-contest.org',
+        preview: 'You are our lucky winner! Click to claim your million dollars!',
+        classification: 'spam' as const,
+        confidence: 0.97,
+        tags: ['lottery', 'suspicious'],
+        read: false
+      }
+    ];
+
+    const mockEmails: ExtendedEmailData[] = [];
+    
+    for (let i = 0; i < emailLimit; i++) {
+      const template = mockEmailTemplates[i % mockEmailTemplates.length];
+      const timeOffset = i * 3600000; // 1 hour apart
+      
+      mockEmails.push({
+        id: `mock-${i + 1}`,
+        subject: template.subject + (i >= mockEmailTemplates.length ? ` (${Math.floor(i / mockEmailTemplates.length) + 1})` : ''),
+        from: template.from,
+        date: new Date(Date.now() - timeOffset).toISOString(),
+        isRead: template.read,
+        preview: template.preview,
+        threadId: `thread-${i + 1}`,
+        classification: template.classification,
+        confidence: template.confidence + (Math.random() * 0.1 - 0.05), // Small variation
+        tags: template.tags,
+        timestamp: new Date(Date.now() - timeOffset).toISOString(),
+        read: template.read
+      });
     }
-  ];
+    
+    return mockEmails;
+  };
 
   const fetchEmails = async () => {
     console.log('🔄 fetchEmails called - using updated error handling');
     try {
       setLoading(true);
       setEmailError(null);
-      const response = await fetch('/api/emails?limit=20');
+      const response = await fetch(`/api/emails?limit=${emailLimit}`); // Use dynamic limit
       
       if (!response.ok) {
         let errorData;
@@ -177,7 +280,7 @@ export default function DashboardPage() {
         
         console.log('📧 Email fetch error:', response.status, errorData);
         
-        if (response.status === 403 && errorData.code === 'INSUFFICIENT_SCOPE') {
+        if (response.status === 403 && (errorData as {code?: string}).code === 'INSUFFICIENT_SCOPE') {
           console.log('🔐 Insufficient scope error - using demo data');
           setEmailError({
             type: 'auth',
@@ -276,7 +379,7 @@ export default function DashboardPage() {
 
   const handleReauth = async () => {
     await signOut({ redirect: false });
-    router.push('/login');
+    router.push('/');
   };
 
   const formatTime = (timestamp: string) => {
@@ -449,7 +552,27 @@ export default function DashboardPage() {
               </div>
 
               <div className="text-sm text-gray-600">
-                Showing {filteredEmails.length} of {emails.length} emails
+                <div className="flex items-center space-x-3">
+                  <span>Showing {filteredEmails.length} of {emails.length} emails</span>
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="email-limit" className="text-gray-500">
+                      Sample size:
+                    </label>
+                    <input
+                      id="email-limit"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={emailLimit}
+                      onChange={(e) => {
+                        const newLimit = Math.max(1, Math.min(100, parseInt(e.target.value) || 20));
+                        setEmailLimit(newLimit);
+                      }}
+                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <span className="text-gray-500">emails</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -532,6 +655,48 @@ export default function DashboardPage() {
                         <div className="mt-2 text-xs text-gray-500 text-center">
                           {Math.round((email.confidence || 0) * 100)}% confidence
                         </div>
+                        
+                        {/* User Feedback Buttons */}
+                        <div className="mt-3 flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleUserFeedback(email.id, true)}
+                            disabled={userFeedback[email.id] === 'correct'}
+                            className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+                              userFeedback[email.id] === 'correct'
+                                ? 'bg-green-100 border-green-300 text-green-700'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-600'
+                            }`}
+                            title="Classification is correct"
+                          >
+                            <ThumbsUp className="h-4 w-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleUserFeedback(email.id, false)}
+                            disabled={userFeedback[email.id] === 'incorrect'}
+                            className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+                              userFeedback[email.id] === 'incorrect'
+                                ? 'bg-red-100 border-red-300 text-red-700'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                            }`}
+                            title="Classification is incorrect"
+                          >
+                            <ThumbsDown className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        {/* Feedback Status */}
+                        {userFeedback[email.id] && (
+                          <div className="mt-2 text-xs text-center">
+                            <span className={`px-2 py-1 rounded-full ${
+                              userFeedback[email.id] === 'correct'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {userFeedback[email.id] === 'correct' ? '✓ Feedback: Correct' : '✗ Feedback: Incorrect'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
