@@ -71,13 +71,12 @@ export default function DashboardPage() {
     name: string;
     f1_score: number;
   }>>({
-    'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.924 },
-    'neural_network': { name: 'Neural Network', f1_score: 0.901 },
     'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886 },
-    'svm': { name: 'Support Vector Machine', f1_score: 0.891 },
-    'random_forest': { name: 'Random Forest', f1_score: 0.913 },
+    'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.934 },
     'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878 },
-    'xgboost': { name: 'XGBoost', f1_score: 0.934 }
+    'neural_network': { name: 'Neural Network', f1_score: 0.901 },
+    'svm': { name: 'Support Vector Machine', f1_score: 0.891 },
+    'random_forest': { name: 'Random Forest', f1_score: 0.913 }
   });
   const [modelPredictions, setModelPredictions] = useState<Record<string, {
     classification: 'spam' | 'ham';
@@ -2013,13 +2012,12 @@ This email is totally legitimate and not suspicious at all.`,
         progress: 0,
         selectedModel: 'gradient_boosting',
         availableModels: {
-          'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.924, trained: true },
-          'neural_network': { name: 'Neural Network', f1_score: 0.901, trained: false },
           'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886, trained: false },
-          'svm': { name: 'Support Vector Machine', f1_score: 0.891, trained: false },
-          'random_forest': { name: 'Random Forest', f1_score: 0.913, trained: false },
+          'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.934, trained: true },
           'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878, trained: false },
-          'xgboost': { name: 'XGBoost', f1_score: 0.934, trained: false }
+          'neural_network': { name: 'Neural Network', f1_score: 0.901, trained: false },
+          'svm': { name: 'Support Vector Machine', f1_score: 0.891, trained: false },
+          'random_forest': { name: 'Random Forest', f1_score: 0.913, trained: false }
         },
         lastUpdate: new Date().toISOString()
       };
@@ -2050,7 +2048,7 @@ This email is totally legitimate and not suspicious at all.`,
   const simulateBackgroundTraining = async () => {
     console.log('🔄 Starting background auto-training simulation...');
     
-    const models = ['gradient_boosting', 'neural_network', 'logistic_regression', 'svm', 'random_forest', 'naive_bayes', 'xgboost'];
+          const models = ['logistic_regression', 'gradient_boosting', 'naive_bayes', 'neural_network', 'svm', 'random_forest'];
     const currentStatus = JSON.parse(localStorage.getItem('backgroundTrainingStatus') || '{}') as BackgroundTrainingStatus;
     
     // Update to training phase
@@ -2371,7 +2369,7 @@ This email is totally legitimate and not suspicious at all.`,
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-400">All Models</span>
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 border border-blue-700 text-blue-300">
-                  7 Models Active
+                  {Object.keys(availableModels).length} Models Active
                 </span>
               </div>
             </div>

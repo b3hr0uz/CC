@@ -151,7 +151,7 @@ export default function TrainingPage() {
     enabled: true, // Enable auto-training
     optimal_k_fold: 5,
     resource_limit: 100, // 100% of system resources
-    selected_models: ['gradient_boosting', 'logistic_regression', 'neural_network', 'naive_bayes', 'svm', 'random_forest', 'xgboost'],
+    selected_models: ['logistic_regression', 'gradient_boosting', 'naive_bayes', 'neural_network', 'svm', 'random_forest'],
     auto_start_on_login: true, // Enable auto-start on login
     sequential_training: true // Enable sequential training
   });
@@ -178,11 +178,20 @@ export default function TrainingPage() {
   const initializeWithMockData = () => {
     console.log('🔄 Pre-loading all sections with initial mock data...');
     
-    // Pre-load Training Analysis with mock model results (All 7 models)
+    // Pre-load Training Analysis with mock model results (Final 6 models)
     if (!modelResults) {
       const mockModelResults = {
         results: {
-          'xgboost': {
+          'logistic_regression': {
+            accuracy: 0.882,
+            precision: 0.893,
+            recall: 0.879,
+            f1_score: 0.886,
+            training_time: 12.3,
+            cv_score: 0.883,
+            std_score: 0.018
+          },
+          'gradient_boosting': {
             accuracy: 0.928,
             precision: 0.941,
             recall: 0.927,
@@ -191,23 +200,14 @@ export default function TrainingPage() {
             cv_score: 0.931,
             std_score: 0.012
           },
-          'gradient_boosting': {
-            accuracy: 0.918,
-            precision: 0.931,
-            recall: 0.917,
-            f1_score: 0.924,
-            training_time: 45.7,
-            cv_score: 0.921,
-            std_score: 0.015
-          },
-          'random_forest': {
-            accuracy: 0.909,
-            precision: 0.918,
-            recall: 0.908,
-            f1_score: 0.913,
-            training_time: 67.8,
-            cv_score: 0.910,
-            std_score: 0.019
+          'naive_bayes': {
+            accuracy: 0.874,
+            precision: 0.885,
+            recall: 0.871,
+            f1_score: 0.878,
+            training_time: 3.2,
+            cv_score: 0.875,
+            std_score: 0.025
           },
           'neural_network': {
             accuracy: 0.895,
@@ -227,28 +227,19 @@ export default function TrainingPage() {
             cv_score: 0.888,
             std_score: 0.021
           },
-          'logistic_regression': {
-            accuracy: 0.882,
-            precision: 0.893,
-            recall: 0.879,
-            f1_score: 0.886,
-            training_time: 12.3,
-            cv_score: 0.883,
-            std_score: 0.018
-          },
-          'naive_bayes': {
-            accuracy: 0.874,
-            precision: 0.885,
-            recall: 0.871,
-            f1_score: 0.878,
-            training_time: 3.2,
-            cv_score: 0.875,
-            std_score: 0.025
+          'random_forest': {
+            accuracy: 0.909,
+            precision: 0.918,
+            recall: 0.908,
+            f1_score: 0.913,
+            training_time: 67.8,
+            cv_score: 0.910,
+            std_score: 0.019
           }
         },
         best_model: {
-          key: 'xgboost',
-          name: 'XGBoost',
+          key: 'gradient_boosting',
+          name: 'Gradient Boosting',
           metrics: {
             accuracy: 0.928,
             precision: 0.941,
@@ -260,8 +251,7 @@ export default function TrainingPage() {
           }
         },
         ranking: [
-          ['xgboost', 0.934, 'XGBoost'] as [string, number, string],
-          ['gradient_boosting', 0.924, 'Gradient Boosting'] as [string, number, string],
+          ['gradient_boosting', 0.934, 'Gradient Boosting'] as [string, number, string],
           ['random_forest', 0.913, 'Random Forest'] as [string, number, string],
           ['neural_network', 0.901, 'Neural Network'] as [string, number, string],
           ['svm', 0.891, 'Support Vector Machine'] as [string, number, string],
@@ -272,8 +262,8 @@ export default function TrainingPage() {
       };
       
       setModelResults(mockModelResults);
-      setBestModel('xgboost');
-      console.log('📊 Pre-loaded Training Analysis with mock model results for all 7 models');
+      setBestModel('gradient_boosting');
+      console.log('📊 Pre-loaded Training Analysis with mock model results for final 6 models');
     }
     
     // Pre-load K-Fold Cross Validation Analysis with mock results
@@ -621,14 +611,30 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('Error fetching available models:', error);
       
-      // Set mock available models for demo purposes (All 7 models)
+      // Set mock available models for demo purposes (Final 6 models)
       const mockModels = {
+        'logistic_regression': {
+          name: 'Logistic Regression',
+          description: 'Linear model for binary classification - F1: 88.6%',
+          scaling_required: 'StandardScaler',
+          trained: true,
+          f1_score: 0.886,
+          training_progress: 100
+        },
         'gradient_boosting': {
           name: 'Gradient Boosting',
-          description: 'Ensemble method with boosting - F1: 92.4%',
+          description: 'Ensemble method with boosting - F1: 93.4%',
           scaling_required: 'None',
           trained: true,
-          f1_score: 0.924,
+          f1_score: 0.934,
+          training_progress: 100
+        },
+        'naive_bayes': {
+          name: 'Naive Bayes',
+          description: 'Probabilistic classifier - F1: 87.8%',
+          scaling_required: 'None',
+          trained: true,
+          f1_score: 0.878,
           training_progress: 100
         },
         'neural_network': {
@@ -637,14 +643,6 @@ export default function TrainingPage() {
           scaling_required: 'StandardScaler',
           trained: true,
           f1_score: 0.901,
-          training_progress: 100
-        },
-        'logistic_regression': {
-          name: 'Logistic Regression',
-          description: 'Linear model for binary classification - F1: 88.6%',
-          scaling_required: 'StandardScaler',
-          trained: true,
-          f1_score: 0.886,
           training_progress: 100
         },
         'svm': {
@@ -661,22 +659,6 @@ export default function TrainingPage() {
           scaling_required: 'None',
           trained: true,
           f1_score: 0.913,
-          training_progress: 100
-        },
-        'naive_bayes': {
-          name: 'Naive Bayes',
-          description: 'Probabilistic classifier - F1: 87.8%',
-          scaling_required: 'None',
-          trained: true,
-          f1_score: 0.878,
-          training_progress: 100
-        },
-        'xgboost': {
-          name: 'XGBoost',
-          description: 'Extreme Gradient Boosting - F1: 93.4%',
-          scaling_required: 'None',
-          trained: true,
-          f1_score: 0.934,
           training_progress: 100
         }
       };

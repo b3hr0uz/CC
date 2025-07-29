@@ -53,12 +53,28 @@ interface RLOptimization {
 
 // Mock model performance data (in real app, this would come from training results)
 const MOCK_MODEL_PERFORMANCE = {
+  'logistic_regression': {
+    name: 'Logistic Regression', 
+    f1_score: 0.886,
+    accuracy: 0.882,
+    precision: 0.893,
+    recall: 0.879,
+    trained: true
+  },
   'gradient_boosting': {
     name: 'Gradient Boosting',
-    f1_score: 0.924,
-    accuracy: 0.918,
-    precision: 0.931,
-    recall: 0.917,
+    f1_score: 0.934,
+    accuracy: 0.928,
+    precision: 0.941,
+    recall: 0.927,
+    trained: true
+  },
+  'naive_bayes': {
+    name: 'Naive Bayes',
+    f1_score: 0.878,
+    accuracy: 0.874,
+    precision: 0.885,
+    recall: 0.871,
     trained: true
   },
   'neural_network': {
@@ -67,14 +83,6 @@ const MOCK_MODEL_PERFORMANCE = {
     accuracy: 0.895,
     precision: 0.908,
     recall: 0.894,
-    trained: true
-  },
-  'logistic_regression': {
-    name: 'Logistic Regression', 
-    f1_score: 0.886,
-    accuracy: 0.882,
-    precision: 0.893,
-    recall: 0.879,
     trained: true
   },
   'svm': {
@@ -91,22 +99,6 @@ const MOCK_MODEL_PERFORMANCE = {
     accuracy: 0.909,
     precision: 0.918,
     recall: 0.908,
-    trained: true
-  },
-  'naive_bayes': {
-    name: 'Naive Bayes',
-    f1_score: 0.878,
-    accuracy: 0.874,
-    precision: 0.885,
-    recall: 0.871,
-    trained: true
-  },
-  'xgboost': {
-    name: 'XGBoost',
-    f1_score: 0.934,
-    accuracy: 0.928,
-    precision: 0.941,
-    recall: 0.927,
     trained: true
   }
 };
