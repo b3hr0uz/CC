@@ -138,6 +138,7 @@ export default function TrainingPage() {
     model_display_name: string;
     model_used: string;
   } | null>(null);
+  const [analysisRefreshTrigger, setAnalysisRefreshTrigger] = useState<number>(0); // Force refresh trigger for Training Analysis
 
   // Use global notification context
   const { addNotification: addNotificationToContext, clearAllNotifications: clearNotificationsFromContext, removeNotification: removeNotificationFromContext, notificationCounter } = useNotifications();
@@ -757,6 +758,10 @@ export default function TrainingPage() {
         await new Promise(resolve => setTimeout(resolve, 100));
         console.log('✅ compareModels state updates should be processed');
         
+        // Trigger Training Analysis refresh
+        console.log('🔄 Triggering Training Analysis refresh...');
+        setAnalysisRefreshTrigger(prev => prev + 1);
+        
       } else {
         console.warn('⚠️ No valid model results found in comparison data');
       }
@@ -840,6 +845,10 @@ export default function TrainingPage() {
       // Add a small delay to ensure state updates are processed
       await new Promise(resolve => setTimeout(resolve, 100));
       console.log('✅ compareModels mock state updates should be processed');
+      
+      // Trigger Training Analysis refresh for mock data
+      console.log('🔄 Triggering Training Analysis refresh for mock data...');
+      setAnalysisRefreshTrigger(prev => prev + 1);
       
       console.log('🔄 Using mock comparison results due to error:', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -1050,6 +1059,14 @@ export default function TrainingPage() {
       // After individual model training, update the analysis sections by comparing models
       console.log(`🔄 Individual training completed for ${modelName}, updating Training Analysis...`);
       await compareModels();
+      
+      // Update available models to refresh TopBar dropdown with latest training status
+      console.log(`🔄 Refreshing TopBar dropdown for ${modelName}...`);
+      await fetchAvailableModels();
+      
+      // Trigger Training Analysis refresh after individual model training
+      console.log(`🔄 Triggering Training Analysis refresh after ${modelName} training...`);
+      setAnalysisRefreshTrigger(prev => prev + 1);
 
     } catch (error) {
       console.error(`❌ Error training ${modelName}:`, error);
@@ -1087,6 +1104,14 @@ export default function TrainingPage() {
       // After individual model training (even on error), update the analysis sections
       console.log(`⚠️ Training failed for ${modelName}, but updating Training Analysis with mock data...`);
       await compareModels();
+      
+      // Update available models to refresh TopBar dropdown even after training failure
+      console.log(`🔄 Refreshing TopBar dropdown after ${modelName} training failure...`);
+      await fetchAvailableModels();
+      
+      // Trigger Training Analysis refresh even after training failure
+      console.log(`🔄 Triggering Training Analysis refresh after ${modelName} training failure...`);
+      setAnalysisRefreshTrigger(prev => prev + 1);
     }
   };
 
@@ -1202,6 +1227,33 @@ export default function TrainingPage() {
     }
   }, [modelResults, bestModel]);
 
+  // Auto-update TopBar Selected Model when new training results come in
+  useEffect(() => {
+    if (modelResults && bestModel && Object.keys(modelResults.results).length > 0) {
+      // If current selected model is not trained or doesn't exist, switch to best model
+      if (!availableModels[selectedModel]?.trained || !modelResults.results[selectedModel]) {
+        console.log(`🔄 TopBar: Switching selected model from ${selectedModel} to best model: ${bestModel}`);
+        setSelectedModel(bestModel);
+      }
+      
+      console.log(`📊 TopBar: Selected Model dropdown should now show updated F1-scores for ${Object.keys(modelResults.results).length} models`);
+    }
+  }, [modelResults, bestModel, availableModels, selectedModel]);
+
+  // Force Training Analysis refresh when triggered by training events
+  useEffect(() => {
+    if (analysisRefreshTrigger > 0) {
+      console.log(`🔄 Training Analysis forced refresh triggered (${analysisRefreshTrigger})`);
+      console.log('📊 Training Analysis sections should now reflect latest training results');
+      
+      // Additional logging to verify data availability
+      if (modelResults) {
+        console.log(`📊 Training Analysis refresh: ${Object.keys(modelResults.results).length} models available`);
+        console.log(`🏆 Training Analysis refresh: Best model is ${bestModel}`);
+      }
+    }
+  }, [analysisRefreshTrigger, modelResults, bestModel]);
+
   return (
     <div className="flex h-screen bg-gray-800">
       <Sidebar />
@@ -1292,7 +1344,10 @@ export default function TrainingPage() {
         <div className="p-4 sm:p-6 space-y-6 custom-scrollbar overflow-y-auto">
 
           {/* Training Analysis */}
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+          <div 
+            key={`training-analysis-${analysisRefreshTrigger}`} 
+            className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6"
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white flex items-center">
                 <BarChart3 className="mr-2 h-5 w-5" />
