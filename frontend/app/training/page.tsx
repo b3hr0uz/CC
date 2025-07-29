@@ -1128,7 +1128,7 @@ export default function TrainingPage() {
           )}
 
           {/* Cross Validation Results */}
-          {Object.keys(cvResults).length > 0 && (
+          {cvResults && Object.keys(cvResults).length > 0 && (
             <div className="bg-gray-800 rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-6 flex items-center">
                   <Award className="mr-2 text-yellow-500" />
@@ -1272,7 +1272,7 @@ export default function TrainingPage() {
                   <tbody className="bg-gray-800 divide-y divide-gray-200">
                     {Object.entries(modelResults.results).map(([modelKey, metrics]) => {
                       const isBest = modelKey === modelResults.best_model.key;
-                      const cvResult = cvResults[modelKey];
+                      const cvResult = cvResults?.[modelKey];
                       
                       return (
                         <tr key={modelKey} className={isBest ? 'bg-gray-800' : 'bg-gray-800'}>
