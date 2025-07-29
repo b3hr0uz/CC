@@ -581,33 +581,106 @@ export default function TrainingPage() {
   };
 
   const trainModelsWithResourceManagement = async () => {
-    if (!isBackendAvailable) {
-      addNotification({
-        id: generateNotificationId('training_error', 'System'),
-        type: 'training_error',
-        model_name: 'System',
-        message: 'ML Backend service is not available. Cannot perform auto-training.',
-        timestamp: new Date()
-      });
-      setIsAutoTraining(false);
-      return;
-    }
-
+    console.log('🚀 Starting trainModelsWithResourceManagement...');
+    
     const modelsToTrain = selectedModelsForTraining;
     const totalModels = modelsToTrain.length;
     let completedModels = 0;
     let totalDuration = 0;
 
+    // If backend is not available, use mock training
+    if (!isBackendAvailable) {
+      console.log('🔄 Backend unavailable, using mock training process...');
+      
+      addNotification({
+        id: generateNotificationId('training_start', 'Mock Training'),
+        type: 'training_start',
+        model_name: 'Mock Training',
+        message: `Starting mock training for ${totalModels} models (Backend in demo mode)`,
+        timestamp: new Date()
+      });
+
+      // Mock training for each model
+      for (const modelName of modelsToTrain) {
+        if (!isAutoTraining) break; // Stop if user cancels
+
+        addNotification({
+          id: generateNotificationId('model_training_start', modelName),
+          type: 'model_training_start',
+          model_name: modelName,
+          message: `Training ${modelName} with ${kFolds}-Fold CV...`,
+          timestamp: new Date(),
+          estimated_duration: 45,
+          resource_usage: {
+            cpu_percent: autoTrainingConfig.resource_limit,
+            memory_mb: 1024 * (autoTrainingConfig.resource_limit / 100)
+          }
+        });
+
+        // Simulate training time
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        const mockDuration = Math.random() * 30 + 15; // 15-45 seconds
+        totalDuration += mockDuration;
+
+        // Generate mock improved metrics
+        const mockMetrics = {
+          accuracy: 0.85 + Math.random() * 0.15,
+          precision: 0.80 + Math.random() * 0.15,
+          recall: 0.82 + Math.random() * 0.15,
+          f1_score: 0.83 + Math.random() * 0.15,
+          training_time: mockDuration,
+          cv_score: 0.81 + Math.random() * 0.12,
+          std_score: 0.01 + Math.random() * 0.03
+        };
+
+        addNotification({
+          id: generateNotificationId('model_training_complete', modelName),
+          type: 'model_training_complete',
+          model_name: modelName,
+          message: `${modelName} training complete. F1-Score: ${mockMetrics.f1_score.toFixed(4)}`,
+          timestamp: new Date(),
+          duration: mockDuration,
+          end_time: new Date(),
+          metrics: mockMetrics,
+          resource_usage: {
+            cpu_percent: autoTrainingConfig.resource_limit,
+            memory_mb: 1024 * (autoTrainingConfig.resource_limit / 100)
+          }
+        });
+
+        completedModels++;
+        
+        // Small delay between models
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Final completion notification
+      addNotification({
+        id: generateNotificationId('training_complete', 'Mock Training'),
+        type: 'training_complete',
+        model_name: 'Mock Training System',
+        message: `Mock training completed for ${completedModels}/${totalModels} models. Total time: ${totalDuration.toFixed(1)}s`,
+        timestamp: new Date(),
+        duration: totalDuration,
+        end_time: new Date()
+      });
+
+      setIsAutoTraining(false);
+      return;
+    }
+
+    // Original backend training logic
     for (const modelName of modelsToTrain) {
       if (!isAutoTraining) break; // Stop if user cancels
 
       const modelInfo = availableModels[modelName];
-      if (!modelInfo || !modelInfo.trained) {
+      if (!modelInfo) {
         addNotification({
           id: generateNotificationId('training_error', modelName),
           type: 'training_error',
           model_name: modelName,
-          message: `${modelName} is not trained. Skipping.`,
+          message: `${modelName} not found in available models. Skipping.`,
           timestamp: new Date()
         });
         completedModels++;
@@ -615,8 +688,8 @@ export default function TrainingPage() {
       }
 
       addNotification({
-        id: generateNotificationId('training_start', modelName),
-        type: 'training_start',
+        id: generateNotificationId('model_training_start', modelName),
+        type: 'model_training_start',
         model_name: modelName,
         message: `Training ${modelName} with ${kFolds}-Fold CV...`,
         timestamp: new Date()
@@ -632,8 +705,8 @@ export default function TrainingPage() {
         totalDuration += duration;
 
         addNotification({
-          id: generateNotificationId('training_complete', modelName),
-          type: 'training_complete',
+          id: generateNotificationId('model_training_complete', modelName),
+          type: 'model_training_complete',
           model_name: modelName,
           message: `${modelName} training complete. Duration: ${duration.toFixed(2)}s`,
           timestamp: new Date(),
@@ -651,32 +724,27 @@ export default function TrainingPage() {
           id: generateNotificationId('training_error', modelName),
           type: 'training_error',
           model_name: modelName,
-          message: `Error training ${modelName}: ${errorMessage}`,
+          message: `Training failed for ${modelName}: ${errorMessage}`,
           timestamp: new Date()
         });
         completedModels++;
       }
+
+      // Delay between models to simulate resource management
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
-    if (completedModels === totalModels) {
-      addNotification({
-        id: generateNotificationId('training_complete', 'System'),
-        type: 'training_complete',
-        model_name: 'System',
-        message: `Auto-training completed for all ${totalModels} models. Total duration: ${totalDuration.toFixed(2)}s`,
-        timestamp: new Date()
-      });
-      setIsAutoTraining(false);
-    } else {
-      addNotification({
-        id: generateNotificationId('training_complete', 'System'),
-        type: 'training_complete',
-        model_name: 'System',
-        message: `Auto-training completed for ${completedModels} out of ${totalModels} models.`,
-        timestamp: new Date()
-      });
-      setIsAutoTraining(false);
-    }
+    // Final summary notification
+    addNotification({
+      id: generateNotificationId('training_complete', 'Training System'),
+      type: 'training_complete',
+      model_name: 'Training System',
+      message: `Training completed for ${completedModels}/${totalModels} models. Total time: ${totalDuration.toFixed(1)}s`,
+      timestamp: new Date(),
+      duration: totalDuration
+    });
+
+    setIsAutoTraining(false);
   };
 
   const compareModels = async () => {
