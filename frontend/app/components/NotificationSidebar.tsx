@@ -5,79 +5,19 @@ import {
   Play, CheckCircle, AlertCircle, Zap, Brain, 
   X, Clock, TrendingUp, Target, Award, Bell
 } from 'lucide-react';
-
-interface BaseNotification {
-  id: string;
-  type: string;
-  model_name: string;
-  message: string;
-  timestamp: Date;
-  duration?: number;
-  estimated_duration?: number;
-  start_time?: Date;
-  end_time?: Date;
-  resource_usage?: {
-    cpu_percent: number;
-    memory_mb: number;
-  };
-  timeoutId?: NodeJS.Timeout;
-}
-
-// Training metrics interface
-interface ModelMetrics {
-  accuracy: number;
-  precision: number;
-  recall: number;
-  f1_score: number;
-  description?: string;
-  training_time?: number;
-  cv_score?: number;
-  std_score?: number;
-}
-
-// Training notification interface
-interface TrainingNotification extends BaseNotification {
-  type: 'training_start' | 'training_complete' | 'training_error' | 'auto_training_init' | 'model_training_start' | 'model_training_complete';
-  metrics?: ModelMetrics & {
-    previous_metrics?: ModelMetrics;
-    metric_changes?: {
-      accuracy_change?: number;
-      precision_change?: number;
-      recall_change?: number;
-      f1_score_change?: number;
-    };
-  };
-}
-
-// RL notification interface
-interface RLNotification extends BaseNotification {
-  type: 'rl_optimization_start' | 'rl_optimization_complete' | 'rl_error';
-  emailId?: string;
-  improvements?: {
-    accuracyGain: number;
-    precisionGain: number;
-    recallGain: number;
-    f1ScoreGain: number;
-  };
-}
-
-type NotificationItem = TrainingNotification | RLNotification;
+import { useNotifications, NotificationItem } from '../contexts/NotificationContext';
 
 interface NotificationSidebarProps {
-  notifications: NotificationItem[];
-  onClearNotification?: (id: string) => void;
-  onClearAll?: () => void;
   title?: string;
   isVisible?: boolean;
 }
 
 export default function NotificationSidebar({ 
-  notifications, 
-  onClearNotification, 
-  onClearAll, 
-  title = "System Notifications",
+  title = "Events",
   isVisible = true 
 }: NotificationSidebarProps) {
+  const { notifications, removeNotification, clearAllNotifications } = useNotifications();
+  
   if (!isVisible) return null;
 
   const getNotificationIcon = (type: string) => {
@@ -87,6 +27,7 @@ export default function NotificationSidebar({
         return <Play className="h-4 w-4" />;
       case 'training_complete':
       case 'model_training_complete':
+      case 'model_classification_complete':
         return <CheckCircle className="h-4 w-4" />;
       case 'training_error':
       case 'rl_error':
@@ -94,9 +35,14 @@ export default function NotificationSidebar({
       case 'auto_training_init':
         return <Zap className="h-4 w-4" />;
       case 'rl_optimization_start':
+      case 'model_classification_start':
         return <Brain className="h-4 w-4" />;
       case 'rl_optimization_complete':
         return <Target className="h-4 w-4" />;
+      case 'email_fetch_start':
+        return <Bell className="h-4 w-4" />;
+      case 'email_fetch_complete':
+        return <CheckCircle className="h-4 w-4" />;
       default:
         return <CheckCircle className="h-4 w-4" />;
     }
@@ -107,10 +53,14 @@ export default function NotificationSidebar({
       case 'training_start':
       case 'model_training_start':
       case 'rl_optimization_start':
+      case 'email_fetch_start':
+      case 'model_classification_start':
         return 'bg-blue-600 border-blue-400';
       case 'training_complete':
       case 'model_training_complete':
       case 'rl_optimization_complete':
+      case 'email_fetch_complete':
+      case 'model_classification_complete':
         return 'bg-green-600 border-green-400';
       case 'training_error':
       case 'rl_error':
@@ -119,6 +69,41 @@ export default function NotificationSidebar({
         return 'bg-purple-600 border-purple-400';
       default:
         return 'bg-gray-600 border-gray-400';
+    }
+  };
+
+  const getNotificationCategory = (type: string) => {
+    switch (type) {
+      case 'training_start':
+      case 'model_training_start':
+      case 'training_complete':
+      case 'model_training_complete':
+      case 'training_error':
+      case 'auto_training_init':
+        return 'Training';
+      case 'rl_optimization_start':
+      case 'rl_optimization_complete':
+      case 'rl_error':
+        return 'Optimization';
+      case 'email_fetch_start':
+      case 'email_fetch_complete':
+        return 'Data';
+      case 'model_classification_start':
+      case 'model_classification_complete':
+        return 'Classification';
+      default:
+        return 'System';
+    }
+  };
+
+  const getNotificationTypeLabel = (type: string) => {
+    switch (type) {
+      case 'rl_optimization_start':
+      case 'rl_optimization_complete':
+      case 'rl_error':
+        return 'Optimization Event';
+      default:
+        return 'Training Event';
     }
   };
 
@@ -135,9 +120,9 @@ export default function NotificationSidebar({
             </span>
           )}
         </div>
-        {notifications.length > 0 && onClearAll && (
+        {notifications.length > 0 && clearAllNotifications && (
           <button
-            onClick={onClearAll}
+            onClick={clearAllNotifications}
             className="text-gray-400 hover:text-white text-sm underline"
           >
             Clear All
@@ -162,17 +147,22 @@ export default function NotificationSidebar({
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   {getNotificationIcon(notification.type)}
-                  <span className="font-semibold text-sm">
-                    {notification.model_name.replace('_', ' ').toUpperCase()}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm">
+                      {notification.model_name.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <span className="text-xs opacity-75 font-medium">
+                      {getNotificationCategory(notification.type)}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-xs opacity-75">
                     {notification.timestamp.toLocaleTimeString()}
                   </span>
-                  {onClearNotification && (
+                  {removeNotification && (
                     <button
-                      onClick={() => onClearNotification(notification.id)}
+                      onClick={() => removeNotification(notification.id)}
                       className="text-white/60 hover:text-white"
                     >
                       <X className="h-3 w-3" />
@@ -209,8 +199,7 @@ export default function NotificationSidebar({
               )}
 
               {/* Training Complete Details with Metrics */}
-              {(notification.type === 'model_training_complete' || notification.type === 'rl_optimization_complete') && 
-               (notification as TrainingNotification).metrics && (
+              {notification.type === 'model_training_complete' && 'metrics' in notification && notification.metrics && (
                 <div className="text-xs space-y-2 bg-black/20 rounded p-3">
                   {/* Timing Information */}
                   {(notification.start_time || notification.end_time || notification.duration) && (
@@ -237,57 +226,84 @@ export default function NotificationSidebar({
                   )}
 
                   {/* Model Metrics with Change Indicators */}
-                  {(notification as TrainingNotification).metrics && (
-                    <div className="space-y-1">
-                      {(notification as TrainingNotification).metrics?.accuracy && (
-                        <div className="flex items-center justify-between">
-                          <span>🎯 Accuracy:</span>
-                          <div className="flex items-center space-x-1">
-                            <span className="font-mono font-semibold">
-                              {((notification as TrainingNotification).metrics!.accuracy * 100).toFixed(1)}%
+                  <div className="space-y-1">
+                    {notification.metrics.accuracy && (
+                      <div className="flex items-center justify-between">
+                        <span>🎯 Accuracy:</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="font-mono font-semibold">
+                            {(notification.metrics.accuracy * 100).toFixed(1)}%
+                          </span>
+                          {notification.metrics.metric_changes?.accuracy_change && (
+                            <span className={`text-xs ${
+                              notification.metrics.metric_changes.accuracy_change > 0 
+                                ? 'text-green-300' : 'text-red-300'
+                            }`}>
+                              {notification.metrics.metric_changes.accuracy_change > 0 ? '↗️' : '↘️'}
+                              {Math.abs(notification.metrics.metric_changes.accuracy_change * 100).toFixed(2)}%
                             </span>
-                            {(notification as TrainingNotification).metrics?.metric_changes?.accuracy_change && (
-                              <span className={`text-xs ${
-                                (notification as TrainingNotification).metrics!.metric_changes!.accuracy_change! > 0 
-                                  ? 'text-green-300' : 'text-red-300'
-                              }`}>
-                                {(notification as TrainingNotification).metrics!.metric_changes!.accuracy_change! > 0 ? '↗️' : '↘️'}
-                                {Math.abs((notification as TrainingNotification).metrics!.metric_changes!.accuracy_change! * 100).toFixed(2)}%
-                              </span>
-                            )}
-                          </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {notification.metrics.f1_score && (
+                      <div className="flex items-center justify-between">
+                        <span>🏆 F1-Score:</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="font-mono font-semibold text-yellow-300">
+                            {(notification.metrics.f1_score * 100).toFixed(1)}%
+                          </span>
+                          {notification.metrics.metric_changes?.f1_score_change && (
+                            <span className={`text-xs ${
+                              notification.metrics.metric_changes.f1_score_change > 0 
+                                ? 'text-green-300' : 'text-red-300'
+                            }`}>
+                              {notification.metrics.metric_changes.f1_score_change > 0 ? '↗️' : '↘️'}
+                              {Math.abs(notification.metrics.metric_changes.f1_score_change * 100).toFixed(2)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* RL Optimization Complete Details */}
+              {notification.type === 'rl_optimization_complete' && (
+                <div className="text-xs space-y-2 bg-black/20 rounded p-3">
+                  {/* Timing Information */}
+                  {(notification.start_time || notification.end_time || notification.duration) && (
+                    <div className="grid grid-cols-2 gap-2 pb-2 border-b border-white/20">
+                      {notification.start_time && (
+                        <div className="flex justify-between">
+                          <span>🕐 Start:</span>
+                          <span className="font-mono">{notification.start_time.toLocaleTimeString()}</span>
                         </div>
                       )}
-
-                      {(notification as TrainingNotification).metrics?.f1_score && (
-                        <div className="flex items-center justify-between">
-                          <span>🏆 F1-Score:</span>
-                          <div className="flex items-center space-x-1">
-                            <span className="font-mono font-semibold text-yellow-300">
-                              {((notification as TrainingNotification).metrics!.f1_score * 100).toFixed(1)}%
-                            </span>
-                            {(notification as TrainingNotification).metrics?.metric_changes?.f1_score_change && (
-                              <span className={`text-xs ${
-                                (notification as TrainingNotification).metrics!.metric_changes!.f1_score_change! > 0 
-                                  ? 'text-green-300' : 'text-red-300'
-                              }`}>
-                                {(notification as TrainingNotification).metrics!.metric_changes!.f1_score_change! > 0 ? '↗️' : '↘️'}
-                                {Math.abs((notification as TrainingNotification).metrics!.metric_changes!.f1_score_change! * 100).toFixed(2)}%
-                              </span>
-                            )}
-                          </div>
+                      {notification.end_time && (
+                        <div className="flex justify-between">
+                          <span>🏁 End:</span>
+                          <span className="font-mono">{notification.end_time.toLocaleTimeString()}</span>
+                        </div>
+                      )}
+                      {notification.duration && (
+                        <div className="flex justify-between col-span-2">
+                          <span>⏱️ Duration:</span>
+                          <span className="font-mono font-semibold">{notification.duration.toFixed(1)}s</span>
                         </div>
                       )}
                     </div>
                   )}
 
                   {/* RL Optimization Results */}
-                  {notification.type === 'rl_optimization_complete' && (notification as RLNotification).improvements && (
+                  {'improvements' in notification && notification.improvements && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span>🧠 RL Improvement:</span>
                         <span className="font-mono font-semibold text-green-300">
-                          +{((notification as RLNotification).improvements!.f1ScoreGain * 100).toFixed(2)}%
+                          +{(notification.improvements.f1ScoreGain * 100).toFixed(2)}%
                         </span>
                       </div>
                     </div>

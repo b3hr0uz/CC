@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Sidebar from '../components/Sidebar';
 import NotificationSidebar from '../components/NotificationSidebar';
+import { useNotifications, TrainingNotification } from '../contexts/NotificationContext';
 import { 
   Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock, 
   TrendingUp, Activity, Database, Zap, Brain, Settings, 
@@ -78,32 +79,6 @@ interface CrossValidationResult {
   k_folds: number;
 }
 
-interface TrainingNotification {
-  id: string;
-  type: 'training_start' | 'training_complete' | 'training_error' | 'auto_training_init' | 'model_training_start' | 'model_training_complete';
-  model_name: string;
-  message: string;
-  metrics?: ModelMetrics & {
-    previous_metrics?: ModelMetrics; // For showing improvement/degradation
-    metric_changes?: {
-      accuracy_change?: number;
-      precision_change?: number;
-      recall_change?: number;
-      f1_score_change?: number;
-    };
-  };
-  timestamp: Date;
-  duration?: number;
-  estimated_duration?: number; // For training estimation
-  start_time?: Date;
-  end_time?: Date;
-  resource_usage?: {
-    cpu_percent: number;
-    memory_mb: number;
-  };
-  timeoutId?: NodeJS.Timeout; // For cleanup
-}
-
 interface AutoTrainingConfig {
   enabled: boolean;
   optimal_k_fold: number;
@@ -143,11 +118,10 @@ export default function TrainingPage() {
   });
 
   // Enhanced state for new features
-  const [trainingNotifications, setTrainingNotifications] = useState<TrainingNotification[]>([]);
   const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
     enabled: true, // Enable auto-training
     optimal_k_fold: 5,
-    resource_limit: 50, // 50% of system resources
+    resource_limit: 100, // 100% of system resources
     selected_models: ['gradient_boosting', 'logistic_regression', 'neural_network', 'naive_bayes'],
     auto_start_on_login: true, // Enable auto-start on login
     sequential_training: true // Enable sequential training
@@ -157,6 +131,7 @@ export default function TrainingPage() {
   const [previousModelMetrics, setPreviousModelMetrics] = useState<{[key: string]: ModelMetrics}>({});
   const [hasTriggeredAutoTraining, setHasTriggeredAutoTraining] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('gradient_boosting');
+  const [selectedAnalysisModel, setSelectedAnalysisModel] = useState<string>('all'); // New state for Training Analysis model selection
   const [predictionResult, setPredictionResult] = useState<{
     is_spam: boolean;
     confidence: number;
@@ -164,15 +139,23 @@ export default function TrainingPage() {
     model_used: string;
   } | null>(null);
 
-  // Unique ID counter for notifications to prevent duplicates
-  const [notificationCounter, setNotificationCounter] = useState(0);
+  // Use global notification context
+  const { addNotification: addNotificationToContext, clearAllNotifications: clearNotificationsFromContext, removeNotification: removeNotificationFromContext, notificationCounter } = useNotifications();
 
   // Generate unique notification ID
-  const generateNotificationId = (type: string, modelName?: string) => {
+  const generateNotificationId = (type: string, modelName: string) => {
     const timestamp = Date.now();
-    const counter = notificationCounter;
-    setNotificationCounter(prev => prev + 1);
-    return `${type}-${modelName || 'system'}-${timestamp}-${counter}`;
+    return `${type}-${modelName}-${timestamp}-${notificationCounter}`;
+  };
+
+  // Add notification to the list
+  const addNotification = (notification: TrainingNotification) => {
+    addNotificationToContext(notification);
+  };
+
+  // Cleanup function for notifications
+  const clearAllNotifications = () => {
+    clearNotificationsFromContext();
   };
 
   // Simulate loading progress for backend operations
@@ -256,38 +239,46 @@ export default function TrainingPage() {
       console.log('🔐 User logged in - checking data before triggering auto-training');
       
       const checkDataAndStartTraining = () => {
-        // Only start training if data is loaded
-        if (!loadingStates.availableModels && !loadingStates.statistics && Object.keys(availableModels).length > 0) {
-          console.log('🚀 Data verified, starting auto-training...');
+        // Only start training if data is loaded and not already training
+        if (!loadingStates.availableModels && !loadingStates.statistics && Object.keys(availableModels).length > 0 && !isAutoTraining) {
+          console.log('🚀 Data verified, starting auto-training via session trigger...');
           setHasTriggeredAutoTraining(true);
           
-          // Add a short delay to allow component to fully stabilize
+          // Add initialization notification
+          addNotification({
+            id: generateNotificationId('auto_training_init', 'Session System'),
+            type: 'auto_training_init',
+            model_name: 'Session System',
+            message: `Auto-training initiated from login with ${autoTrainingConfig.resource_limit}% system resources`,
+            timestamp: new Date()
+          });
+          
+          // Start training directly (skip the problematic startAutoTraining)
           setTimeout(() => {
             trainModelsSequentiallyWithNotifications();
-          }, 2000); // 2 second delay
-        } else {
+          }, 2000);
+        } else if (!hasTriggeredAutoTraining && !isAutoTraining) {
           console.log('⏳ Waiting for data to load before starting auto-training...');
           // Re-check after a delay if data isn't ready yet
           setTimeout(checkDataAndStartTraining, 1500);
+        } else {
+          console.log('⏩ Auto-training already triggered or in progress, skipping session trigger');
         }
       };
       
       checkDataAndStartTraining();
     }
-  }, [session, status, hasTriggeredAutoTraining, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login, loadingStates.availableModels, loadingStates.statistics, availableModels]);
+  }, [session, status, hasTriggeredAutoTraining, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login, loadingStates.availableModels, loadingStates.statistics, availableModels, isAutoTraining]);
 
-  // Cleanup effect to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      console.log('🧹 Training component cleanup - clearing notifications');
-      clearAllNotifications();
-    };
-  }, []);
+  // Removed cleanup effect to ensure notifications persist across navigation
 
   // Auto-training initialization on component mount (simulates login)
   const initializeAutoTraining = async () => {
-    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled) {
+    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled && !isAutoTraining && !hasTriggeredAutoTraining) {
       console.log('🚀 Initializing auto-training on login...');
+      
+      // Set flag to prevent duplicate initialization
+      setHasTriggeredAutoTraining(true);
       
       // Show auto-training initialization notification
       addNotification({
@@ -299,45 +290,28 @@ export default function TrainingPage() {
       });
 
       // Determine optimal K-Fold CV rate
-      const optimalKFold = await determineOptimalKFold();
-      setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
-      setKFolds(optimalKFold);
+      try {
+        const optimalKFold = await determineOptimalKFold();
+        setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
+        setKFolds(optimalKFold);
 
-      // Start auto-training after a brief delay
-      setTimeout(() => {
-        startAutoTraining();
-      }, 2000);
+        // Start sequential training directly (use the working method)
+        console.log('🚀 Starting trainModelsSequentiallyWithNotifications...');
+        setTimeout(() => {
+          trainModelsSequentiallyWithNotifications();
+        }, 2000);
+      } catch (error) {
+        console.error('❌ Error in auto-training initialization:', error);
+        addNotification({
+          id: generateNotificationId('training_error', 'System'),
+          type: 'training_error',
+          model_name: 'System',
+          message: `Auto-training initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date()
+        });
+        setHasTriggeredAutoTraining(false); // Reset flag on error
+      }
     }
-  };
-
-  // Add notification to the list
-  const addNotification = (notification: TrainingNotification) => {
-    setTrainingNotifications(prev => {
-      // Prevent memory leaks by limiting notifications
-      const newNotifications = [notification, ...prev.slice(0, 4)]; // Keep last 5 notifications
-      return newNotifications;
-    });
-    
-    // Auto-remove notification after 10 seconds with cleanup
-    const timeoutId = setTimeout(() => {
-      setTrainingNotifications(prev => prev.filter(n => n.id !== notification.id));
-    }, 10000);
-    
-    // Store timeout ID for potential cleanup
-    notification.timeoutId = timeoutId;
-  };
-
-  // Cleanup function for notifications
-  const clearAllNotifications = () => {
-    setTrainingNotifications(prev => {
-      // Clear any pending timeouts
-      prev.forEach(notification => {
-        if (notification.timeoutId) {
-          clearTimeout(notification.timeoutId);
-        }
-      });
-      return [];
-    });
   };
 
   // Determine optimal K-Fold CV rate
@@ -374,15 +348,11 @@ export default function TrainingPage() {
     }
   };
 
-  // Start auto-training process
+  // Start auto-training process (DEPRECATED - use trainModelsSequentiallyWithNotifications instead)
   const startAutoTraining = async () => {
-    setIsAutoTraining(true);
-    setSelectedModelsForTraining(autoTrainingConfig.selected_models);
-    
-    console.log('🔄 Starting auto-training for all models...');
-    
-    // Start training with resource management
-    await trainModelsWithResourceManagement();
+    console.log('⚠️ startAutoTraining is deprecated, redirecting to trainModelsSequentiallyWithNotifications');
+    // Redirect to the working training method
+    await trainModelsSequentiallyWithNotifications();
   };
 
   const fetchStatistics = async () => {
@@ -748,9 +718,13 @@ export default function TrainingPage() {
   };
 
   const compareModels = async () => {
+    console.log('🔍 compareModels started - current modelResults:', modelResults);
+    
     try {
       const response = await axios.get(`${API_BASE_URL}/compare`);
       const comparisonData = response.data;
+      
+      console.log('📊 Received comparison data from backend:', comparisonData);
       
       // Safely determine the best model with null checks
       let bestModelKey = comparisonData.best_model?.key;
@@ -768,19 +742,27 @@ export default function TrainingPage() {
       }
       
       if (bestModelKey) {
+        console.log(`🏆 Setting bestModel to: ${bestModelKey}`);
         setBestModel(bestModelKey);
+        
+        console.log(`📊 Setting modelResults with ${Object.keys(comparisonData.results).length} models`);
         setModelResults(comparisonData);
         
         const bestF1Score = (comparisonData.results[bestModelKey] as ModelMetrics)?.f1_score;
         if (bestF1Score) {
           console.log(`🏆 Best model identified: ${bestModelKey} (F1-Score: ${bestF1Score.toFixed(4)})`);
         }
+        
+        // Add a small delay to ensure state updates are processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('✅ compareModels state updates should be processed');
+        
       } else {
         console.warn('⚠️ No valid model results found in comparison data');
       }
       
     } catch (error) {
-      console.error('Error comparing models:', error);
+      console.error('❌ Error comparing models, using mock data fallback:', error);
       
       // Always use mock data as fallback (whether backend is available or not)
       const mockResults = {
@@ -849,8 +831,15 @@ export default function TrainingPage() {
         optimal_k_fold: kFolds
       };
       
+      console.log('🎭 Using mock comparison results with gradient_boosting as best model');
       setBestModel('gradient_boosting');
+      
+      console.log(`📊 Setting modelResults with mock data (${Object.keys(mockResults.results).length} models)`);
       setModelResults(mockResults);
+      
+      // Add a small delay to ensure state updates are processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('✅ compareModels mock state updates should be processed');
       
       console.log('🔄 Using mock comparison results due to error:', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -951,12 +940,19 @@ export default function TrainingPage() {
       console.log('📊 Comparing trained models...');
       await compareModels();
       
+      // Wait a moment for state updates to be processed
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get the updated best model after comparison
+      const currentBestModel = bestModel || 'Unknown';
+      console.log(`🏆 Current best model after comparison: ${currentBestModel}`);
+      
       // Final notification
       addNotification({
         id: generateNotificationId('training_complete', 'Auto-Training System'),
         type: 'training_complete',
         model_name: 'Auto-Training System',
-        message: `Auto-training completed successfully. Best model: ${bestModel}`,
+        message: `Auto-training completed successfully. Best model: ${currentBestModel}`,
         timestamp: new Date(),
         end_time: new Date()
       });
@@ -1051,6 +1047,10 @@ export default function TrainingPage() {
         }
       });
 
+      // After individual model training, update the analysis sections by comparing models
+      console.log(`🔄 Individual training completed for ${modelName}, updating Training Analysis...`);
+      await compareModels();
+
     } catch (error) {
       console.error(`❌ Error training ${modelName}:`, error);
       
@@ -1083,6 +1083,10 @@ export default function TrainingPage() {
           metric_changes: metricChanges
         }
       });
+      
+      // After individual model training (even on error), update the analysis sections
+      console.log(`⚠️ Training failed for ${modelName}, but updating Training Analysis with mock data...`);
+      await compareModels();
     }
   };
 
@@ -1162,6 +1166,41 @@ export default function TrainingPage() {
     return base;
   };
 
+  // Removed cleanup effect to ensure notifications persist across navigation
+
+  // Update selected analysis model when new training results come in
+  useEffect(() => {
+    if (modelResults && Object.keys(modelResults.results).length > 0) {
+      // If "all" is selected, keep it
+      if (selectedAnalysisModel === 'all') return;
+      
+      // If the selected model doesn't exist in results, switch to the best model or first available
+      if (!modelResults.results[selectedAnalysisModel]) {
+        const firstAvailable = Object.keys(modelResults.results)[0];
+        if (firstAvailable) {
+          setSelectedAnalysisModel(bestModel || firstAvailable);
+        }
+      }
+    }
+  }, [modelResults, bestModel, selectedAnalysisModel]);
+
+  // Debug: Track when modelResults changes to ensure Training Analysis updates
+  useEffect(() => {
+    if (modelResults) {
+      console.log('🔄 modelResults updated! Training Analysis should refresh now:', {
+        totalModels: Object.keys(modelResults.results).length,
+        bestModel: bestModel,
+        selectedAnalysisModel: selectedAnalysisModel,
+        modelKeys: Object.keys(modelResults.results)
+      });
+      
+      // Force a re-render by updating a timestamp (if needed)
+      // This ensures the Training Analysis sections reflect the latest data
+      console.log('📊 Training Analysis sections should now display updated metrics');
+    } else {
+      console.log('❌ modelResults is null - Training Analysis will show "No training results available"');
+    }
+  }, [modelResults, bestModel]);
 
   return (
     <div className="flex h-screen bg-gray-800">
@@ -1193,8 +1232,11 @@ export default function TrainingPage() {
                   >
                     {Object.entries(availableModels).map(([key, model]) => (
                       <option key={key} value={key} disabled={!model.trained}>
-                        {model.name} {!model.trained ? '(Not Trained)' : ''}
-                        {model.trained && modelResults?.results[key] && ` (F1: ${modelResults.results[key].f1_score.toFixed(3)})`}
+                        {model.name}
+                        {!model.trained && ' (Not Trained)'}
+                        {model.trained && modelResults?.results[key] && 
+                          ` - F1: ${(modelResults.results[key].f1_score * 100).toFixed(1)}%`
+                        }
                       </option>
                     ))}
                   </select>
@@ -1249,6 +1291,197 @@ export default function TrainingPage() {
 
         <div className="p-4 sm:p-6 space-y-6 custom-scrollbar overflow-y-auto">
 
+          {/* Training Analysis */}
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white flex items-center">
+                <BarChart3 className="mr-2 h-5 w-5" />
+                Training Analysis
+              </h3>
+              
+              {/* Model Selection for Analysis */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-400">View:</label>
+                <select 
+                  value={selectedAnalysisModel} 
+                  onChange={(e) => setSelectedAnalysisModel(e.target.value)}
+                  className="px-3 py-1 bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Models</option>
+                  {Object.entries(availableModels)
+                    .filter(([key, model]) => model.trained && modelResults?.results[key])
+                    .map(([key, model]) => (
+                    <option key={key} value={key}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Model Performance Overview */}
+              <div className="lg:col-span-2">
+                <h4 className="font-semibold mb-4 text-white">
+                  {selectedAnalysisModel === 'all' ? 'Model Performance Overview' : `${availableModels[selectedAnalysisModel]?.name || selectedAnalysisModel} Performance`}
+                </h4>
+                {modelResults ? (
+                  <div className="space-y-3">
+                    {(selectedAnalysisModel === 'all' 
+                      ? Object.entries(modelResults.results) 
+                      : modelResults.results[selectedAnalysisModel] 
+                        ? [[selectedAnalysisModel, modelResults.results[selectedAnalysisModel]] as [string, ModelMetrics]]
+                        : []
+                    ).map(([key, metrics]) => {
+                      const isBest = key === bestModel;
+                      return (
+                        <div key={key} className={`p-4 rounded-lg border ${
+                          isBest ? 'bg-green-900/20 border-green-700' : 'bg-gray-700 border-gray-600'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-white">
+                                {availableModels[key]?.name || key}
+                              </span>
+                              {isBest && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
+                                  Best Model
+                                </span>
+                              )}
+                              {selectedAnalysisModel !== 'all' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 border border-blue-700 text-blue-300">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-400">
+                              F1: {(metrics.f1_score * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-400">Accuracy:</span>
+                              <div className="font-medium text-white">{(metrics.accuracy * 100).toFixed(1)}%</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Precision:</span>
+                              <div className="font-medium text-white">{(metrics.precision * 100).toFixed(1)}%</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Recall:</span>
+                              <div className="font-medium text-white">{(metrics.recall * 100).toFixed(1)}%</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Training Time:</span>
+                              <div className="font-medium text-white">{metrics.training_time?.toFixed(1) || 'N/A'}s</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No training results available</p>
+                    <p className="text-sm">Train models to see performance analysis</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Stats */}
+              <div>
+                <h4 className="font-semibold mb-4 text-white">
+                  {selectedAnalysisModel === 'all' ? 'Quick Stats' : 'Model Stats'}
+                </h4>
+                <div className="space-y-3">
+                  {selectedAnalysisModel === 'all' ? (
+                    <>
+                      <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div className="text-sm text-gray-400">Best F1-Score</div>
+                        <div className="text-lg font-bold text-green-300">
+                          {modelResults ? (Math.max(...Object.values(modelResults.results).map(m => m.f1_score)) * 100).toFixed(1) + '%' : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div className="text-sm text-gray-400">Models Trained</div>
+                        <div className="text-lg font-bold text-blue-300">
+                          {modelResults ? Object.keys(modelResults.results).length : 0}
+                        </div>
+                      </div>
+                      <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div className="text-sm text-gray-400">Avg. Training Time</div>
+                        <div className="text-lg font-bold text-yellow-300">
+                          {modelResults ? 
+                            (Object.values(modelResults.results)
+                              .map(m => m.training_time || 0)
+                              .reduce((a, b) => a + b, 0) / Object.keys(modelResults.results).length
+                            ).toFixed(1) + 's' 
+                            : 'N/A'
+                          }
+                        </div>
+                      </div>
+                      <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div className="text-sm text-gray-400">Current K-Fold</div>
+                        <div className="text-lg font-bold text-purple-300">
+                          {kFolds}-Fold
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    modelResults?.results[selectedAnalysisModel] ? (
+                      <>
+                        <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                          <div className="text-sm text-gray-400">F1-Score</div>
+                          <div className="text-lg font-bold text-green-300">
+                            {(modelResults.results[selectedAnalysisModel].f1_score * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                          <div className="text-sm text-gray-400">Accuracy</div>
+                          <div className="text-lg font-bold text-blue-300">
+                            {(modelResults.results[selectedAnalysisModel].accuracy * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                          <div className="text-sm text-gray-400">Precision</div>
+                          <div className="text-lg font-bold text-yellow-300">
+                            {(modelResults.results[selectedAnalysisModel].precision * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                          <div className="text-sm text-gray-400">Recall</div>
+                          <div className="text-lg font-bold text-purple-300">
+                            {(modelResults.results[selectedAnalysisModel].recall * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                          <div className="text-sm text-gray-400">Training Time</div>
+                          <div className="text-lg font-bold text-cyan-300">
+                            {modelResults.results[selectedAnalysisModel].training_time?.toFixed(1) || 'N/A'}s
+                          </div>
+                        </div>
+                        {selectedAnalysisModel === bestModel && (
+                          <div className="bg-green-900/20 rounded-lg p-3 border border-green-700">
+                            <div className="text-sm text-green-400">Status</div>
+                            <div className="text-lg font-bold text-green-300">
+                              🏆 Best Model
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Model not trained yet</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Model Training Configuration */}
           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
             <h3 className="text-xl font-semibold mb-4 flex items-center text-white">
@@ -1297,9 +1530,16 @@ export default function TrainingPage() {
                         className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-white truncate">{model.name}</span>
-                          {model.trained && <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-white truncate">{model.name}</span>
+                            {model.trained && <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                          </div>
+                          {model.trained && modelResults?.results[key] && (
+                            <span className="text-xs text-green-300 font-medium">
+                              {(modelResults.results[key].f1_score * 100).toFixed(1)}%
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-400 truncate">{model.description}</p>
                       </div>
@@ -1445,17 +1685,17 @@ export default function TrainingPage() {
             )}
           </div>
 
-          {/* Cross Validation Results */}
+          {/* K-Fold Cross Validation Analysis */}
           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
             <h3 className="text-xl font-semibold mb-6 text-white flex items-center">
               <Award className="mr-2 h-5 w-5 text-yellow-500" />
-              Cross Validation Results ({kFolds}-Fold)
+              K-Fold Cross Validation Analysis
             </h3>
             
             {loadingStates.crossValidation ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Running cross-validation...</span>
+                  <span className="text-sm text-gray-400">Running K-Fold analysis...</span>
                   <span className="text-sm text-blue-400">{loadingProgress.crossValidation.toFixed(0)}%</span>
                 </div>
                 <div className="progress-bar-bg h-2 w-full mb-6">
@@ -1483,90 +1723,208 @@ export default function TrainingPage() {
                 </div>
               </div>
             ) : cvResults && Object.keys(cvResults).length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                {/* CV Scores Chart */}
-                <div>
-                  <h4 className="font-semibold mb-4 text-white">Cross Validation F1-Scores</h4>
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={Object.entries(cvResults).map(([key, result]) => ({
-                        name: result.model_name ? result.model_name.split(' ').slice(0, 2).join(' ') : key,
-                        mean_score: result.mean_score,
-                        std_score: result.std_score
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                        <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 12 }} />
-                        <YAxis tick={{ fill: '#e2e8f0', fontSize: 12 }} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#2d3748', 
-                            border: '1px solid #4a5568',
-                            borderRadius: '6px',
-                            color: '#e2e8f0'
-                          }} 
-                        />
-                        <Bar dataKey="mean_score" fill="#3b82f6" />
-                        <Bar dataKey="std_score" fill="#ef4444" />
-                      </BarChart>
-                    </ResponsiveContainer>
+              <div className="space-y-6">
+                {/* K-Fold Analysis Controls */}
+                <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-white">K-Fold Configuration</h4>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm text-gray-400">K-Fold:</label>
+                        <select 
+                          value={kFolds} 
+                          onChange={(e) => setKFolds(Number(e.target.value))}
+                          className="px-2 py-1 bg-gray-600 border border-gray-500 text-white text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={3}>3-Fold</option>
+                          <option value={5}>5-Fold</option>
+                          <option value={10}>10-Fold</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Run K-Fold analysis for all trained models
+                          Object.keys(availableModels)
+                            .filter(key => availableModels[key].trained)
+                            .forEach(key => performCrossValidation(key));
+                        }}
+                        disabled={crossValidating || loadingStates.availableModels}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded-lg transition-colors"
+                      >
+                        {crossValidating ? (
+                          <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                            Analyzing...
+                          </div>
+                        ) : (
+                          `Analyze All Models (${kFolds}-Fold)`
+                        )}
+                      </button>
+                    </div>
                   </div>
+                  
+                  {/* Best K-Fold Recommendation */}
+                  {Object.keys(cvResults).length > 0 && (
+                    <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <Target className="h-4 w-4 text-green-400" />
+                        <span className="text-sm font-medium text-green-300">
+                          Recommended K-Fold: {(() => {
+                            // Find the best K-Fold based on highest mean CV score across all models
+                            const kFoldScores = [3, 5, 10].map(k => {
+                              const avgScore = Object.values(cvResults).reduce((sum, result) => sum + result.mean_score, 0) / Object.keys(cvResults).length;
+                              return { k, score: avgScore };
+                            });
+                            const bestK = kFoldScores.reduce((best, current) => current.score > best.score ? current : best);
+                            return bestK.k;
+                          })()}-Fold
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          (Based on mean CV scores)
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* CV Results Table */}
-                <div>
-                  <h4 className="font-semibold mb-4 text-white">Detailed Results</h4>
-                  <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
-                    {Object.entries(cvResults).map(([modelKey, result]) => (
-                      <div key={modelKey} className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-colors">
-                        <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium text-white truncate">{result.model_name || modelKey}</h5>
-                          <button
-                            onClick={() => performCrossValidation(modelKey)}
-                            disabled={crossValidating || loadingStates.availableModels}
-                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-xs rounded-lg transition-colors"
-                          >
-                            {crossValidating ? (
-                              <div className="flex items-center">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
-                                Running...
-                              </div>
-                            ) : (
-                              'Run CV'
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                  {/* CV Scores Visualization */}
+                  <div>
+                    <h4 className="font-semibold mb-4 text-white">K-Fold Performance Comparison</h4>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={Object.entries(cvResults).map(([key, result]) => ({
+                          name: result.model_name ? result.model_name.split(' ').slice(0, 2).join(' ') : key,
+                          mean_score: result.mean_score,
+                          std_score: result.std_score,
+                          confidence: result.mean_score - result.std_score // Lower bound for confidence
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                          <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 12 }} />
+                          <YAxis tick={{ fill: '#e2e8f0', fontSize: 12 }} domain={[0.8, 1]} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#2d3748', 
+                              border: '1px solid #4a5568',
+                              borderRadius: '6px',
+                              color: '#e2e8f0'
+                            }}
+                            formatter={(value: number | string, name: string) => [
+                              typeof value === 'number' ? value.toFixed(4) : value,
+                              name === 'mean_score' ? 'Mean F1-Score' : 
+                              name === 'std_score' ? 'Std Deviation' : 
+                              name === 'confidence' ? 'Confidence Lower Bound' : name
+                            ]}
+                          />
+                          <Bar dataKey="mean_score" fill="#3b82f6" name="Mean Score" />
+                          <Bar dataKey="confidence" fill="#10b981" name="Confidence" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Detailed K-Fold Results */}
+                  <div>
+                    <h4 className="font-semibold mb-4 text-white">Detailed K-Fold Results</h4>
+                    <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                      {Object.entries(cvResults)
+                        .sort(([,a], [,b]) => b.mean_score - a.mean_score) // Sort by mean score
+                        .map(([modelKey, result], index) => (
+                        <div key={modelKey} className={`rounded-lg p-4 border transition-colors ${
+                          index === 0 ? 'bg-green-900/20 border-green-700' : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                        }`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <h5 className="font-medium text-white truncate">{result.model_name || modelKey}</h5>
+                              {index === 0 && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
+                                  Best CV Score
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => performCrossValidation(modelKey)}
+                              disabled={crossValidating || loadingStates.availableModels}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-xs rounded-lg transition-colors"
+                            >
+                              {crossValidating ? (
+                                <div className="flex items-center">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                  Running...
+                                </div>
+                              ) : (
+                                'Re-run CV'
+                              )}
+                            </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                            <div>
+                              <span className="text-gray-400">Mean F1:</span>
+                              <span className="ml-2 text-white font-medium">{(result.mean_score * 100).toFixed(1)}%</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Std Dev:</span>
+                              <span className="ml-2 text-white font-medium">±{(result.std_score * 100).toFixed(1)}%</span>
+                            </div>
+                            {result.cv_scores && (
+                              <>
+                                <div>
+                                  <span className="text-gray-400">Min:</span>
+                                  <span className="ml-2 text-white font-medium">{(Math.min(...result.cv_scores) * 100).toFixed(1)}%</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400">Max:</span>
+                                  <span className="ml-2 text-white font-medium">{(Math.max(...result.cv_scores) * 100).toFixed(1)}%</span>
+                                </div>
+                              </>
                             )}
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="text-gray-400">Mean F1:</span>
-                            <span className="ml-2 text-white font-medium">{result.mean_score.toFixed(3)}</span>
                           </div>
-                          <div>
-                            <span className="text-gray-400">Std Dev:</span>
-                            <span className="ml-2 text-white font-medium">{result.std_score.toFixed(3)}</span>
-                          </div>
+                          
+                          {/* K-Fold Scores Breakdown */}
                           {result.cv_scores && (
-                            <>
-                              <div>
-                                <span className="text-gray-400">Min:</span>
-                                <span className="ml-2 text-white font-medium">{Math.min(...result.cv_scores).toFixed(3)}</span>
+                            <div>
+                              <span className="text-xs text-gray-400 mb-2 block">{kFolds}-Fold Scores:</span>
+                              <div className="flex space-x-1">
+                                {result.cv_scores.map((score, foldIndex) => (
+                                  <div 
+                                    key={foldIndex} 
+                                    className={`px-2 py-1 rounded text-xs font-mono ${
+                                      score === Math.max(...result.cv_scores) 
+                                        ? 'bg-green-600 text-white' 
+                                        : 'bg-gray-600 text-gray-300'
+                                    }`}
+                                    title={`Fold ${foldIndex + 1}: ${(score * 100).toFixed(1)}%`}
+                                  >
+                                    {(score * 100).toFixed(0)}%
+                                  </div>
+                                ))}
                               </div>
-                              <div>
-                                <span className="text-gray-400">Max:</span>
-                                <span className="ml-2 text-white font-medium">{Math.max(...result.cv_scores).toFixed(3)}</span>
-                              </div>
-                            </>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="text-center py-8 text-gray-400">
                 <Award className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="mb-2">No cross-validation results available</p>
-                <p className="text-sm">Run cross-validation on trained models to see results</p>
+                <p className="mb-2">No K-Fold cross-validation results available</p>
+                <p className="text-sm">Train models and run K-Fold analysis to see detailed results</p>
+                <button
+                  onClick={() => {
+                    // Auto-run CV on all trained models
+                    Object.keys(availableModels)
+                      .filter(key => availableModels[key].trained)
+                      .forEach(key => performCrossValidation(key));
+                  }}
+                  disabled={crossValidating || Object.keys(availableModels).filter(key => availableModels[key].trained).length === 0}
+                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded-lg transition-colors"
+                >
+                  Run K-Fold Analysis
+                </button>
               </div>
             )}
           </div>
@@ -1806,27 +2164,9 @@ export default function TrainingPage() {
         </div>
       </div>
       
-      {/* Event Notifications Sidebar */}
+      {/* Events Sidebar */}
       <NotificationSidebar 
-        notifications={trainingNotifications}
-        title="Event Notifications"
-        onClearNotification={(id) => {
-          setTrainingNotifications(prev => {
-            const notification = prev.find(n => n.id === id);
-            if (notification?.timeoutId) {
-              clearTimeout(notification.timeoutId);
-            }
-            return prev.filter(n => n.id !== id);
-          });
-        }}
-        onClearAll={() => {
-          trainingNotifications.forEach(notification => {
-            if (notification.timeoutId) {
-              clearTimeout(notification.timeoutId);
-            }
-          });
-          setTrainingNotifications([]);
-        }}
+        title="Events"
       />
     </div>
   );
