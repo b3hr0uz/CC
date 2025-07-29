@@ -90,11 +90,78 @@ export default function DashboardPage() {
   // Add state for automatic sync countdown
   const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(180); // 180 seconds = 3 minutes
 
-  // Generate unique RL notification ID with better uniqueness
+  // Generate unique RL notification IDs
   const generateRLNotificationId = (type: string, emailId?: string) => {
-    const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 8);
-    return `${type}-${emailId || 'system'}-${timestamp}-${notificationCounter}-${randomSuffix}`;
+    return `${type}-${emailId || 'general'}-${Date.now()}-${randomSuffix}`;
+  };
+
+  // Persistent email storage functions
+  const saveEmailsToStorage = (emailsData: ExtendedEmailData[], signInMethod: string) => {
+    try {
+      const storageKey = `contextcleanse_emails_${signInMethod}`;
+      const emailStorage = {
+        emails: emailsData,
+        timestamp: new Date().toISOString(),
+        signInMethod: signInMethod,
+        selectedModel: selectedModel,
+        count: emailsData.length
+      };
+      localStorage.setItem(storageKey, JSON.stringify(emailStorage));
+      
+      // Also save to a general "last fetch" key
+      localStorage.setItem('contextcleanse_last_email_fetch', JSON.stringify(emailStorage));
+      console.log(`💾 Saved ${emailsData.length} emails from ${signInMethod} to persistent storage`);
+    } catch (error) {
+      console.error('❌ Error saving emails to storage:', error);
+    }
+  };
+
+  const loadEmailsFromStorage = (signInMethod?: string): ExtendedEmailData[] => {
+    try {
+      // Try to load from specific sign-in method first
+      if (signInMethod) {
+        const storageKey = `contextcleanse_emails_${signInMethod}`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const emailStorage = JSON.parse(stored);
+          console.log(`📧 Loaded ${emailStorage.emails.length} emails from ${signInMethod} storage`);
+          return emailStorage.emails;
+        }
+      }
+      
+      // Fallback to last fetch
+      const lastFetch = localStorage.getItem('contextcleanse_last_email_fetch');
+      if (lastFetch) {
+        const emailStorage = JSON.parse(lastFetch);
+        console.log(`📧 Loaded ${emailStorage.emails.length} emails from last fetch (${emailStorage.signInMethod})`);
+        return emailStorage.emails;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Error loading emails from storage:', error);
+      return [];
+    }
+  };
+
+  const getStoredEmailInfo = () => {
+    try {
+      const lastFetch = localStorage.getItem('contextcleanse_last_email_fetch');
+      if (lastFetch) {
+        const emailStorage = JSON.parse(lastFetch);
+        return {
+          count: emailStorage.count,
+          signInMethod: emailStorage.signInMethod,
+          timestamp: emailStorage.timestamp,
+          selectedModel: emailStorage.selectedModel
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error getting stored email info:', error);
+      return null;
+    }
   };
 
   // Handle user feedback for email classification
@@ -200,6 +267,39 @@ export default function DashboardPage() {
     }
   };
 
+  // Initialize data and fetch emails when component mounts or session changes
+  useEffect(() => {
+    // Pre-load dashboard with mock emails immediately for better UX
+    if (emails.length === 0) {
+      console.log('📧 Pre-loading dashboard with emails...');
+      
+      // First try to load from persistent storage
+      const signInMethod = session?.user?.email?.includes('gmail') ? 'google' : 
+                          session?.isMockUser ? 'mock' : 'unknown';
+      const storedEmails = loadEmailsFromStorage(signInMethod);
+      
+      if (storedEmails.length > 0) {
+        console.log(`📧 Pre-loaded ${storedEmails.length} emails from ${signInMethod} storage`);
+        setEmails(storedEmails);
+        
+        // Show storage info to user
+        const storageInfo = getStoredEmailInfo();
+        if (storageInfo) {
+          addNotification({
+            id: generateRLNotificationId('storage_preload'),
+            type: 'email_fetch_complete',
+            model_name: 'Storage Preload',
+            message: `Loaded ${storageInfo.count} emails from ${storageInfo.signInMethod} (${new Date(storageInfo.timestamp).toLocaleString()})`,
+            timestamp: new Date(),
+          });
+        }
+      } else {
+        console.log('📧 No stored emails found, pre-loading with mock emails');
+        setEmails(getMockEmails());
+      }
+    }
+  }, [session, status, router, emailLimit]);
+
   useEffect(() => {
     // Pre-load dashboard with mock emails immediately for better UX
     if (emails.length === 0) {
@@ -217,12 +317,16 @@ export default function DashboardPage() {
       console.log('🔄 fetchEmails called - using updated error handling');
       setIsFetchingEmails(true);
       
+      // Determine sign-in method for persistent storage
+      const signInMethod = session?.user?.email?.includes('gmail') ? 'google' : 
+                          session?.isMockUser ? 'mock' : 'unknown';
+      
       // Add notification for email fetch start (only if not already fetching)
       addNotification({
         id: generateRLNotificationId('email_fetch_start'),
         type: 'email_fetch_start',
         model_name: 'Email Sync',
-        message: 'Starting email synchronization...',
+        message: `Starting email synchronization from ${signInMethod}...`,
         timestamp: new Date(),
         start_time: new Date(),
         estimated_duration: 5,
@@ -336,18 +440,26 @@ export default function DashboardPage() {
         // Classify emails using trained models in parallel
         try {
           const classificationStartTime = Date.now();
+          
+          // Get current RL optimizations for real-time classification
+          const currentRLOptimizations = JSON.stringify(
+            JSON.parse(localStorage.getItem('pendingRLOptimizations') || '[]')
+          );
+          
           const classificationPromises = basicEmails.map(async (email): Promise<ExtendedEmailData> => {
             try {
               const classifyResponse = await fetch('/api/classify-email', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'X-RL-Optimizations': currentRLOptimizations, // Pass RL optimization data
                 },
                 body: JSON.stringify({
                   emailId: email.id,
                   subject: email.subject,
                   from: email.from,
                   content: email.content || email.preview || email.subject, // Use available content
+                  modelKey: selectedModel, // Pass the active/selected model
                 }),
               });
 
@@ -385,6 +497,9 @@ export default function DashboardPage() {
           // Update emails with real classifications  
           setEmails(classifiedEmails);
           
+          // Save classified emails to persistent storage
+          saveEmailsToStorage(classifiedEmails, signInMethod);
+          
           // Calculate classification statistics
           const spamCount = classifiedEmails.filter(e => e.classification === 'spam').length;
           const hamCount = classifiedEmails.filter(e => e.classification === 'ham').length;
@@ -394,8 +509,8 @@ export default function DashboardPage() {
           addNotification({
             id: generateRLNotificationId('model_classification_complete'),
             type: 'model_classification_complete',
-            model_name: 'Model Classification',
-            message: `Classification complete: ${spamCount} spam, ${hamCount} ham (avg confidence: ${(avgConfidence * 100).toFixed(1)}%)`,
+            model_name: `Active Model (${availableModels[selectedModel]?.name || selectedModel})`,
+            message: `Active model classified ${classifiedEmails.length} emails: ${spamCount} spam, ${hamCount} ham (${(avgConfidence * 100).toFixed(1)}% avg confidence)`,
             timestamp: new Date(),
             end_time: new Date(),
             duration: classificationTime,
@@ -979,7 +1094,30 @@ This email is totally legitimate and not suspicious at all.`,
   };
 
   const fetchEmails = async () => {
-    console.log('🔄 fetchEmails called - using updated error handling');
+    if (isFetchingEmails) {
+      console.log('⏳ Email fetch already in progress, skipping duplicate request');
+      return;
+    }
+
+    setIsFetchingEmails(true);
+    setIsRefreshing(true);
+    console.log('📧 Starting email fetch with selected model:', selectedModel);
+    
+    // Determine sign-in method
+    const signInMethod = session?.user?.email?.includes('gmail') ? 'google' : 
+                        session?.isMockUser ? 'mock' : 'unknown';
+    
+    // Add notification for email fetch start
+    addNotification({
+      id: generateRLNotificationId('email_fetch_start'),
+      type: 'email_fetch_start',
+      model_name: 'Email Sync',
+      message: `Fetching latest emails from ${signInMethod} inbox...`,
+      timestamp: new Date(),
+      start_time: new Date(),
+      estimated_duration: 3,
+    });
+    
     try {
       setLoading(true);
       setEmailError(null);

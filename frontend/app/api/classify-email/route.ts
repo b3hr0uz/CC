@@ -26,6 +26,31 @@ interface ClassificationResponse {
   }>;
 }
 
+// Interface for model performance metrics
+interface ModelPerformance {
+  name: string;
+  f1_score: number;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  trained: boolean;
+}
+
+// Interface for RL optimization data
+interface RLOptimization {
+  emailId: string;
+  targetModel: string;
+  originalClassification: string;
+  correctedClassification: string;
+  confidence: number;
+  improvements: {
+    f1ScoreGain: number;
+    accuracyGain: number;
+    precisionGain: number;
+    recallGain: number;
+  };
+}
+
 // Mock model performance data (in real app, this would come from training results)
 const MOCK_MODEL_PERFORMANCE = {
   'gradient_boosting': {
@@ -48,27 +73,85 @@ const MOCK_MODEL_PERFORMANCE = {
     name: 'Logistic Regression', 
     f1_score: 0.886,
     accuracy: 0.882,
-    precision: 0.889,
-    recall: 0.883,
+    precision: 0.893,
+    recall: 0.879,
     trained: true
   },
-  'naive_bayes': {
-    name: 'Naive Bayes',
-    f1_score: 0.845,
-    accuracy: 0.841,
-    precision: 0.852,
-    recall: 0.838,
+  'svm': {
+    name: 'Support Vector Machine',
+    f1_score: 0.891,
+    accuracy: 0.887,
+    precision: 0.896,
+    recall: 0.886,
+    trained: true
+  },
+  'random_forest': {
+    name: 'Random Forest',
+    f1_score: 0.913,
+    accuracy: 0.909,
+    precision: 0.918,
+    recall: 0.908,
     trained: true
   }
+};
+
+// Enhanced function to get RL-optimized model performance
+const getRLEnhancedModelPerformance = (rlOptimizationsHeader?: string): Record<string, ModelPerformance> => {
+  // Create a copy of base performance metrics
+  const enhancedPerformance = JSON.parse(JSON.stringify(MOCK_MODEL_PERFORMANCE)) as Record<string, ModelPerformance>;
+  
+  try {
+    // Check for RL optimization data from request header
+    if (rlOptimizationsHeader) {
+      const rlOptimizations: RLOptimization[] = JSON.parse(rlOptimizationsHeader);
+      
+      if (rlOptimizations.length > 0) {
+        // Aggregate RL improvements for gradient_boosting (best model)
+        let totalAccuracyGain = 0;
+        let totalPrecisionGain = 0;
+        let totalRecallGain = 0;
+        let totalF1ScoreGain = 0;
+        
+        rlOptimizations.forEach((opt: RLOptimization) => {
+          if (opt.targetModel === 'best') {
+            totalAccuracyGain += opt.improvements?.accuracyGain || 0;
+            totalPrecisionGain += opt.improvements?.precisionGain || 0;
+            totalRecallGain += opt.improvements?.recallGain || 0;
+            totalF1ScoreGain += opt.improvements?.f1ScoreGain || 0;
+          }
+        });
+        
+        // Apply improvements to gradient_boosting (best model) if any improvements found
+        if (totalF1ScoreGain > 0) {
+          const originalMetrics = enhancedPerformance.gradient_boosting;
+          enhancedPerformance.gradient_boosting = {
+            ...originalMetrics,
+            name: 'Gradient Boosting + RL',
+            accuracy: Math.min(0.999, originalMetrics.accuracy + totalAccuracyGain),
+            precision: Math.min(0.999, originalMetrics.precision + totalPrecisionGain),
+            recall: Math.min(0.999, originalMetrics.recall + totalRecallGain),
+            f1_score: Math.min(0.999, originalMetrics.f1_score + totalF1ScoreGain),
+          };
+          
+          console.log(`🧠 Applied ${rlOptimizations.length} RL optimizations to gradient_boosting model (F1 gain: +${(totalF1ScoreGain * 100).toFixed(2)}%)`);
+        }
+      }
+    }
+  } catch {
+    console.log('📝 No RL optimizations found or parsing failed, using base model performance');
+  }
+  
+  return enhancedPerformance;
 };
 
 // Function to simulate model prediction based on email content
 function simulateModelPrediction(
   emailContent: { subject: string; from: string; content: string },
-  modelKey: string
+  modelKey: string,
+  modelPerformance: Record<string, ModelPerformance> // Added modelPerformance parameter
 ): { classification: 'spam' | 'ham'; confidence: number } {
   
-  const model = MOCK_MODEL_PERFORMANCE[modelKey as keyof typeof MOCK_MODEL_PERFORMANCE];
+  const model = modelPerformance[modelKey as keyof typeof modelPerformance];
   if (!model || !model.trained) {
     throw new Error(`Model ${modelKey} is not trained or available`);
   }
@@ -122,11 +205,12 @@ function simulateModelPrediction(
 
 // Get all model predictions for comparison
 function getAllModelPredictions(
-  emailContent: { subject: string; from: string; content: string }
+  emailContent: { subject: string; from: string; content: string },
+  modelPerformance: Record<string, ModelPerformance> // Added modelPerformance parameter
 ): Array<{ model: string; classification: 'spam' | 'ham'; confidence: number }> {
   
-  return Object.keys(MOCK_MODEL_PERFORMANCE).map(modelKey => {
-    const prediction = simulateModelPrediction(emailContent, modelKey);
+  return Object.keys(modelPerformance).map(modelKey => {
+    const prediction = simulateModelPrediction(emailContent, modelKey, modelPerformance);
     return {
       model: modelKey,
       classification: prediction.classification,
@@ -139,9 +223,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: 'Authentication required for email classification' },
         { status: 401 }
       );
     }
@@ -158,6 +242,11 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
     
+    // Get RL-enhanced model performance for real-time classification
+    const ENHANCED_MODEL_PERFORMANCE = getRLEnhancedModelPerformance(
+      request.headers.get('X-RL-Optimizations') || undefined
+    );
+    
     // Simulate processing delay (realistic model inference time)
     const processingDelay = Math.random() * 500 + 200; // 200-700ms
     await new Promise(resolve => setTimeout(resolve, processingDelay));
@@ -168,15 +257,15 @@ export async function POST(request: NextRequest) {
     let modelUsed;
     let allPredictions;
 
-    if (modelKey && MOCK_MODEL_PERFORMANCE[modelKey as keyof typeof MOCK_MODEL_PERFORMANCE]) {
-      // Use specific model
-      primaryPrediction = simulateModelPrediction(emailContent, modelKey);
+    if (modelKey && ENHANCED_MODEL_PERFORMANCE[modelKey as keyof typeof ENHANCED_MODEL_PERFORMANCE]) {
+      // Use specific model with RL enhancements
+      primaryPrediction = simulateModelPrediction(emailContent, modelKey, ENHANCED_MODEL_PERFORMANCE);
       modelUsed = modelKey;
       // Still get all predictions for comparison
-      allPredictions = getAllModelPredictions(emailContent);
+      allPredictions = getAllModelPredictions(emailContent, ENHANCED_MODEL_PERFORMANCE);
     } else {
-      // Use best performing model (highest F1-score)
-      const bestModel = Object.entries(MOCK_MODEL_PERFORMANCE)
+      // Use best performing model (highest F1-score) with RL enhancements
+      const bestModel = Object.entries(ENHANCED_MODEL_PERFORMANCE)
         .filter(([, model]) => model.trained)
         .sort(([, a], [, b]) => b.f1_score - a.f1_score)[0];
       
@@ -188,8 +277,8 @@ export async function POST(request: NextRequest) {
       }
 
       modelUsed = bestModel[0];
-      primaryPrediction = simulateModelPrediction(emailContent, modelUsed);
-      allPredictions = getAllModelPredictions(emailContent);
+      primaryPrediction = simulateModelPrediction(emailContent, modelUsed, ENHANCED_MODEL_PERFORMANCE);
+      allPredictions = getAllModelPredictions(emailContent, ENHANCED_MODEL_PERFORMANCE);
     }
 
     const processingTime = Date.now() - startTime;
@@ -198,10 +287,13 @@ export async function POST(request: NextRequest) {
       emailId,
       classification: primaryPrediction.classification,
       confidence: primaryPrediction.confidence,
-      modelUsed,
+      modelUsed: ENHANCED_MODEL_PERFORMANCE[modelUsed]?.name || modelUsed,
       timestamp: new Date().toISOString(),
       processingTime,
-      allModelPredictions: allPredictions
+      allModelPredictions: allPredictions?.map(pred => ({
+        ...pred,
+        model: ENHANCED_MODEL_PERFORMANCE[pred.model]?.name || pred.model
+      }))
     };
 
     console.log(`📧 Email classification complete:`, {
