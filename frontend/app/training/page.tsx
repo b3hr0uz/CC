@@ -79,6 +79,20 @@ interface CrossValidationResult {
   k_folds: number;
 }
 
+interface RLOptimizationData {
+  emailId: string;
+  targetModel: string;
+  originalClassification: string;
+  correctedClassification: string;
+  confidence: number;
+  improvements: {
+    f1ScoreGain: number;
+    accuracyGain: number;
+    precisionGain: number;
+    recallGain: number;
+  };
+}
+
 interface AutoTrainingConfig {
   enabled: boolean;
   optimal_k_fold: number;
@@ -139,6 +153,11 @@ export default function TrainingPage() {
     model_used: string;
   } | null>(null);
   const [analysisRefreshTrigger, setAnalysisRefreshTrigger] = useState<number>(0); // Force refresh trigger for Training Analysis
+
+  // RL Optimization tracking for best model
+  const [isRLOptimized, setIsRLOptimized] = useState<boolean>(false);
+  const [rlOptimizationCount, setRLOptimizationCount] = useState<number>(0);
+  const [rlEnhancedMetrics, setRLEnhancedMetrics] = useState<ModelMetrics | null>(null);
 
   // Pre-loading function to ensure all sections always have content
   const initializeWithMockData = () => {
@@ -1379,7 +1398,7 @@ export default function TrainingPage() {
     } else {
       console.log('❌ modelResults is null - Training Analysis will show "No training results available"');
     }
-  }, [modelResults, bestModel]);
+  }, [analysisRefreshTrigger, modelResults, bestModel]);
 
   // Auto-update TopBar Selected Model when new training results come in
   useEffect(() => {
@@ -1407,6 +1426,112 @@ export default function TrainingPage() {
       }
     }
   }, [analysisRefreshTrigger, modelResults, bestModel]);
+
+  // Function to handle RL optimization applied to the best model
+  const applyRLOptimizationToBestModel = (feedbackData: {
+    emailId: string;
+    originalClassification: string;
+    correctedClassification: string;
+    confidence: number;
+    improvements: {
+      f1ScoreGain: number;
+      accuracyGain: number;
+      precisionGain: number;
+      recallGain: number;
+    };
+  }) => {
+    console.log('🧠 Applying RL optimization to best model:', feedbackData);
+    
+    // Mark as RL optimized
+    setIsRLOptimized(true);
+    setRLOptimizationCount(prev => prev + 1);
+    
+    // Apply improvements to the best model metrics
+    if (modelResults && bestModel) {
+      const currentMetrics = modelResults.results[bestModel];
+      if (currentMetrics) {
+        const enhancedMetrics: ModelMetrics = {
+          accuracy: Math.min(0.999, currentMetrics.accuracy + feedbackData.improvements.accuracyGain),
+          precision: Math.min(0.999, currentMetrics.precision + feedbackData.improvements.precisionGain),
+          recall: Math.min(0.999, currentMetrics.recall + feedbackData.improvements.recallGain),
+          f1_score: Math.min(0.999, currentMetrics.f1_score + feedbackData.improvements.f1ScoreGain),
+          training_time: currentMetrics.training_time,
+          cv_score: currentMetrics.cv_score,
+          std_score: currentMetrics.std_score
+        };
+        
+        setRLEnhancedMetrics(enhancedMetrics);
+        
+        // Update the model results with enhanced metrics
+        const updatedModelResults = {
+          ...modelResults,
+          results: {
+            ...modelResults.results,
+            [bestModel]: enhancedMetrics
+          },
+          best_model: {
+            ...modelResults.best_model,
+            name: `${modelResults.best_model.name} + RL`,
+            metrics: enhancedMetrics
+          }
+        };
+        
+        setModelResults(updatedModelResults);
+        
+        // Update available models to show RL enhancement
+        if (availableModels[bestModel]) {
+          setAvailableModels(prev => ({
+            ...prev,
+            [bestModel]: {
+              ...prev[bestModel],
+              name: `${prev[bestModel].name} + RL`
+            }
+          }));
+        }
+        
+        console.log('✅ RL optimization applied to best model:', {
+          model: bestModel,
+          newF1Score: enhancedMetrics.f1_score,
+          improvement: feedbackData.improvements.f1ScoreGain,
+          optimizationCount: rlOptimizationCount + 1
+        });
+        
+        // Trigger refresh
+        setAnalysisRefreshTrigger(prev => prev + 1);
+      }
+    }
+  };
+
+  // Check for pending RL optimizations from dashboard
+  useEffect(() => {
+    const checkPendingRLOptimizations = () => {
+      try {
+        const pendingOptimizations = localStorage.getItem('pendingRLOptimizations');
+        if (pendingOptimizations) {
+          const optimizations = JSON.parse(pendingOptimizations);
+          console.log('🔍 Found pending RL optimizations:', optimizations);
+          
+          // Apply each optimization
+          optimizations.forEach((optimization: RLOptimizationData) => {
+            if (optimization.targetModel === 'best' && bestModel === 'gradient_boosting') {
+              console.log('🧠 Applying pending RL optimization to best model');
+              applyRLOptimizationToBestModel(optimization);
+            }
+          });
+          
+          // Clear processed optimizations
+          localStorage.removeItem('pendingRLOptimizations');
+        }
+      } catch (error) {
+        console.error('❌ Error processing pending RL optimizations:', error);
+      }
+    };
+    
+    // Check on component mount and whenever bestModel or modelResults change
+    if (bestModel && modelResults) {
+      checkPendingRLOptimizations();
+    }
+  }, [bestModel, modelResults]);
 
   return (
     <div className="flex h-screen bg-gray-800">
@@ -2265,63 +2390,7 @@ export default function TrainingPage() {
             </div>
           )}
 
-          {/* Enhanced Spam Prediction Demo */}
-          <div className="bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-xl font-semibold mb-4 flex items-center">
-            <Zap className="mr-2 text-purple-600" />
-            Interactive Spam Prediction
-          </h3>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-white mb-2">
-                  Select Model for Prediction:
-                </label>
-                <select 
-                  value={selectedModel} 
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {Object.entries(availableModels).map(([key, model]) => (
-                    <option key={key} value={key} disabled={!model.trained}>
-                      {model.name} {!model.trained ? '(Not Trained)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <button
-                onClick={predictSpam}
-                disabled={!availableModels[selectedModel]?.trained}
-                className="w-full bg-gray-800 text-white border border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-800 dark:hover:bg-black disabled:opacity-50 flex items-center justify-center"
-              >
-                <Play className="mr-2 w-4 h-4" />
-                Test Random Email Features
-              </button>
-            </div>
-
-            {predictionResult && (
-              <div className={`p-4 rounded-lg ${predictionResult.is_spam ? 'bg-gray-800 border border-gray-600' : 'bg-gray-800 border border-gray-600'}`}>
-                <div className="flex items-center mb-2">
-                  {predictionResult.is_spam ? (
-                    <AlertCircle className="w-6 h-6 text-white mr-2" />
-                  ) : (
-                    <CheckCircle className="w-6 h-6 text-white mr-2" />
-                  )}
-                  <span className={`text-lg font-bold ${predictionResult.is_spam ? 'text-red-800' : 'text-green-800'}`}>
-                    {predictionResult.is_spam ? '🚨 SPAM DETECTED' : '✅ NOT SPAM'}
-                  </span>
-                </div>
-                <div className="text-sm space-y-1">
-                  <p><strong>Confidence:</strong> {(predictionResult.confidence * 100).toFixed(1)}%</p>
-                  <p><strong>Model Used:</strong> {predictionResult.model_display_name}</p>
-                  <p><strong>Model Key:</strong> {predictionResult.model_used}</p>
-                </div>
-              </div>
-            )}
-          </div>
-          </div>
 
           {/* Feature Distribution Chart */}
           {statistics && (
