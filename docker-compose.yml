@@ -18,8 +18,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      x-bake:
-        - buildkit
     container_name: cc_backend
     ports:
       - "8000:8000"
@@ -49,8 +47,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      x-bake:
-        - buildkit
     container_name: cc_frontend
     ports:
       - "3000:3000"
