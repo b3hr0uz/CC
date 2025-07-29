@@ -178,72 +178,102 @@ export default function TrainingPage() {
   const initializeWithMockData = () => {
     console.log('🔄 Pre-loading all sections with initial mock data...');
     
-    // Pre-load Training Analysis with mock model results
+    // Pre-load Training Analysis with mock model results (All 7 models)
     if (!modelResults) {
       const mockModelResults = {
         results: {
+          'xgboost': {
+            accuracy: 0.928,
+            precision: 0.941,
+            recall: 0.927,
+            f1_score: 0.934,
+            training_time: 89.2,
+            cv_score: 0.931,
+            std_score: 0.012
+          },
           'gradient_boosting': {
-            accuracy: 0.924,
-            precision: 0.918,
-            recall: 0.931,
+            accuracy: 0.918,
+            precision: 0.931,
+            recall: 0.917,
             f1_score: 0.924,
             training_time: 45.7,
             cv_score: 0.921,
             std_score: 0.015
           },
+          'random_forest': {
+            accuracy: 0.909,
+            precision: 0.918,
+            recall: 0.908,
+            f1_score: 0.913,
+            training_time: 67.8,
+            cv_score: 0.910,
+            std_score: 0.019
+          },
           'neural_network': {
-            accuracy: 0.901,
-            precision: 0.895,
-            recall: 0.907,
+            accuracy: 0.895,
+            precision: 0.908,
+            recall: 0.894,
             f1_score: 0.901,
             training_time: 127.4,
             cv_score: 0.898,
             std_score: 0.022
           },
-          'logistic_regression': {
+          'svm': {
             accuracy: 0.887,
-            precision: 0.892,
-            recall: 0.881,
+            precision: 0.896,
+            recall: 0.886,
+            f1_score: 0.891,
+            training_time: 234.6,
+            cv_score: 0.888,
+            std_score: 0.021
+          },
+          'logistic_regression': {
+            accuracy: 0.882,
+            precision: 0.893,
+            recall: 0.879,
             f1_score: 0.886,
             training_time: 12.3,
             cv_score: 0.883,
             std_score: 0.018
           },
           'naive_bayes': {
-            accuracy: 0.845,
-            precision: 0.849,
-            recall: 0.841,
-            f1_score: 0.845,
+            accuracy: 0.874,
+            precision: 0.885,
+            recall: 0.871,
+            f1_score: 0.878,
             training_time: 3.2,
-            cv_score: 0.842,
+            cv_score: 0.875,
             std_score: 0.025
           }
         },
         best_model: {
-          key: 'gradient_boosting',
-          name: 'Gradient Boosting',
+          key: 'xgboost',
+          name: 'XGBoost',
           metrics: {
-            accuracy: 0.924,
-            precision: 0.918,
-            recall: 0.931,
-            f1_score: 0.924,
-            training_time: 45.7,
-            cv_score: 0.921,
-            std_score: 0.015
+            accuracy: 0.928,
+            precision: 0.941,
+            recall: 0.927,
+            f1_score: 0.934,
+            training_time: 89.2,
+            cv_score: 0.931,
+            std_score: 0.012
           }
         },
         ranking: [
+          ['xgboost', 0.934, 'XGBoost'] as [string, number, string],
           ['gradient_boosting', 0.924, 'Gradient Boosting'] as [string, number, string],
+          ['random_forest', 0.913, 'Random Forest'] as [string, number, string],
           ['neural_network', 0.901, 'Neural Network'] as [string, number, string],
-          ['logistic_regression', 0.887, 'Logistic Regression'] as [string, number, string],
-          ['naive_bayes', 0.845, 'Naive Bayes'] as [string, number, string]
+          ['svm', 0.891, 'Support Vector Machine'] as [string, number, string],
+          ['logistic_regression', 0.886, 'Logistic Regression'] as [string, number, string],
+          ['naive_bayes', 0.878, 'Naive Bayes'] as [string, number, string]
         ],
         optimal_k_fold: 5
       };
       
       setModelResults(mockModelResults);
-      setBestModel('gradient_boosting');
-      console.log('📊 Pre-loaded Training Analysis with mock model results');
+      setBestModel('xgboost');
+      console.log('📊 Pre-loaded Training Analysis with mock model results for all 7 models');
     }
     
     // Pre-load K-Fold Cross Validation Analysis with mock results
@@ -591,31 +621,63 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('Error fetching available models:', error);
       
-      // Set mock available models for demo purposes
+      // Set mock available models for demo purposes (All 7 models)
       const mockModels = {
-        'logistic_regression': {
-          name: 'Logistic Regression',
-          description: 'Linear model for binary classification',
-          scaling_required: 'StandardScaler',
-          trained: true
-        },
         'gradient_boosting': {
           name: 'Gradient Boosting',
-          description: 'Ensemble method with boosting',
+          description: 'Ensemble method with boosting - F1: 92.4%',
           scaling_required: 'None',
-          trained: true
-        },
-        'naive_bayes': {
-          name: 'Naive Bayes',
-          description: 'Probabilistic classifier',
-          scaling_required: 'None',
-          trained: true
+          trained: true,
+          f1_score: 0.924,
+          training_progress: 100
         },
         'neural_network': {
           name: 'Neural Network',
-          description: 'Multi-layer perceptron',
+          description: 'Multi-layer perceptron - F1: 90.1%',
           scaling_required: 'StandardScaler',
-          trained: false
+          trained: true,
+          f1_score: 0.901,
+          training_progress: 100
+        },
+        'logistic_regression': {
+          name: 'Logistic Regression',
+          description: 'Linear model for binary classification - F1: 88.6%',
+          scaling_required: 'StandardScaler',
+          trained: true,
+          f1_score: 0.886,
+          training_progress: 100
+        },
+        'svm': {
+          name: 'Support Vector Machine',
+          description: 'Kernel-based classification - F1: 89.1%',
+          scaling_required: 'StandardScaler',
+          trained: true,
+          f1_score: 0.891,
+          training_progress: 100
+        },
+        'random_forest': {
+          name: 'Random Forest',
+          description: 'Ensemble method with bagging - F1: 91.3%',
+          scaling_required: 'None',
+          trained: true,
+          f1_score: 0.913,
+          training_progress: 100
+        },
+        'naive_bayes': {
+          name: 'Naive Bayes',
+          description: 'Probabilistic classifier - F1: 87.8%',
+          scaling_required: 'None',
+          trained: true,
+          f1_score: 0.878,
+          training_progress: 100
+        },
+        'xgboost': {
+          name: 'XGBoost',
+          description: 'Extreme Gradient Boosting - F1: 93.4%',
+          scaling_required: 'None',
+          trained: true,
+          f1_score: 0.934,
+          training_progress: 100
         }
       };
       
@@ -2161,14 +2223,107 @@ export default function TrainingPage() {
                 </div>
               </div>
             ) : cvResults ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {Object.values(cvResults).map((result, index) => (
-                  <div key={index} className="text-center p-4 bg-gray-700 rounded-lg">
-                    <div className="w-12 h-12 skeleton rounded-full mx-auto mb-3"></div>
-                    <div className="h-8 skeleton rounded w-20 mx-auto mb-2"></div>
-                    <div className="h-4 skeleton rounded w-16 mx-auto"></div>
+              <div className="space-y-6">
+                {/* K-Fold Analysis Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-700 rounded-lg p-4 text-center border border-gray-600">
+                    <div className="text-2xl font-bold text-blue-300 mb-1">
+                      {Object.keys(cvResults).length}
+                    </div>
+                    <div className="text-sm text-gray-400">Models Analyzed</div>
                   </div>
-                ))}
+                  
+                  <div className="bg-gray-700 rounded-lg p-4 text-center border border-gray-600">
+                    <div className="text-2xl font-bold text-green-300 mb-1">
+                      {cvResults ? Math.max(...Object.values(cvResults).map(r => r.mean_score * 100)).toFixed(1) : 'N/A'}%
+                    </div>
+                    <div className="text-sm text-gray-400">Best CV Score</div>
+                  </div>
+                  
+                  <div className="bg-gray-700 rounded-lg p-4 text-center border border-gray-600">
+                    <div className="text-2xl font-bold text-purple-300 mb-1">
+                      {kFolds}
+                    </div>
+                    <div className="text-sm text-gray-400">Fold Configuration</div>
+                  </div>
+                </div>
+
+                {/* Detailed CV Results for Each Model */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-white mb-4">Detailed K-Fold Results</h4>
+                  {Object.entries(cvResults).map(([modelKey, result]) => {
+                    const modelName = availableModels[modelKey]?.name || result.model_name || modelKey;
+                    const isBest = result.mean_score === Math.max(...Object.values(cvResults).map(r => r.mean_score));
+                    
+                    return (
+                      <div 
+                        key={modelKey}
+                        className={`p-4 rounded-lg border ${
+                          isBest ? 'bg-green-900/20 border-green-700' : 'bg-gray-700 border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-white">{modelName}</span>
+                            {isBest && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
+                                Best CV Score
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-white">
+                              {(result.mean_score * 100).toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              ±{(result.std_score * 100).toFixed(2)}%
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-400">Mean Score:</span>
+                            <div className="font-medium text-white">{(result.mean_score * 100).toFixed(2)}%</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Std Deviation:</span>
+                            <div className="font-medium text-white">{(result.std_score * 100).toFixed(2)}%</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Best Fold:</span>
+                            <div className="font-medium text-white">
+                              {result.cv_scores ? Math.max(...result.cv_scores).toFixed(3) : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Worst Fold:</span>
+                            <div className="font-medium text-white">
+                              {result.cv_scores ? Math.min(...result.cv_scores).toFixed(3) : 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Individual Fold Scores */}
+                        {result.cv_scores && result.cv_scores.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-gray-600">
+                            <div className="text-sm text-gray-400 mb-2">Individual Fold Scores:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {result.cv_scores.map((score, foldIndex) => (
+                                <span 
+                                  key={foldIndex}
+                                  className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-600 text-gray-300"
+                                >
+                                  Fold {foldIndex + 1}: {score.toFixed(3)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="text-center py-8 text-gray-400">
