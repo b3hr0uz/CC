@@ -294,7 +294,6 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
-              <p className="text-sm text-gray-600">Your latest emails with AI classification</p>
             </div>
             
             <button

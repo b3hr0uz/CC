@@ -29,9 +29,11 @@ export default function Sidebar() {
     <div className="h-screen w-64 bg-white border-r border-gray-200 flex flex-col">
       {/* Logo */}
       <div className="flex items-center space-x-3 p-6 border-b border-gray-200">
-        <div className="p-2 bg-blue-600 rounded-lg">
-          <Brain className="h-8 w-8 text-white" />
-        </div>
+        <img 
+          src="/ContextCleanse.png" 
+          alt="ContextCleanse Logo" 
+          className="h-10 w-10 rounded-lg"
+        />
         <div>
           <h1 className="text-xl font-bold text-gray-900">ContextCleanse</h1>
           <p className="text-sm text-gray-600">Email Intelligence</p>

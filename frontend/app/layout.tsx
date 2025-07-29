@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   description: 'Advanced email classification using machine learning models with comprehensive statistical analysis',
   keywords: 'email classification, machine learning, context cleanse, statistical analysis, FastAPI, NextJS',
   authors: [{ name: 'Development Team' }],
+  icons: {
+    icon: '/ContextCleanse.png',
+    apple: '/ContextCleanse.png',
+  },
 }
 
 export default function RootLayout({

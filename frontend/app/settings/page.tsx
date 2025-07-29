@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import { 
   Settings, Shield, Mail, Database, 
   Save, RefreshCw, AlertCircle, CheckCircle,
-  Lock
+  Lock, Sun, Moon
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -284,6 +284,87 @@ export default function SettingsPage() {
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Display Settings */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center mb-4">
+              <Sun className="h-5 w-5 text-blue-600 mr-2" />
+              <h2 className="text-lg font-semibold text-gray-900">Display Settings</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Theme</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value="light"
+                      checked={settings.theme === 'light'}
+                      onChange={(e) => handleSettingChange('theme', e.target.value)}
+                      className="sr-only"
+                    />
+                    <div className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
+                      settings.theme === 'light' 
+                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <Sun className="h-4 w-4 mr-2" />
+                      Light
+                    </div>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value="dark"
+                      checked={settings.theme === 'dark'}
+                      onChange={(e) => handleSettingChange('theme', e.target.value)}
+                      className="sr-only"
+                    />
+                    <div className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
+                      settings.theme === 'dark' 
+                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <Moon className="h-4 w-4 mr-2" />
+                      Dark
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Language</label>
+                <select
+                  value={settings.language}
+                  onChange={(e) => handleSettingChange('language', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Timezone</label>
+                <select
+                  value={settings.timezone}
+                  onChange={(e) => handleSettingChange('timezone', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                </select>
               </div>
             </div>
           </div>
