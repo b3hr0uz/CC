@@ -1674,6 +1674,41 @@ This email is totally legitimate and not suspicious at all.`,
     loadExistingRLOptimizations();
   }, []); // Run once on mount
 
+  // Initialize background training when user logs in
+  useEffect(() => {
+    if (session && status === 'authenticated') {
+      console.log('👤 User authenticated - starting background Training page compilation...');
+      
+      // Check if background training was already initialized
+      const existingStatus = localStorage.getItem('backgroundTrainingStatus');
+      if (!existingStatus) {
+        initializeBackgroundTraining();
+      } else {
+        // Sync with existing background training
+        syncWithBackgroundTraining();
+        console.log('🔄 Found existing background training status - syncing...');
+      }
+    }
+  }, [session, status]); // Trigger when authentication status changes
+
+  // Periodic sync with background training status
+  useEffect(() => {
+    let syncInterval: NodeJS.Timeout | null = null;
+    
+    if (session && status === 'authenticated') {
+      // Sync every 5 seconds to catch background training updates
+      syncInterval = setInterval(() => {
+        syncWithBackgroundTraining();
+      }, 5000);
+    }
+    
+    return () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+      }
+    };
+  }, [session, status]);
+
   useEffect(() => {
     // Pre-load dashboard with mock emails immediately for better UX
     if (emails.length === 0) {
@@ -1951,6 +1986,209 @@ This email is totally legitimate and not suspicious at all.`,
     }
   }, [session, status, router, emailLimit]); // Removed stable function references that don't change
 
+  // Interface for background training status
+  interface BackgroundTrainingStatus {
+    isCompiling: boolean;
+    isTraining: boolean;
+    currentModel: string;
+    progress: number;
+    selectedModel: string;
+    availableModels: Record<string, { name: string; f1_score: number; trained?: boolean }>;
+    lastUpdate: string;
+  }
+
+  // Background training service functions
+  const initializeBackgroundTraining = async () => {
+    console.log('🚀 Initializing background Training page compilation...');
+    
+    try {
+      // Set background training status
+      const initialStatus: BackgroundTrainingStatus = {
+        isCompiling: true,
+        isTraining: false,
+        currentModel: 'gradient_boosting',
+        progress: 0,
+        selectedModel: 'gradient_boosting',
+        availableModels: {
+          'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.924, trained: true },
+          'neural_network': { name: 'Neural Network', f1_score: 0.901, trained: false },
+          'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886, trained: false },
+          'svm': { name: 'Support Vector Machine', f1_score: 0.891, trained: false },
+          'random_forest': { name: 'Random Forest', f1_score: 0.913, trained: false },
+          'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878, trained: false },
+          'xgboost': { name: 'XGBoost', f1_score: 0.934, trained: false }
+        },
+        lastUpdate: new Date().toISOString()
+      };
+      
+      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(initialStatus));
+      
+      // Add notification for background compilation start
+      addNotification({
+        id: generateRLNotificationId('training_compilation_start'),
+        type: 'model_training_start',
+        model_name: 'Training Compiler',
+        message: 'Starting background Training page compilation and auto-training...',
+        timestamp: new Date(),
+        start_time: new Date(),
+        estimated_duration: 10,
+      });
+      
+      // Simulate background compilation process
+      setTimeout(async () => {
+        await simulateBackgroundTraining();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('❌ Error initializing background training:', error);
+    }
+  };
+
+  const simulateBackgroundTraining = async () => {
+    console.log('🔄 Starting background auto-training simulation...');
+    
+    const models = ['gradient_boosting', 'neural_network', 'logistic_regression', 'svm', 'random_forest', 'naive_bayes', 'xgboost'];
+    const currentStatus = JSON.parse(localStorage.getItem('backgroundTrainingStatus') || '{}') as BackgroundTrainingStatus;
+    
+    // Update to training phase
+    currentStatus.isCompiling = false;
+    currentStatus.isTraining = true;
+    localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
+    
+    // Add compilation completion notification
+    addNotification({
+      id: generateRLNotificationId('training_compilation_complete'),
+      type: 'model_training_complete',
+      model_name: 'Training Compiler',
+      message: 'Training page compiled successfully - starting auto-training...',
+      timestamp: new Date(),
+      end_time: new Date(),
+      duration: 2.5,
+    });
+    
+    // Train each model sequentially in background
+    for (let i = 0; i < models.length; i++) {
+      const modelKey = models[i];
+      const modelName = currentStatus.availableModels[modelKey]?.name || modelKey;
+      
+      // Update current training model
+      currentStatus.currentModel = modelKey;
+      currentStatus.progress = Math.round(((i + 1) / models.length) * 100);
+      currentStatus.lastUpdate = new Date().toISOString();
+      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
+      
+      // Add training start notification
+      addNotification({
+        id: generateRLNotificationId('bg_training_start', modelKey),
+        type: 'model_training_start',
+        model_name: `Background Training (${modelName})`,
+        message: `Training ${modelName} in background (${i + 1}/${models.length})...`,
+        timestamp: new Date(),
+        start_time: new Date(),
+        estimated_duration: Math.random() * 3 + 2, // 2-5 seconds
+      });
+      
+      // Simulate training time
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 2000));
+      
+      // Update model as trained with improved metrics
+      const baseF1 = currentStatus.availableModels[modelKey]?.f1_score || 0.85;
+      const improvement = Math.random() * 0.02 + 0.01; // 1-3% improvement
+      currentStatus.availableModels[modelKey] = {
+        ...currentStatus.availableModels[modelKey],
+        f1_score: Math.min(0.999, baseF1 + improvement),
+        trained: true
+      };
+      
+      // Determine best model
+      const bestModelKey = Object.entries(currentStatus.availableModels)
+        .filter(([, model]) => model.trained)
+        .sort(([, a], [, b]) => b.f1_score - a.f1_score)[0];
+      
+      if (bestModelKey) {
+        currentStatus.selectedModel = bestModelKey[0];
+      }
+      
+      currentStatus.lastUpdate = new Date().toISOString();
+      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
+      
+      // Add training completion notification
+      addNotification({
+        id: generateRLNotificationId('bg_training_complete', modelKey),
+        type: 'model_training_complete',
+        model_name: `Background Training (${modelName})`,
+        message: `${modelName} training complete - F1: ${(currentStatus.availableModels[modelKey].f1_score * 100).toFixed(1)}%`,
+        timestamp: new Date(),
+        end_time: new Date(),
+        duration: Math.random() * 3 + 2,
+      });
+      
+      // Update Dashboard availableModels if this is the best model
+      if (bestModelKey && bestModelKey[0] === 'gradient_boosting') {
+        setAvailableModels(prev => ({
+          ...prev,
+          [modelKey]: {
+            name: currentStatus.availableModels[modelKey].name,
+            f1_score: currentStatus.availableModels[modelKey].f1_score
+          }
+        }));
+      }
+    }
+    
+    // Mark training as complete
+    currentStatus.isTraining = false;
+    currentStatus.progress = 100;
+    currentStatus.lastUpdate = new Date().toISOString();
+    localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
+    
+    // Add final completion notification
+    addNotification({
+      id: generateRLNotificationId('bg_training_all_complete'),
+      type: 'model_training_complete',
+      model_name: 'Background Training',
+      message: `All models trained in background - Best: ${currentStatus.availableModels[currentStatus.selectedModel]?.name}`,
+      timestamp: new Date(),
+      end_time: new Date(),
+      duration: 15.5,
+    });
+    
+    console.log('✅ Background training completed successfully');
+  };
+
+  // Function to sync with background training status
+  const syncWithBackgroundTraining = () => {
+    try {
+      const status = localStorage.getItem('backgroundTrainingStatus');
+      if (status) {
+        const trainingStatus: BackgroundTrainingStatus = JSON.parse(status);
+        
+        // Update selectedModel if background training determined a better model
+        if (trainingStatus.selectedModel && trainingStatus.selectedModel !== selectedModel) {
+          console.log(`🔄 Background training selected new best model: ${trainingStatus.selectedModel}`);
+          setSelectedModel(trainingStatus.selectedModel);
+        }
+        
+        // Update availableModels with background training results
+        const updatedModels: typeof availableModels = {};
+        Object.entries(trainingStatus.availableModels).forEach(([key, model]) => {
+          updatedModels[key] = {
+            name: model.name,
+            f1_score: model.f1_score
+          };
+        });
+        
+        setAvailableModels(prev => ({
+          ...prev,
+          ...updatedModels
+        }));
+        
+        console.log('🔄 Synced with background training status');
+      }
+    } catch (error) {
+      console.error('❌ Error syncing with background training:', error);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-800">
       <Sidebar />
@@ -1961,7 +2199,7 @@ This email is totally legitimate and not suspicious at all.`,
         <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-white">Inbox</h1>
+              <h1 className="text-2xl font-bold text-white">Dashboard</h1>
             </div>
             
             <div className="flex items-center space-x-4">

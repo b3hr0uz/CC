@@ -92,6 +92,22 @@ const MOCK_MODEL_PERFORMANCE = {
     precision: 0.918,
     recall: 0.908,
     trained: true
+  },
+  'naive_bayes': {
+    name: 'Naive Bayes',
+    f1_score: 0.878,
+    accuracy: 0.874,
+    precision: 0.885,
+    recall: 0.871,
+    trained: true
+  },
+  'xgboost': {
+    name: 'XGBoost',
+    f1_score: 0.934,
+    accuracy: 0.928,
+    precision: 0.941,
+    recall: 0.927,
+    trained: true
   }
 };
 
