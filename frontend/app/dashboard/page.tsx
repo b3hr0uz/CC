@@ -13,6 +13,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
+import { getSimplifiedModelList, getAllModelKeys } from '@/lib/models';
 import axios from 'axios'; // Added axios import
 
 interface ModelClassification {
@@ -60,20 +61,12 @@ export default function DashboardPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [loadingEmailContent, setLoadingEmailContent] = useState(false);
   
-  // Model selection states
+  // Model selection states - using centralized configuration
   const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
   const [availableModels, setAvailableModels] = useState<Record<string, {
     name: string;
     f1_score: number;
-  }>>({
-    'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886 },
-    'xgboost_rl': { name: 'XGBoost + RL', f1_score: 0.947 },
-    'xgboost': { name: 'XGBoost', f1_score: 0.925 },
-    'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878 },
-    'neural_network': { name: 'Neural Network', f1_score: 0.901 },
-    'svm': { name: 'Support Vector Machine', f1_score: 0.891 },
-    'random_forest': { name: 'Random Forest', f1_score: 0.913 }
-  });
+  }>>(getSimplifiedModelList());
 
 
   // Use global notification context

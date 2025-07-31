@@ -11,6 +11,13 @@ import {
   BarChart3, Target
 } from 'lucide-react';
 import axios from 'axios';
+import { 
+  AVAILABLE_MODELS, 
+  getTrainingConfigModels, 
+  getAllModelKeys,
+  getModelInfo,
+  type ModelDetails 
+} from '@/lib/models';
 
 
 // API Configuration
@@ -53,6 +60,7 @@ interface ModelInfo {
   description: string;
   scaling_required: string;
   trained: boolean;
+  f1_score: number; // Added f1_score for consistency
   training_progress?: number;
   estimated_time?: number;
   resource_usage?: {
@@ -123,8 +131,8 @@ export default function TrainingPage() {
   
   // Core states
   const [availableModels, setAvailableModels] = useState<Record<string, ModelInfo>>({});
-  // Select all models by default for training
-  const [selectedModelsForTraining, setSelectedModelsForTraining] = useState<string[]>(['xgboost_rl', 'xgboost', 'random_forest', 'neural_network', 'svm', 'logistic_regression', 'naive_bayes']);
+  // Select trainable models by default (exclude xgboost_rl which requires user feedback)
+  const [selectedModelsForTraining, setSelectedModelsForTraining] = useState<string[]>(getTrainingConfigModels());
   const [modelsTraining, setModelsTraining] = useState(false);
   const [cvResults, setCvResults] = useState<Record<string, CrossValidationResult> | null>(null);
   const [modelResults, setModelResults] = useState<ComparisonResults | null>(null);
@@ -153,12 +161,12 @@ export default function TrainingPage() {
     crossValidation: false
   });
 
-  // Enhanced state for new features
+  // Enhanced state for new features - use centralized model configuration
   const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
     enabled: true, // Enable auto-training
     optimal_k_fold: 5,
     resource_limit: 100, // 100% of system resources
-    selected_models: ['logistic_regression', 'xgboost', 'naive_bayes', 'neural_network', 'svm', 'random_forest', 'xgboost_rl'],
+    selected_models: getAllModelKeys(), // All 7 models including xgboost_rl
     auto_start_on_login: true, // Enable auto-start on login
     sequential_training: true // Enable sequential training
   });
@@ -665,60 +673,27 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('Error fetching available models:', error);
       
-      // Set mock available models for demo purposes (Final 6 models)
-      const mockModels = {
-        'logistic_regression': {
-          name: 'Logistic Regression',
-          description: 'Linear model for binary classification - F1: 88.6%',
-          scaling_required: 'StandardScaler',
-          trained: true,
-          f1_score: 0.886,
-          training_progress: 100
-        },
-        'xgboost': {
-          name: 'XGBoost',
-          description: 'Gradient boosting ensemble - F1: 92.0%',
-          scaling_required: 'None',
-          trained: true,
-          f1_score: 0.920,
-          training_progress: 100
-        },
-        'naive_bayes': {
-          name: 'Naive Bayes',
-          description: 'Probabilistic classifier - F1: 87.8%',
-          scaling_required: 'None',
-          trained: true,
-          f1_score: 0.878,
-          training_progress: 100
-        },
-        'neural_network': {
-          name: 'Neural Network',
-          description: 'Multi-layer perceptron - F1: 90.1%',
-          scaling_required: 'StandardScaler',
-          trained: true,
-          f1_score: 0.901,
-          training_progress: 100
-        },
-        'svm': {
-          name: 'Support Vector Machine',
-          description: 'Kernel-based classification - F1: 89.1%',
-          scaling_required: 'StandardScaler',
-          trained: true,
-          f1_score: 0.891,
-          training_progress: 100
-        },
-        'random_forest': {
-          name: 'Random Forest',
-          description: 'Ensemble method with bagging - F1: 91.3%',
-          scaling_required: 'None',
-          trained: true,
-          f1_score: 0.913,
-          training_progress: 100
+      // Set mock available models using centralized configuration (All 7 models)
+      const mockModels: Record<string, ModelInfo> = {};
+      
+      // Convert centralized model config to Training page format
+      getAllModelKeys().forEach(modelKey => {
+        const modelDetails = getModelInfo(modelKey);
+        if (modelDetails) {
+          mockModels[modelKey] = {
+            name: modelDetails.name,
+            description: `${modelDetails.description} - F1: ${(modelDetails.f1_score * 100).toFixed(1)}% | Method: ${modelDetails.implementation_function}`,
+            scaling_required: modelDetails.scaling_required,
+            trained: modelDetails.trained,
+            f1_score: modelDetails.f1_score,
+            training_progress: modelDetails.training_progress
+          };
         }
-      };
+      });
       
       setAvailableModels(mockModels);
-      setSelectedModelsForTraining(Object.keys(mockModels));
+      // Set selected models for training (exclude xgboost_rl which needs user feedback)
+      setSelectedModelsForTraining(getTrainingConfigModels());
       
       // Complete progress and loading state
       setLoadingProgress(prev => ({ ...prev, availableModels: 100 }));
@@ -1216,6 +1191,10 @@ export default function TrainingPage() {
       });
 
       console.log('✅ Auto-training sequence completed successfully');
+      
+      // Force Training Analysis refresh after auto-training completes
+      setAnalysisRefreshTrigger(prev => prev + 1);
+      console.log('🔄 Triggered Training Analysis refresh after auto-training completion');
 
     } catch (error) {
       console.error('❌ Error in sequential training:', error);
@@ -1654,6 +1633,7 @@ export default function TrainingPage() {
                 description: hasRealTrainingData ? `Background trained model with F1: ${(model.f1_score * 100).toFixed(1)}%` : 'Model available for training',
                 scaling_required: 'standard',
                 trained: model.trained || false,
+                f1_score: model.f1_score || 0.85, // Add missing f1_score with default value
                 training_progress: model.trained ? 100 : 0,
                 estimated_time: Math.random() * 5 + 2,
                 resource_usage: {

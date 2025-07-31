@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`Ollama request failed: ${ollamaResponse.status}`);
       }
 
-      const result: OllamaResponse = await ollamaResponse.json();
+      const result: OllamaChatResponse = await ollamaResponse.json();
 
       return NextResponse.json({
         success: true,

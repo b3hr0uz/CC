@@ -9,6 +9,7 @@ interface EmailDocument {
   content: string;
   timestamp: string;
   classification?: 'spam' | 'ham';
+  embedding?: number[]; // Optional embedding for existing documents
 }
 
 interface VectorDocument {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
         classification: doc.classification,
         type: 'email'
       },
-      embedding: doc.embedding
+      embedding: doc.embedding || [] // Provide empty array if no embedding
     }));
 
     db.addBatch(vectorDocs);
