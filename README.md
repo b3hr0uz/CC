@@ -11,7 +11,7 @@
 ContextCleanse is an advanced email spam detection system that combines traditional machine learning with cutting-edge **Reinforcement Learning (RL)** techniques. The system features 7 different models, including our flagship **XGBoost + RL** model that continuously learns and improves from user feedback.
 
 ### **Key Features**
-- **🤖 LLM Assistant**: Llama 3.1 8B with RAG pipeline for context-aware email queries
+- **🤖 Assistant**: Llama 3.1 8B with RAG pipeline for context-aware email queries
 - **🧠 Reinforcement Learning**: Deep Q-Learning + Policy Gradient optimization
 - **📊 7 ML Models**: Logistic Regression, XGBoost, Neural Network, SVM, Random Forest, Naive Bayes, and XGBoost + RL
 - **🔍 Semantic Search**: Vector embeddings for intelligent email retrieval
@@ -42,7 +42,7 @@ ContextCleanse/
 │   ├── app/                      # App Router (Next.js 13+)
 │   │   ├── api/                  # API Routes
 │   │   │   ├── classify-email/   # Email classification endpoint
-│   │   │   ├── assistant/        # LLM Assistant API endpoints
+│   │   │   ├── assistant/        # Assistant API endpoints
 │   │   │   │   ├── chat/         # Ollama chat interface
 │   │   │   │   ├── embeddings/   # Vector embedding generation
 │   │   │   │   └── vector-db/    # In-memory vector database
@@ -55,7 +55,7 @@ ContextCleanse/
 │   │   ├── contexts/            # React Context providers
 │   │   │   └── NotificationContext.tsx # Global notification state
 │   │   ├── dashboard/           # Main dashboard interface
-│   │   ├── assistant/           # LLM Assistant with RAG pipeline
+│   │   ├── assistant/           # Assistant with RAG pipeline
 │   │   ├── training/            # Model training interface  
 │   │   ├── profile/             # User profile management
 │   │   └── settings/            # Application settings
@@ -416,11 +416,11 @@ We welcome contributions! Please see our contributing guidelines:
 
 ---
 
-## 🤖 **LLM Assistant with RAG Pipeline**
+## 🤖 **Assistant with RAG Pipeline**
 
 ### **Powered by Llama 3.1 8B**
 
-The **LLM Assistant** feature integrates [Ollama](https://www.ollama.com/library/llama3.1:8b) with **Llama 3.1 8B** model and a custom **RAG (Retrieval-Augmented Generation) pipeline** to provide intelligent, context-aware query answering based on your email data.
+The **Assistant** feature integrates [Ollama](https://www.ollama.com/library/llama3.1:8b) with **Llama 3.1 8B** model and a custom **RAG (Retrieval-Augmented Generation) pipeline** to provide intelligent, context-aware query answering based on your email data.
 
 ### **🚀 Quick Setup**
 

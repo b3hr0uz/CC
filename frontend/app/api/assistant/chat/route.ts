@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         success: false,
         response: `⚠️ **Ollama Service Unavailable**
 
-I'm unable to connect to the local Ollama service. To use the LLM Assistant, please:
+I'm unable to connect to the local Ollama service. To use the Assistant, please:
 
 1. **Install Ollama**: Download from https://ollama.com/library/llama3.1:8b
 2. **Start the service**: Run \`ollama serve\` in your terminal

@@ -124,7 +124,7 @@ target "frontend" {
   
   labels = {
     "org.opencontainers.image.title" = "ContextCleanse Frontend"
-    "org.opencontainers.image.description" = "Next.js frontend with LLM Assistant and training interface"
+    "org.opencontainers.image.description" = "Next.js frontend with Assistant and training interface"
     "org.opencontainers.image.version" = "${VERSION}"
     "org.opencontainers.image.created" = "${BUILD_DATE}"
     "org.opencontainers.image.revision" = "${GIT_COMMIT}"

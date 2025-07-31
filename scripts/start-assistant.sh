@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# ContextCleanse LLM Assistant Startup Script
-# This script helps set up and start the LLM Assistant feature with Ollama
+# ContextCleanse Assistant Startup Script
+# This script helps set up and start the Assistant feature with Ollama
 
 set -e
 
-echo "🤖 ContextCleanse LLM Assistant Setup"
+echo "🤖 ContextCleanse Assistant Setup"
 echo "===================================="
 
 # Check if Ollama is installed
@@ -73,7 +73,7 @@ fi
 
 # Display status
 echo ""
-echo "🎉 LLM Assistant is ready!"
+echo "🎉 Assistant is ready!"
 echo ""
 echo "📊 Status:"
 echo "   • Ollama service: Running on http://localhost:11434"

@@ -1,8 +1,8 @@
-# LLM Assistant with RAG Pipeline Setup Guide
+# Assistant with RAG Pipeline Setup Guide
 
 ## Overview
 
-The **LLM Assistant** feature integrates [Ollama](https://www.ollama.com/library/llama3.1:8b) with **Llama 3.1 8B** and a custom **RAG (Retrieval-Augmented Generation) pipeline** to provide context-aware query answering based on your email data.
+The **Assistant** feature integrates [Ollama](https://www.ollama.com/library/llama3.1:8b) with **Llama 3.1 8B** and a custom **RAG (Retrieval-Augmented Generation) pipeline** to provide context-aware query answering based on your email data.
 
 ## 🚀 Quick Start
 

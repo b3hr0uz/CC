@@ -222,7 +222,7 @@ ollama pull llama3.2:1b
 
 ## 🚀 **Final Result**
 
-**ContextCleanse LLM Assistant now features:**
+**ContextCleanse Assistant now features:**
 
 - 🔧 **Zero JavaScript errors** with robust null checking
 - 🤖 **Full Ollama model lifecycle management** 

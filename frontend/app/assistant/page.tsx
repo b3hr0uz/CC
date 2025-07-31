@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { 
   Bot, Send, Loader2, Search, Database, 
-  Settings, RefreshCw, Zap, Activity, Download
+  Settings, RefreshCw, Zap, Activity, Download, AlertCircle
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import axios from 'axios';
@@ -66,6 +66,7 @@ interface OllamaStatus {
   isDownloading: boolean;
   downloadProgress: number;
   config: OllamaConfig;
+  setupInstructions?: string[];
 }
 
 interface RAGStats {
@@ -200,13 +201,13 @@ export default function AssistantPage() {
   }, [autoRefresh]);
 
   const initializeAssistant = async () => {
-    console.log('🤖 Initializing LLM Assistant...');
+    console.log('🤖 Initializing Assistant...');
     
     // Add welcome message
     const welcomeMessage: ChatMessage = {
       id: `system-${Date.now()}`,
       type: 'system',
-      content: '🤖 **LLM Assistant Initializing**\n\nWelcome to your personal email assistant powered by **Llama 3.1 8B** and **RAG pipeline**.\n\nI can help you:\n• Query your email history with semantic search\n• Analyze email patterns and trends\n• Answer questions about your communications\n• Provide insights based on your email data\n\nInitializing local Ollama service and loading email embeddings...',
+      content: 'Initializing...\n\nWelcome to your email assistant powered by Ollama and RAG pipelines.\n\nI can help you:\n• Query your email history with semantic search\n• Analyze email patterns and trends\n• Answer questions about your communications\n• Provide insights based on your email data\n\nInitializing local Ollama service and loading email embeddings...',
       timestamp: new Date()
     };
     
@@ -283,13 +284,75 @@ export default function AssistantPage() {
       }
     } catch (error) {
       console.error('Ollama check failed:', error);
+      const currentOS = detectOS();
       const suggestedModel = ollamaConfig.defaultModel;
+      
+      // Generate platform-specific error message and setup guidance
+      let statusMessage = '';
+      let setupInstructions: string[] = [];
+      
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+          statusMessage = `Ollama not running on ${currentOS}`;
+          
+          switch (currentOS) {
+            case 'windows':
+              setupInstructions = [
+                '1. Download: https://ollama.com/download → OllamaSetup.exe',
+                '2. Install: Run installer (no admin rights needed)',
+                '3. Start: Run "ollama serve" in Command Prompt',
+                `4. Install model: ollama pull ${suggestedModel}`,
+                'Alternative: Run scripts/setup-ollama.ps1'
+              ];
+              break;
+            case 'macos':
+              setupInstructions = [
+                '1. Install: brew install ollama (or download .dmg)',
+                '2. Start: ollama serve (or open Ollama app)',
+                `3. Install model: ollama pull ${suggestedModel}`,
+                'Alternative: Run ./scripts/setup-ollama.sh'
+              ];
+              break;
+            case 'linux':
+              setupInstructions = [
+                '1. Install: curl -fsSL https://ollama.com/install.sh | sh',
+                '2. Start: ollama serve (or systemctl start ollama)',
+                `3. Install model: ollama pull ${suggestedModel}`,
+                'Alternative: Run ./scripts/setup-ollama.sh'
+              ];
+              break;
+            default:
+              setupInstructions = [
+                '1. Visit https://ollama.com for installation instructions',
+                '2. Start Ollama service on your platform',
+                `3. Install model: ollama pull ${suggestedModel}`
+              ];
+          }
+        } else if (error.code === 'ETIMEDOUT') {
+          statusMessage = `Ollama service timeout (may be starting up)`;
+          setupInstructions = [
+            'Ollama may be starting up. Please wait a moment and try again.',
+            'If problem persists, restart Ollama service.'
+          ];
+        } else {
+          statusMessage = `Connection error: ${error.message}`;
+          setupInstructions = [
+            'Check if Ollama is running on http://localhost:11434',
+            'Verify firewall settings allow port 11434'
+          ];
+        }
+      } else {
+        statusMessage = `Unexpected error: ${error}`;
+        setupInstructions = ['Please check the browser console for more details'];
+      }
+      
       setOllamaStatus(prev => ({
         ...prev,
         available: false,
         model: suggestedModel,
-        status: `Ollama not running (${detectOS()}) - start with: ollama serve`,
-        loading: false
+        status: statusMessage,
+        loading: false,
+        setupInstructions: setupInstructions
       }));
     }
   };
@@ -685,11 +748,8 @@ Please provide a helpful response based on the email context provided.`;
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center">
                 <Bot className="h-6 w-6 mr-2 text-blue-400" />
-                LLM Assistant
+                Assistant
               </h1>
-              <p className="text-sm text-gray-400 mt-1">
-                Powered by Llama 3.1 8B with RAG Pipeline
-              </p>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -756,6 +816,29 @@ Please provide a helpful response based on the email context provided.`;
                       {ollamaStatus.status}
                     </span>
                   </div>
+                  
+                  {/* Setup Instructions (when Ollama is not available) */}
+                  {!ollamaStatus.available && ollamaStatus.setupInstructions && ollamaStatus.setupInstructions.length > 0 && (
+                    <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700 rounded-lg">
+                      <h4 className="text-amber-400 font-medium mb-2 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Setup Required ({detectOS()})
+                      </h4>
+                      <ol className="text-xs text-gray-300 space-y-1">
+                        {ollamaStatus.setupInstructions.map((instruction, index) => (
+                          <li key={index} className="flex">
+                            <span className="text-amber-400 mr-2">•</span>
+                            <span>{instruction}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      <div className="mt-2 pt-2 border-t border-amber-700/30">
+                        <p className="text-xs text-gray-400">
+                          📖 See <code className="bg-gray-800 px-1 rounded">docs/ollama-setup-guide.md</code> for detailed instructions
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex justify-between">
                     <span className="text-gray-400">API URL:</span>
@@ -914,7 +997,7 @@ Please provide a helpful response based on the email context provided.`;
                     <div className="flex items-center mb-2">
                       <Bot className="h-4 w-4 mr-2 text-blue-400" />
                       <span className="text-sm font-medium text-blue-400">
-                        LLM Assistant
+                        Assistant
                       </span>
                       <span className="text-xs text-gray-400 ml-2">
                         {message.timestamp.toLocaleTimeString()}
