@@ -288,7 +288,7 @@ export default function AssistantPage() {
               await checkOllamaStatus();
               return;
             }
-          } catch (parseError) {
+          } catch (_parseError) {
             // Ignore parsing errors for streaming chunks
           }
         }
@@ -316,6 +316,7 @@ export default function AssistantPage() {
     return sizeBytes / (1024 * 1024 * 1024);
   };
 
+  // Helper function to check if model is too large (used in UI logic)
   const isModelTooLarge = (sizeBytes: number): boolean => {
     if (!ollamaStatus.systemResources) return false;
     const modelSizeGB = getModelSizeGB(sizeBytes);
@@ -351,8 +352,8 @@ export default function AssistantPage() {
       const emails = emailsResponse.data.emails || [];
       console.log(`📬 Fetched ${emails.length} emails for embedding`);
       
-      // Generate embeddings for each email
-      const embeddingsPromises = emails.map(async (email: any): Promise<EmailEmbedding | null> => {
+      // Generate embeddings for each email  
+      const embeddingsPromises = emails.map(async (email: { id: string; subject: string; from: string; content: string; date: string; classification?: string }): Promise<EmailEmbedding | null> => {
         try {
           // Create combined text for embedding
           const combinedText = `Subject: ${email.subject}\nFrom: ${email.from}\nContent: ${email.content}`;
@@ -367,7 +368,7 @@ export default function AssistantPage() {
             content: email.content,
             embedding,
             timestamp: new Date(email.date),
-            classification: email.classification
+            classification: email.classification as 'spam' | 'ham' | undefined
           };
         } catch (error) {
           console.warn(`Failed to generate embedding for email ${email.id}:`, error);
@@ -619,7 +620,7 @@ Please provide a helpful response based on the email context provided.`;
         {/* Settings Panel */}
         {showSettings && (
           <div className="bg-gray-700 border-b border-gray-600 px-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* RAG Stats */}
               <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
                 <h3 className="text-white font-semibold mb-3 flex items-center">
@@ -644,7 +645,7 @@ Please provide a helpful response based on the email context provided.`;
                 </div>
               </div>
 
-              {/* Ollama Status */}
+              {/* Ollama Status & Model Management */}
               <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
                 <h3 className="text-white font-semibold mb-3 flex items-center">
                   <Activity className="h-4 w-4 mr-2 text-green-400" />
@@ -652,24 +653,102 @@ Please provide a helpful response based on the email context provided.`;
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Model:</span>
-                    <span className="text-white">{ollamaStatus.model}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-gray-400">Status:</span>
                     <span className={`${ollamaStatus.available ? 'text-green-400' : 'text-red-400'}`}>
                       {ollamaStatus.status}
                     </span>
                   </div>
+                  
+                  {/* Model Selection */}
+                  {ollamaStatus.availableModels.length > 0 && (
+                    <div>
+                      <label className="block text-gray-400 mb-1">Current Model:</label>
+                      <select
+                        value={ollamaStatus.model}
+                        onChange={(e) => changeModel(e.target.value)}
+                        className="w-full bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1"
+                        disabled={ollamaStatus.isDownloading}
+                      >
+                        {ollamaStatus.availableModels.map((model) => (
+                          <option key={model.name} value={model.name}>
+                            {model.name} ({(getModelSizeGB(model.size)).toFixed(1)}GB)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Download Progress */}
+                  {ollamaStatus.isDownloading && (
+                    <div>
+                      <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${ollamaStatus.downloadProgress}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-blue-400 mt-1">
+                        {ollamaStatus.downloadProgress}% downloaded
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     onClick={checkOllamaStatus}
-                    disabled={ollamaStatus.loading}
+                    disabled={ollamaStatus.loading || ollamaStatus.isDownloading}
                     className="w-full mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
                   >
                     {ollamaStatus.loading ? 'Checking...' : 'Refresh Status'}
                   </button>
                 </div>
               </div>
+
+              {/* Model Downloads */}
+              {ollamaStatus.available && (
+                <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
+                  <h3 className="text-white font-semibold mb-3 flex items-center">
+                    <Download className="h-4 w-4 mr-2 text-purple-400" />
+                    Download Models
+                  </h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {getRecommendedModels()
+                      .filter(model => !ollamaStatus.availableModels.some(available => available.name === model.name))
+                      .slice(0, 4) // Show only first 4 to save space
+                      .map((model) => {
+                        const tooLarge = ollamaStatus.systemResources && model.size > ollamaStatus.systemResources.recommendedMaxModelSizeGB;
+                        
+                        return (
+                          <div key={model.name} className="flex justify-between items-center p-2 bg-gray-700 rounded text-xs">
+                            <div className="flex-1">
+                              <div className="text-white font-medium">{model.displayName}</div>
+                              <div className="text-gray-400">
+                                {model.size.toFixed(1)}GB
+                                {tooLarge && <span className="text-red-400 ml-1">⚠️</span>}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => pullModel(model.name)}
+                              disabled={ollamaStatus.isDownloading || tooLarge}
+                              className={`px-2 py-1 rounded text-xs ${
+                                tooLarge 
+                                  ? 'bg-red-600 text-white cursor-not-allowed opacity-50'
+                                  : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50'
+                              }`}
+                            >
+                              {tooLarge ? 'Too Large' : 'Get'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  {ollamaStatus.systemResources && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Max recommended: {ollamaStatus.systemResources.recommendedMaxModelSizeGB.toFixed(1)}GB
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Controls */}
               <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
