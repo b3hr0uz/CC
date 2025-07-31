@@ -74,6 +74,8 @@ services:
       # reCAPTCHA Configuration
       - NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+      # Ollama Configuration for host access
+      - NEXT_PUBLIC_OLLAMA_HOST=host.docker.internal:11434
     depends_on:
       - backend
     networks:

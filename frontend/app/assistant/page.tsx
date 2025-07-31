@@ -98,32 +98,38 @@ const detectOS = (): 'windows' | 'macos' | 'linux' | 'unknown' => {
 const getOllamaConfig = (): OllamaConfig => {
   const os = detectOS();
   
+  // Check for Docker environment variable for host Ollama access
+  const dockerOllamaHost = process.env.NEXT_PUBLIC_OLLAMA_HOST;
+  const baseApiUrl = dockerOllamaHost 
+    ? `http://${dockerOllamaHost}` 
+    : 'http://localhost:11434';
+  
   switch (os) {
     case 'windows':
       return {
-        apiUrl: 'http://localhost:11434',
-        defaultModel: 'llama3:latest', // Windows users often have llama3:latest
+        apiUrl: baseApiUrl,
+        defaultModel: 'llama3:latest', // Matches typical Windows Ollama installation
         alternativeModels: ['llama3.1:8b', 'llama3:8b', 'llama2:latest', 'codellama:latest'],
-        timeout: 8000, // Slightly longer timeout for Windows
+        timeout: 12000, // Extended timeout for Docker bridge network + Windows
         streamSupport: true
       };
     
     case 'macos':
     case 'linux':
       return {
-        apiUrl: 'http://localhost:11434',
+        apiUrl: baseApiUrl,
         defaultModel: 'llama3.1:8b', // macOS/Linux users typically prefer newer versions
         alternativeModels: ['llama3:latest', 'llama3:8b', 'llama2:latest', 'codellama:latest'],
-        timeout: 6000, // Faster timeout for Unix systems
+        timeout: dockerOllamaHost ? 10000 : 6000, // Extended timeout for Docker network
         streamSupport: true
       };
     
     default:
       return {
-        apiUrl: 'http://localhost:11434',
+        apiUrl: baseApiUrl,
         defaultModel: 'llama3.1:8b',
         alternativeModels: ['llama3:latest', 'llama3:8b', 'llama2:latest'],
-        timeout: 7000,
+        timeout: dockerOllamaHost ? 10000 : 7000, // Extended timeout for Docker network
         streamSupport: true
       };
   }
@@ -298,11 +304,12 @@ export default function AssistantPage() {
           switch (currentOS) {
             case 'windows':
               setupInstructions = [
-                '1. Download: https://ollama.com/download → OllamaSetup.exe',
-                '2. Install: Run installer (no admin rights needed)',
-                '3. Start: Run "ollama serve" in Command Prompt',
-                `4. Install model: ollama pull ${suggestedModel}`,
-                'Alternative: Run scripts/setup-ollama.ps1'
+                '1. Open Command Prompt or PowerShell',
+                '2. Start Ollama: ollama serve',
+                '3. Keep the window open (Ollama runs in foreground)',
+                `4. If model missing: ollama pull ${suggestedModel}`,
+                '5. Test connection: scripts/test-ollama-connection.ps1',
+                'Alternative: Run scripts/setup-ollama.ps1 for full setup'
               ];
               break;
             case 'macos':
