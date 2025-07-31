@@ -13,7 +13,14 @@ import {
   BarChart3
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
-import { getSimplifiedModelList, getAllModelKeys } from '@/lib/models';
+import { 
+  getSimplifiedModelList, 
+  getAllModelKeys, 
+  getModelInfo, 
+  MODEL_DISPLAY_ORDER,
+  AVAILABLE_MODELS,
+  type ModelDetails 
+} from '@/lib/models';
 import axios from 'axios'; // Added axios import
 
 interface ModelClassification {
@@ -25,6 +32,15 @@ interface ModelClassification {
   recall?: number;
   f1_score?: number;
   training_time?: number;
+}
+
+// Extended interface to match Training page format for consistency
+interface ModelInfo {
+  name: string;
+  f1_score: number;
+  trained: boolean;
+  description?: string;
+  implementation_function?: string;
 }
 
 interface ExtendedEmailData extends EmailData {
@@ -61,12 +77,24 @@ export default function DashboardPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [loadingEmailContent, setLoadingEmailContent] = useState(false);
   
-  // Model selection states - using centralized configuration
+  // Model selection states - using centralized configuration (consistent with Training page)
   const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
-  const [availableModels, setAvailableModels] = useState<Record<string, {
-    name: string;
-    f1_score: number;
-  }>>(getSimplifiedModelList());
+  const [availableModels, setAvailableModels] = useState<Record<string, ModelInfo>>(() => {
+    const models: Record<string, ModelInfo> = {};
+    MODEL_DISPLAY_ORDER.forEach(modelKey => {
+      const modelDetails = getModelInfo(modelKey);
+      if (modelDetails) {
+        models[modelKey] = {
+          name: modelDetails.name,
+          f1_score: modelDetails.f1_score,
+          trained: modelDetails.trained,
+          description: modelDetails.description,
+          implementation_function: modelDetails.implementation_function
+        };
+      }
+    });
+    return models;
+  });
 
 
   // Use global notification context
@@ -2335,32 +2363,45 @@ This email is totally legitimate and not suspicious at all.`,
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Model Selection Dropdown */}
+              {/* Model Selection Dropdown - Consistent with Training Page */}
               <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-300">Active Model:</label>
+                <label className="text-sm text-gray-300">Selected Model:</label>
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
                   className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {Object.entries(availableModels).map(([key, model]) => (
-                    <option key={key} value={key}>
-                      {model.name} (F1: {(model.f1_score * 100).toFixed(1)}%)
-                    </option>
-                  ))}
+                  {MODEL_DISPLAY_ORDER.map((modelKey) => {
+                    const model = availableModels[modelKey];
+                    if (!model) return null;
+                    return (
+                      <option key={modelKey} value={modelKey} disabled={!model.trained}>
+                        {model.name}
+                        {!model.trained && ' (Not Trained)'}
+                        {model.trained && ` - F1: ${(model.f1_score * 100).toFixed(1)}%`}
+                      </option>
+                    );
+                  })}
                 </select>
-                {selectedModel === 'xgboost_rl' && (
-                  <div className="flex items-center space-x-2">
+                
+                {/* Model Status Indicators */}
+                <div className="flex items-center space-x-2">
+                  {selectedModel === 'xgboost_rl' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
                       Best Model
                     </span>
-                    {availableModels[selectedModel]?.name.includes('+ RL') && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
-                        🧠 RL Active ({getRLOptimizationCount()})
-                      </span>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {availableModels[selectedModel]?.name.includes('+ RL') && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
+                      🧠 RL Active ({getRLOptimizationCount()})
+                    </span>
+                  )}
+                  {availableModels[selectedModel]?.implementation_function && (
+                    <span className="text-xs text-gray-400" title={`Implementation: ${availableModels[selectedModel]?.implementation_function}`}>
+                      📋 {availableModels[selectedModel]?.implementation_function?.split('(')[0]}
+                    </span>
+                  )}
+                </div>
             </div>
             
             <button
@@ -2694,16 +2735,26 @@ This email is totally legitimate and not suspicious at all.`,
                               ))}
                             </div>
                             
-                            {/* Footer with Active Model Indicator */}
+                            {/* Footer with Selected Model Indicator - Consistent with Training Page */}
                             <div className="mt-3 pt-3 border-t border-gray-600">
                               <div className="flex items-center justify-between text-xs">
                                 <div className="flex items-center space-x-2">
                                   <span className="text-gray-400">
-                                    Active Model: <span className="text-white font-medium">{availableModels[selectedModel]?.name}</span>
+                                    Selected Model: <span className="text-white font-medium">{availableModels[selectedModel]?.name}</span>
+                                    {availableModels[selectedModel]?.f1_score && (
+                                      <span className="text-blue-300 ml-1">
+                                        (F1: {(availableModels[selectedModel].f1_score * 100).toFixed(1)}%)
+                                      </span>
+                                    )}
                                   </span>
                                   {availableModels[selectedModel]?.name.includes('+ RL') && (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
                                       🧠 RL ({getRLOptimizationCount()})
+                                    </span>
+                                  )}
+                                  {availableModels[selectedModel]?.implementation_function && (
+                                    <span className="text-gray-500" title={`Implementation: ${availableModels[selectedModel]?.implementation_function}`}>
+                                      📋 {availableModels[selectedModel]?.implementation_function?.split('(')[0]}
                                     </span>
                                   )}
                                 </div>

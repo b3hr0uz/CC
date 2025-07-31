@@ -70,7 +70,7 @@ class MLService:
         # Model definitions with proper algorithm names and XGBoost + RL as flagship
         self.available_models = {
             'xgboost_rl': {'name': 'XGBoost + RL', 'class': None, 'priority': 1, 'algorithm': 'XGBoost + Deep Q-Learning'},
-            'xgboost': {'name': 'XGBoost', 'class': xgb.XGBClassifier if SKLEARN_AVAILABLE else None, 'priority': 2, 'algorithm': 'Gradient Boosting'},
+            'xgboost': {'name': 'XGBoost', 'class': xgb.XGBClassifier if SKLEARN_AVAILABLE else None, 'priority': 2, 'algorithm': 'XGBoost'},
             'random_forest': {'name': 'Random Forest', 'class': RandomForestClassifier if SKLEARN_AVAILABLE else None, 'priority': 3, 'algorithm': 'Ensemble Trees'},
             'neural_network': {'name': 'Neural Network (MLP)', 'class': MLPClassifier if SKLEARN_AVAILABLE else None, 'priority': 4, 'algorithm': 'Multi-Layer Perceptron'},
             'svm': {'name': 'Support Vector Machine', 'class': SVC if SKLEARN_AVAILABLE else None, 'priority': 5, 'algorithm': 'Support Vector Classification'},

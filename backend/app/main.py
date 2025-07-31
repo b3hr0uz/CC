@@ -92,8 +92,8 @@ AVAILABLE_MODELS = {
         "scaling": "standard",
         "description": "Linear classifier with logistic function"
     },
-    "gradient_boosting": {
-        "name": "Gradient Boosting",
+    "xgboost": {
+        "name": "XGBoost",
         "class": GradientBoostingClassifier,
         "params": {"n_estimators": 100, "learning_rate": 0.1, "max_depth": 3, "random_state": 42},
         "scaling": "none",
@@ -126,7 +126,7 @@ AVAILABLE_MODELS = {
 # Data models
 class PredictionRequest(BaseModel):
     features: List[float]
-    algorithm_name: Optional[str] = "gradient_boosting"  # Renamed from model_name to avoid Pydantic conflict
+    algorithm_name: Optional[str] = "xgboost"  # Renamed from model_name to avoid Pydantic conflict
     
 class ModelTrainRequest(BaseModel):
     algorithm_names: Optional[List[str]] = None  # Train specific models or all if None (renamed from model_names)
@@ -710,11 +710,10 @@ async def determine_optimal_kfold(request: Dict[str, Any]):
     """Determine optimal k-fold value for cross-validation."""
     try:
         k_folds = request.get("k_folds", 5)
-        test_model = request.get("test_model", "gradient_boosting")
+        test_model = request.get("test_model", "xgboost")
         
         # Map model names to actual models
         model_mapping = {
-            "gradient_boosting": GradientBoostingClassifier(random_state=42),
             "xgboost": GradientBoostingClassifier(random_state=42),  # Using GradientBoosting as XGBoost substitute
             "logistic_regression": LogisticRegression(random_state=42, max_iter=1000),
             "naive_bayes": MultinomialNB(),
@@ -725,7 +724,7 @@ async def determine_optimal_kfold(request: Dict[str, Any]):
             await load_and_prepare_data()
         
         if test_model not in model_mapping:
-            test_model = "gradient_boosting"
+            test_model = "xgboost"
             
         model = model_mapping[test_model]
         

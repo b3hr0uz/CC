@@ -131,7 +131,7 @@ export default function TrainingPage() {
   
   // Core states
   const [availableModels, setAvailableModels] = useState<Record<string, ModelInfo>>({});
-  // Select trainable models by default (exclude xgboost_rl which requires user feedback)
+  // Select all 7 models by default (xgboost_rl requires user feedback but can still be trained)
   const [selectedModelsForTraining, setSelectedModelsForTraining] = useState<string[]>(getTrainingConfigModels());
   const [modelsTraining, setModelsTraining] = useState(false);
   const [cvResults, setCvResults] = useState<Record<string, CrossValidationResult> | null>(null);
@@ -692,7 +692,7 @@ export default function TrainingPage() {
       });
       
       setAvailableModels(mockModels);
-      // Set selected models for training (exclude xgboost_rl which needs user feedback)
+      // Set selected models for training (all 7 models by default, including xgboost_rl)
       setSelectedModelsForTraining(getTrainingConfigModels());
       
       // Complete progress and loading state
@@ -1159,8 +1159,8 @@ export default function TrainingPage() {
       console.log('📊 Comparing trained models...');
       await compareModels();
       
-      // Wait a moment for state updates to be processed
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait longer for state updates to be processed (compareModels triggers refresh)
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Get the updated best model after comparison
       const currentBestModel = bestModel || 'Unknown';
@@ -1192,9 +1192,16 @@ export default function TrainingPage() {
 
       console.log('✅ Auto-training sequence completed successfully');
       
-      // Force Training Analysis refresh after auto-training completes
-      setAnalysisRefreshTrigger(prev => prev + 1);
-      console.log('🔄 Triggered Training Analysis refresh after auto-training completion');
+      // Additional Training Analysis refresh to ensure UI updates (compareModels already triggered one)
+      setAnalysisRefreshTrigger(prev => {
+        const newTrigger = prev + 1;
+        console.log(`🔄 Auto-training completion: Triggering additional Training Analysis refresh (${newTrigger})`);
+        return newTrigger;
+      });
+      
+      // Force update of available models with latest training status
+      await fetchAvailableModels();
+      console.log('🔄 Final model status refresh completed after auto-training');
 
     } catch (error) {
       console.error('❌ Error in sequential training:', error);
@@ -1851,7 +1858,7 @@ export default function TrainingPage() {
                         <div key={key} className={`p-4 rounded-lg border ${
                           isBest ? 'bg-green-900/20 border-green-700' : 'bg-gray-700 border-gray-600'
                         }`}>
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-2">
                               <span className="font-medium text-white">
                                 {availableModels[key]?.name || key}
@@ -1870,6 +1877,42 @@ export default function TrainingPage() {
                             <span className="text-sm text-gray-400">
                               F1: {(metrics.f1_score * 100).toFixed(1)}%
                             </span>
+                          </div>
+                          
+                          {/* Detailed Model Information */}
+                          <div className="mb-3 pb-3 border-b border-gray-600">
+                            <div className="grid grid-cols-1 gap-2 text-xs">
+                              {getModelInfo(key) && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-400">Implementation:</span>
+                                    <span className="text-blue-300 font-mono">
+                                      {getModelInfo(key)?.implementation_function}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-400">Library:</span>
+                                    <span className="text-purple-300">
+                                      {getModelInfo(key)?.library_used}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-400">Algorithm:</span>
+                                    <span className="text-yellow-300">
+                                      {getModelInfo(key)?.algorithm_type}
+                                    </span>
+                                  </div>
+                                  {getModelInfo(key)?.use_case && (
+                                    <div className="mt-1">
+                                      <span className="text-gray-400">Use Case:</span>
+                                      <div className="text-gray-300 mt-1 text-xs leading-relaxed">
+                                        {getModelInfo(key)?.use_case}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             <div>
@@ -2028,10 +2071,15 @@ export default function TrainingPage() {
                         className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium text-white truncate">{model.name}</span>
+                            <span className="font-medium text-white">{model.name}</span>
                             {model.trained && <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                            {getModelInfo(key)?.requires_user_feedback && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
+                                RL
+                              </span>
+                            )}
                           </div>
                           {model.trained && modelResults?.results[key] && hasRealTrainingData && (
                             <span className="text-xs text-green-300 font-medium">
@@ -2039,7 +2087,33 @@ export default function TrainingPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-400 truncate">{model.description}</p>
+                        <div className="space-y-1">
+                          <p className="text-sm text-gray-400">{model.description}</p>
+                          {getModelInfo(key) && (
+                            <div className="grid grid-cols-1 gap-1 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-500">Implementation:</span>
+                                <span className="text-blue-300 font-mono text-xs">
+                                  {getModelInfo(key)?.implementation_function}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-500">Library:</span>
+                                <span className="text-purple-300">
+                                  {getModelInfo(key)?.library_used}
+                                </span>
+                              </div>
+                              {getModelInfo(key)?.scaling_required !== 'None' && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">Scaling:</span>
+                                  <span className="text-orange-300">
+                                    {getModelInfo(key)?.scaling_required}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </label>
                   ))}
@@ -2328,15 +2402,47 @@ export default function TrainingPage() {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-white">{modelName}</span>
-                            {isBest && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
-                                Best CV Score
-                              </span>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="font-medium text-white">{modelName}</span>
+                              {isBest && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
+                                  Best CV Score
+                                </span>
+                              )}
+                              {getModelInfo(modelKey)?.requires_user_feedback && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
+                                  RL
+                                </span>
+                              )}
+                            </div>
+                            {/* Detailed Model Information for K-Fold */}
+                            {getModelInfo(modelKey) && (
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-4 text-xs">
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-gray-500">Implementation:</span>
+                                    <span className="text-blue-300 font-mono">
+                                      {getModelInfo(modelKey)?.implementation_function}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-gray-500">Library:</span>
+                                    <span className="text-purple-300">
+                                      {getModelInfo(modelKey)?.library_used}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-gray-500">Algorithm:</span>
+                                    <span className="text-yellow-300">
+                                      {getModelInfo(modelKey)?.algorithm_type}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right ml-4">
                             <div className="text-lg font-bold text-white">
                               {(result.mean_score * 100).toFixed(1)}%
                             </div>

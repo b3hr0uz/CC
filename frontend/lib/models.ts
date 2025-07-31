@@ -178,9 +178,9 @@ export const getSimplifiedModelList = (): Record<string, { name: string; f1_scor
   return simplified;
 };
 
-// Get models for training configuration (exclude RL models that need feedback)
+// Get models for training configuration (now includes all 7 models by default)
 export const getTrainingConfigModels = (): string[] => {
-  return TRAINABLE_MODELS;
+  return MODEL_DISPLAY_ORDER; // Return all 7 models as requested
 };
 
 // Get all model keys in display order
