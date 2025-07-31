@@ -33,7 +33,7 @@ export interface ModelMetrics {
 
 // Training notification interface
 export interface TrainingNotification extends BaseNotification {
-  type: 'training_start' | 'training_complete' | 'training_error' | 'auto_training_init' | 'model_training_start' | 'model_training_complete' | 'model_classification_start' | 'model_classification_complete';
+  type: 'training_start' | 'training_complete' | 'training_error' | 'auto_training_init' | 'model_training_start' | 'model_training_complete' | 'model_classification_start' | 'model_classification_complete' | 'backend_info';
   metrics?: ModelMetrics & {
     previous_metrics?: ModelMetrics;
     metric_changes?: {
@@ -70,7 +70,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'contextcleanse_notifications';
-const MAX_NOTIFICATIONS = 20;
+const MAX_NOTIFICATIONS = 100;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -175,17 +175,55 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     console.log(`➕ Adding notification: ${notification.type} for ${notification.model_name}`);
     
     setNotifications(prev => {
-      // Check for recent duplicates (same type and model within 2 seconds)
       const now = Date.now();
-      const recentDuplicate = prev.find(existing => 
-        existing.type === notification.type && 
-        existing.model_name === notification.model_name &&
-        (now - existing.timestamp.getTime()) < 2000 // Within 2 seconds
-      );
+      
+      // Enhanced duplicate detection for different notification patterns
+      const recentDuplicate = prev.find(existing => {
+        const timeDiff = now - existing.timestamp.getTime();
+        
+        // For email sync notifications - prevent duplicates within 30 seconds
+        if (notification.type === 'email_fetch_complete' && existing.type === 'email_fetch_complete') {
+          return timeDiff < 30000; // 30 seconds
+        }
+        
+        // For classification notifications - prevent duplicates within 15 seconds
+        if (notification.type === 'model_classification_complete' && existing.type === 'model_classification_complete') {
+          return timeDiff < 15000; // 15 seconds
+        }
+        
+        // For training notifications - prevent duplicates within 5 seconds for same model
+        if (notification.type === existing.type && 
+            notification.model_name === existing.model_name &&
+            (notification.type.includes('training') || notification.type.includes('optimization'))) {
+          return timeDiff < 5000; // 5 seconds
+        }
+        
+        // General duplicate prevention - same type and model within 2 seconds
+        return existing.type === notification.type && 
+               existing.model_name === notification.model_name &&
+               timeDiff < 2000; // 2 seconds
+      });
       
       if (recentDuplicate) {
-        console.log(`🔄 Preventing duplicate notification: ${notification.type} for ${notification.model_name}`);
+        console.log(`🔄 Preventing duplicate notification: ${notification.type} for ${notification.model_name} (within threshold)`);
         return prev; // Don't add duplicate
+      }
+      
+      // Special consolidation for background training - replace instead of add if it's an update
+      if (notification.type === 'model_training_complete' && notification.model_name.includes('Background Training')) {
+        const existingBgIndex = prev.findIndex(n => 
+          n.type === 'model_training_complete' && 
+          n.model_name.includes('Background Training') &&
+          (now - n.timestamp.getTime()) < 60000 // Within 1 minute
+        );
+        
+        if (existingBgIndex >= 0) {
+          // Replace the existing background training notification
+          const updatedNotifications = [...prev];
+          updatedNotifications[existingBgIndex] = notification;
+          console.log(`🔄 Updated existing background training notification`);
+          return [notification, ...prev.slice(0, existingBgIndex), ...prev.slice(existingBgIndex + 1, MAX_NOTIFICATIONS - 1)];
+        }
       }
       
       // Add the new notification at the beginning and limit total count

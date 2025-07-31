@@ -2,12 +2,11 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import NotificationSidebar from './components/NotificationSidebar'
-import { NotificationProvider } from './contexts/NotificationContext'
 
 interface OAuthProvider {
   name: string
@@ -95,12 +94,34 @@ export default function HomePage() {
       })
       
       if (result?.error) {
-        toast.error('Failed to sign in with Google')
+        console.error('Google OAuth error:', result.error)
+        
+        // Provide specific error messages based on error type
+        switch (result.error) {
+          case 'OAuthSignin':
+            toast.error('OAuth configuration error. Please check the setup guide.')
+            break
+          case 'OAuthCallback':
+            toast.error('OAuth callback failed. Please try again.')
+            break
+          case 'AccessDenied':
+            toast.error('Access denied. Please grant permissions to continue.')
+            break
+          case 'Configuration':
+            toast.error('OAuth configuration missing. Please check environment variables.')
+            break
+          default:
+            toast.error(`Authentication error: ${result.error}`)
+        }
+        
         setLoading(null)
+      } else if (result?.ok) {
+        toast.success('Successfully signed in with Google!')
+        // The redirect will happen automatically
       }
     } catch (error) {
       console.error(`${provider} login failed:`, error)
-      toast.error(`Failed to login with ${provider}`)
+      toast.error(`Failed to login with ${provider}. Check the OAuth setup guide.`)
       setLoading(null)
     }
   }
@@ -132,7 +153,6 @@ export default function HomePage() {
   }
 
   return (
-    <NotificationProvider>
       <div className="min-h-screen flex" style={{backgroundColor: '#212121'}}>
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
@@ -145,9 +165,11 @@ export default function HomePage() {
             >
               {/* ContextCleanse Logo */}
               <div className="mx-auto mb-6 flex justify-center">
-                <img 
+                <Image 
                   src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
-                  alt="ContextCleanse Logo" 
+                  alt="ContextCleanse Logo"
+                  width={96}
+                  height={96} 
                   className="h-20 w-20 sm:h-24 sm:w-24 object-contain"
                 />
               </div>
@@ -249,7 +271,7 @@ export default function HomePage() {
                       style={{backgroundColor: '#2a2a2a'}}
                     >
                       <div className="text-center mb-3">
-                        <h3 className="text-sm font-medium text-white mb-1">🧪 Demo Mode</h3>
+                        <h3 className="text-sm font-medium text-white mb-1">Demo Mode</h3>
                         <p className="text-xs text-gray-400">
                           Experience ContextCleanse with sample data
                         </p>
@@ -328,12 +350,6 @@ export default function HomePage() {
             </motion.div>
           </div>
         </div>
-        
-        {/* Events Sidebar */}
-        <NotificationSidebar 
-          title="Events"
-        />
       </div>
-    </NotificationProvider>
   )
 } 

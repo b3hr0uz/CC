@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowLeft, Shield, Lock, Eye, Database, UserCheck } from 'lucide-react'
 import NotificationSidebar from '../components/NotificationSidebar'
 import { NotificationProvider } from '../contexts/NotificationContext'
@@ -20,9 +21,11 @@ export default function PrivacyPolicy() {
                 Back to ContextCleanse
               </Link>
               <div className="flex items-center">
-                <img 
+                <Image 
                   src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
-                  alt="ContextCleanse Logo" 
+                  alt="ContextCleanse Logo"
+                  width={32}
+                  height={32} 
                   className="h-8 w-8 object-contain mr-3"
                 />
                 <h1 className="text-xl font-bold text-white">Privacy Policy</h1>
@@ -36,10 +39,10 @@ export default function PrivacyPolicy() {
               <div className="mb-8">
                 <h1 className="text-3xl font-bold text-white mb-4">Privacy Policy</h1>
                 <p className="text-white">
-                  <strong>Effective Date:</strong> {new Date().toLocaleDateString()}
+                  <strong>Effective Date:</strong> <span suppressHydrationWarning={true}>{new Date().toLocaleDateString()}</span>
                 </p>
                 <p className="text-white mt-2">
-                  <strong>Last Updated:</strong> {new Date().toLocaleDateString()}
+                  <strong>Last Updated:</strong> <span suppressHydrationWarning={true}>{new Date().toLocaleDateString()}</span>
                 </p>
                 <div className="mt-6 p-4 bg-gray-800 border border-gray-600 rounded-lg">
                   <div className="flex items-center">

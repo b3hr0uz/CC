@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/auth';
 
 interface RLOptimizationRequest {
   type: string;
@@ -32,17 +34,30 @@ interface RLOptimizationRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: 'Authentication required for RL optimization' },
+        { status: 401 }
+      );
+    }
+
     const body: RLOptimizationRequest = await request.json();
     
     console.log('🧠 RL Optimization Request:', {
       emailId: body.emailId,
       feedback: body.feedbackData.feedback,
       algorithm: body.optimizationConfig.algorithm,
-      modelUsed: body.feedbackData.modelUsed
+      modelUsed: body.feedbackData.modelUsed,
+      demoMode: session.isMockUser ? 'Yes' : 'No'
     });
 
     // Simulate asynchronous RL optimization processing
     const processingStartTime = Date.now();
+    let usingMockData = false;
+    let mockReason = '';
     
     // In a real implementation, this would:
     // 1. Send the feedback to an ML training pipeline
@@ -51,10 +66,17 @@ export async function POST(request: NextRequest) {
     // 4. Evaluate performance improvements
     // 5. Update model registry if improvements are significant
 
-    try {
-      // Simulate backend ML service call
-      const mlBackendUrl = process.env.ML_BACKEND_URL || 'http://localhost:8000';
-      const backendResponse = await fetch(`${mlBackendUrl}/reinforcement-learning/optimize`, {
+    // Check if this is a demo user session first
+    if (session.isMockUser) {
+      console.log('Demo mode detected - using mock RL optimization');
+      usingMockData = true;
+      mockReason = 'Demo mode active';
+    } else {
+      try {
+        // Try to connect to real ML backend service with enhanced RL optimization
+        // Use internal Docker network for server-side API calls
+    const mlBackendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const backendResponse = await fetch(`${mlBackendUrl}/api/v1/feedback/reinforcement-learning/optimize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,22 +90,25 @@ export async function POST(request: NextRequest) {
             confidence: body.feedbackData.confidence,
             model_used: body.feedbackData.modelUsed,
             email_features: {
+              subject: body.feedbackData.emailFeatures.subject,
+              sender: body.feedbackData.emailFeatures.from,
+              content: body.feedbackData.emailFeatures.content || body.feedbackData.emailFeatures.preview,
               subject_length: body.feedbackData.emailFeatures.subject.length,
               sender_domain: body.feedbackData.emailFeatures.from.split('@')[1] || 'unknown',
-              content_length: body.feedbackData.emailFeatures.content.length,
+              content_length: (body.feedbackData.emailFeatures.content || body.feedbackData.emailFeatures.preview).length,
               has_links: body.feedbackData.emailFeatures.hasLinks,
               has_attachments: body.feedbackData.emailFeatures.hasAttachments,
               word_count: body.feedbackData.emailFeatures.wordCount
             }
           },
           optimization_config: {
-            algorithm: body.optimizationConfig.algorithm,
-            learning_rate: body.optimizationConfig.learningRate,
-            exploration_rate: body.optimizationConfig.explorationRate,
-            batch_size: body.optimizationConfig.batchSize,
+            algorithm: body.optimizationConfig.algorithm || 'deep_q_learning',
+            learning_rate: body.optimizationConfig.learningRate || 0.001,
+            exploration_rate: body.optimizationConfig.explorationRate || 0.1,
+            batch_size: body.optimizationConfig.batchSize || 8,
             update_target_model: body.optimizationConfig.targetModelUpdate
           },
-          current_best_model: body.currentBestModel,
+          current_best_model: body.currentBestModel === 'gradient_boosting' ? 'xgboost' : body.currentBestModel,
           session_id: body.sessionId
         }),
       });
@@ -118,17 +143,27 @@ export async function POST(request: NextRequest) {
         throw new Error(`Backend RL service responded with status: ${backendResponse.status}`);
       }
 
-    } catch (backendError) {
-      // Fallback: Mock RL optimization when backend is unavailable
-      const isConnectionError = backendError instanceof Error && 
-        (backendError.message.includes('ECONNREFUSED') || 
-         backendError.message.includes('fetch failed'));
-      
-      if (isConnectionError) {
-        console.info('ℹ️ ML backend service is offline - using mock RL optimization');
-      } else {
-        console.error('❌ Backend RL service error:', backendError);
+      } catch (backendError) {
+        // Fallback: Mock RL optimization when backend is unavailable
+        const isConnectionError = backendError instanceof Error && 
+          (backendError.message.includes('ECONNREFUSED') || 
+           backendError.message.includes('fetch failed') ||
+           backendError.message.includes('ENOTFOUND'));
+        
+        if (isConnectionError) {
+          console.warn('⚠️ ML backend service is offline - using mock RL optimization');
+          usingMockData = true;
+          mockReason = 'ML backend service is offline';
+        } else {
+          console.warn('⚠️ Backend RL service error - using mock RL optimization:', backendError);
+          usingMockData = true;
+          mockReason = `Backend RL service error: ${backendError instanceof Error ? backendError.message : 'Unknown error'}`;
+        }
       }
+    }
+
+    // Fallback to mock data if needed
+    if (usingMockData) {
 
       // Simulate realistic RL processing time
       await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 3000)); // 1.5-4.5s
@@ -147,24 +182,22 @@ export async function POST(request: NextRequest) {
       };
 
       // Determine if a new best model emerges from RL optimization
-      const modelImprovementThreshold = 0.008; // 0.8% improvement threshold
+      const modelImprovementThreshold = 0.005; // 0.5% improvement threshold (lowered for XGBoost + RL)
       const totalImprovement = improvements.f1ScoreGain;
-      const newBestModel = totalImprovement > modelImprovementThreshold 
-        ? getNextBestModel(body.currentBestModel) 
-        : body.currentBestModel;
+      // XGBoost + RL is always the best model (it improves continuously with user feedback)
+      const newBestModel = 'xgboost_rl';
 
-      console.log('🔄 Applied mock RL optimization:', {
+      console.log(`🎭 Mock RL optimization complete (${mockReason}):`, {
         emailId: body.emailId,
         improvements,
         processingTime,
-        newBestModel
+        newBestModel,
+        reason: mockReason
       });
 
       return NextResponse.json({
         success: true,
-        message: isConnectionError 
-          ? 'RL optimization completed using local processing (ML backend offline)'
-          : 'RL optimization completed with fallback processing',
+        message: `RL optimization completed using mock processing (${mockReason})`,
         emailId: body.emailId,
         processingTime: processingTime,
         improvements,
@@ -176,7 +209,8 @@ export async function POST(request: NextRequest) {
           gradientNorm: 0.015 + Math.random() * 0.035,
           policyImprovement: 0.04 + Math.random() * 0.06
         },
-        backend_status: 'offline_mock_optimization'
+        backend_status: 'mock_optimization',
+        mock_reason: mockReason
       });
     }
 
@@ -197,11 +231,13 @@ function getNextBestModel(currentModel: string): string {
   const modelProgression = {
     'naive_bayes': 'logistic_regression',
     'logistic_regression': 'neural_network', 
-    'neural_network': 'gradient_boosting',
-    'gradient_boosting': 'gradient_boosting' // Already the best
+    'neural_network': 'xgboost',
+    'xgboost': 'xgboost_rl',  // XGBoost can be enhanced with RL
+    'gradient_boosting': 'xgboost_rl',  // Legacy name maps to XGBoost + RL
+    'xgboost_rl': 'xgboost_rl' // Already the best with RL
   };
   
-  return modelProgression[currentModel as keyof typeof modelProgression] || currentModel;
+  return modelProgression[currentModel as keyof typeof modelProgression] || 'xgboost_rl';
 }
 
 export async function GET() {

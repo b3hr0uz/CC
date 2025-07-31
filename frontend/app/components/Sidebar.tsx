@@ -2,16 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { 
-  BarChart3, Settings, User, LogOut,
-  Home
+  BarChart3, Settings, LogOut,
+  Home, Bot
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
@@ -36,6 +36,7 @@ export default function Sidebar() {
   // Main navigation items (top section)
   const mainNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Assistant', href: '/assistant', icon: Bot },
     { name: 'Training', href: '/training', icon: BarChart3 },
   ];
 
@@ -51,9 +52,11 @@ export default function Sidebar() {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center">
-          <img 
+          <Image 
             src="/ContextCleanse-no-padding-transparent-dark-mode.png" 
             alt="ContextCleanse Logo" 
+            width={32}
+            height={32}
             className="h-8 w-8 object-contain"
           />
           <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">ContextCleanse</span>

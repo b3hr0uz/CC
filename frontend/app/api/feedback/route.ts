@@ -45,12 +45,26 @@ export async function POST(request: NextRequest) {
       correctedClassification,
       confidence,
       subject: emailContent.subject,
-      user: session.user.email
+      user: session.user.email,
+      demoMode: session.isMockUser ? 'Yes' : 'No'
     })
+
+    // Check if this is a demo user session
+    if (session.isMockUser) {
+      console.log('Demo mode detected - using mock feedback processing');
+      return NextResponse.json({
+        success: true,
+        message: 'Feedback received and processed in demo mode',
+        backend_status: 'demo_mode',
+        mock_reason: 'Demo mode active'
+      });
+    }
 
     // Send feedback to backend for reinforcement learning
     try {
-      const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/feedback`, {
+      // Use internal Docker network for server-side API calls
+      const backendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const backendResponse = await fetch(`${backendUrl}/api/v1/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

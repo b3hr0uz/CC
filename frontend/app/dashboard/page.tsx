@@ -1,20 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import NotificationSidebar from '../components/NotificationSidebar';
-import { useNotifications, TrainingNotification, RLNotification } from '../contexts/NotificationContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { 
   Mail, Search, RefreshCw, AlertCircle, 
   CheckCircle, Clock, Tag, Inbox, Shield,
   ThumbsUp, ThumbsDown, X, Eye, ExternalLink, Paperclip, Smile, Brain,
-  Settings,
-  Trash2,
-  Loader,
-  ChevronDown,
-  Award,
   BarChart3
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
@@ -57,7 +52,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [emailError, setEmailError] = useState<{type: string, message: string} | null>(null);
   const [usingMockData, setUsingMockData] = useState(false);
-  const [emailLimit, setEmailLimit] = useState(20); // New state for controlling sample size
+  const [emailLimit, setEmailLimit] = useState(100); // New state for controlling sample size
   const [userFeedback, setUserFeedback] = useState<{[emailId: string]: 'correct' | 'incorrect' | null}>({});
   const [userCorrectedEmails, setUserCorrectedEmails] = useState<Set<string>>(new Set());
   const [hoveredEmail, setHoveredEmail] = useState<string | null>(null);
@@ -66,25 +61,23 @@ export default function DashboardPage() {
   const [loadingEmailContent, setLoadingEmailContent] = useState(false);
   
   // Model selection states
-  const [selectedModel, setSelectedModel] = useState<string>('gradient_boosting');
+  const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
   const [availableModels, setAvailableModels] = useState<Record<string, {
     name: string;
     f1_score: number;
   }>>({
     'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886 },
-    'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.934 },
+    'xgboost_rl': { name: 'XGBoost + RL', f1_score: 0.947 },
+    'xgboost': { name: 'XGBoost', f1_score: 0.925 },
     'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878 },
     'neural_network': { name: 'Neural Network', f1_score: 0.901 },
     'svm': { name: 'Support Vector Machine', f1_score: 0.891 },
     'random_forest': { name: 'Random Forest', f1_score: 0.913 }
   });
-  const [modelPredictions, setModelPredictions] = useState<Record<string, {
-    classification: 'spam' | 'ham';
-    confidence: number;
-  }>>({});
+
 
   // Use global notification context
-  const { addNotification, notificationCounter } = useNotifications();
+  const { addNotification } = useNotifications();
 
   // Add state to prevent duplicate email fetching
   const [isFetchingEmails, setIsFetchingEmails] = useState(false);
@@ -340,7 +333,7 @@ export default function DashboardPage() {
         
         // Check if this is a mock user session
         if (session?.isMockUser) {
-          console.log('🧪 Mock user detected - using mock data only');
+          console.log('Mock user detected - using mock data only');
           setEmailError({
             type: 'info',
             message: 'Demo mode active - showing sample email data.'
@@ -450,6 +443,24 @@ export default function DashboardPage() {
           
           const classificationPromises = basicEmails.map(async (email): Promise<ExtendedEmailData> => {
             try {
+              // Validate required fields before making API call
+              if (!email.id || !email.subject || !email.from) {
+                console.warn(`⚠️ Skipping classification for email with missing fields:`, {
+                  id: email.id,
+                  subject: email.subject,
+                  from: email.from
+                });
+                return {
+                  ...email,
+                  classification: 'ham' as const,
+                  confidence: 0.5,
+                  modelUsed: 'default',
+                  allModelPredictions: [],
+                };
+              }
+
+              const emailContent = email.content || email.preview || email.subject || 'No content available';
+              
               const classifyResponse = await fetch('/api/classify-email', {
                 method: 'POST',
                 headers: {
@@ -460,13 +471,39 @@ export default function DashboardPage() {
                   emailId: email.id,
                   subject: email.subject,
                   from: email.from,
-                  content: email.content || email.preview || email.subject, // Use available content
+                  content: emailContent,
                   modelKey: selectedModel, // Pass the active/selected model
                 }),
               });
 
               if (classifyResponse.ok) {
                 const classificationResult = await classifyResponse.json();
+                
+                // Check if mock data is being used and notify user (only for real users, not demo)
+                if (!session?.isMockUser && classificationResult.modelUsed && classificationResult.modelUsed.includes('(Mock)')) {
+                  // Only add notification once to avoid spam - check if we haven't already added it
+                  const mockWarnings: Array<{type: string, timestamp: number}> = JSON.parse(localStorage.getItem('mockDataWarnings') || '[]');
+                  const recentWarning = mockWarnings.find((w) => 
+                    w.type === 'classification' && (Date.now() - w.timestamp) < 60000 // Within last minute
+                  );
+                  
+                  if (!recentWarning) {
+                    addNotification({
+                      id: generateRLNotificationId('mock_classification_warning'),
+                      type: 'rl_error',
+                      model_name: 'System Alert',
+                      message: `⚠️ Using UCI Spambase dataset for classification. Enable ML backend to train on your Gmail data for personalized predictions.`,
+                      timestamp: new Date(),
+                      start_time: new Date(),
+                      estimated_duration: 0,
+                    });
+                    
+                    // Track that we've shown this warning
+                    mockWarnings.push({ type: 'classification', timestamp: Date.now() });
+                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-5))); // Keep last 5
+                  }
+                }
+                
                 return {
                   ...email,
                   classification: classificationResult.classification as 'spam' | 'ham',
@@ -1126,13 +1163,25 @@ This email is totally legitimate and not suspicious at all.`,
       
       // Check if this is a mock user session
       if (session?.isMockUser) {
-        console.log('🧪 Mock user detected - using mock data only');
+        console.log('Mock user detected - using mock data only');
         setEmailError({
           type: 'info',
           message: 'Demo mode active - showing sample email data.'
         });
         setUsingMockData(true);
-        setEmails(getMockEmails());
+        const mockEmails = getMockEmails();
+        setEmails(mockEmails);
+        
+        // Add notification for mock data completion
+        addNotification({
+          id: generateRLNotificationId('email_fetch_complete'),
+          type: 'email_fetch_complete',
+          model_name: 'Email Sync',
+          message: `Demo mode: Loaded ${mockEmails.length} sample emails`,
+          timestamp: new Date(),
+          start_time: new Date(),
+          estimated_duration: 0,
+        });
         return;
       }
       
@@ -1170,7 +1219,19 @@ This email is totally legitimate and not suspicious at all.`,
         
         console.log('📋 Loading mock data...');
         setUsingMockData(true);
-        setEmails(getMockEmails());
+        const mockEmails = getMockEmails();
+        setEmails(mockEmails);
+        
+        // Add notification for fallback to mock data
+        addNotification({
+          id: generateRLNotificationId('email_fetch_complete'),
+          type: 'email_fetch_complete',
+          model_name: 'Email Sync',
+          message: `Gmail unavailable: Using ${mockEmails.length} demo emails instead`,
+          timestamp: new Date(),
+          start_time: new Date(),
+          estimated_duration: 0,
+        });
         return; // Don't throw, just use mock data
       }
 
@@ -1191,6 +1252,20 @@ This email is totally legitimate and not suspicious at all.`,
       setEmails(emailsWithClassification);
       setUsingMockData(false);
       setEmailError(null); // Clear any previous errors
+      
+      // Save emails to persistent storage
+      saveEmailsToStorage(emailsWithClassification, signInMethod);
+      
+      // Add notification for successful email fetch completion
+      addNotification({
+        id: generateRLNotificationId('email_fetch_complete'),
+        type: 'email_fetch_complete',
+        model_name: 'Email Sync',
+        message: `Successfully fetched ${emailsWithClassification.length} emails from ${signInMethod} inbox`,
+        timestamp: new Date(),
+        start_time: new Date(),
+        estimated_duration: 0,
+      });
     } catch (error) {
       console.error('Error fetching emails:', error);
       setEmailError({
@@ -1198,9 +1273,23 @@ This email is totally legitimate and not suspicious at all.`,
         message: 'Unable to fetch emails. Using demo data instead.'
       });
       setUsingMockData(true);
-      setEmails(getMockEmails());
+      const mockEmails = getMockEmails();
+      setEmails(mockEmails);
+      
+      // Add notification for error fallback to mock data
+      addNotification({
+        id: generateRLNotificationId('email_fetch_complete'),
+        type: 'email_fetch_complete',
+        model_name: 'Email Sync',
+        message: `Error occurred: Using ${mockEmails.length} demo emails instead`,
+        timestamp: new Date(),
+        start_time: new Date(),
+        estimated_duration: 0,
+      });
     } finally {
       setLoading(false);
+      setIsFetchingEmails(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -1250,10 +1339,7 @@ This email is totally legitimate and not suspicious at all.`,
     setIsRefreshing(false);
   };
 
-  const handleReauth = async () => {
-    await signOut({ redirect: false });
-    router.push('/');
-  };
+
 
   const handleEmailClick = async (email: ExtendedEmailData) => {
     setSelectedEmail(email);
@@ -1281,6 +1367,13 @@ This email is totally legitimate and not suspicious at all.`,
     // Fetch full content if not already loaded (for real Gmail data)
     if (!email.content) {
       console.log('📧 Fetching full content for Gmail email:', email.subject);
+      
+      // Validate email ID before making API call
+      if (!email.id) {
+        console.warn('⚠️ Cannot fetch email content: missing email ID');
+        return;
+      }
+      
       setLoadingEmailContent(true);
       try {
         const response = await axios.post('/api/emails', { messageId: email.id });
@@ -1749,7 +1842,7 @@ This email is totally legitimate and not suspicious at all.`,
         
         // Check if this is a mock user session
         if (session?.isMockUser) {
-          console.log('🧪 Mock user detected - using mock data only');
+          console.log('Mock user detected - using mock data only');
           setEmailError({
             type: 'info',
             message: 'Demo mode active - showing sample email data.'
@@ -1859,6 +1952,24 @@ This email is totally legitimate and not suspicious at all.`,
           
           const classificationPromises = basicEmails.map(async (email): Promise<ExtendedEmailData> => {
             try {
+              // Validate required fields before making API call
+              if (!email.id || !email.subject || !email.from) {
+                console.warn(`⚠️ Skipping classification for email with missing fields:`, {
+                  id: email.id,
+                  subject: email.subject,
+                  from: email.from
+                });
+                return {
+                  ...email,
+                  classification: 'ham' as const,
+                  confidence: 0.5,
+                  modelUsed: 'default',
+                  allModelPredictions: [],
+                };
+              }
+
+              const emailContent = email.content || email.preview || email.subject || 'No content available';
+              
               const classifyResponse = await fetch('/api/classify-email', {
                 method: 'POST',
                 headers: {
@@ -1869,13 +1980,39 @@ This email is totally legitimate and not suspicious at all.`,
                   emailId: email.id,
                   subject: email.subject,
                   from: email.from,
-                  content: email.content || email.preview || email.subject, // Use available content
+                  content: emailContent,
                   modelKey: selectedModel, // Pass the active/selected model
                 }),
               });
 
               if (classifyResponse.ok) {
                 const classificationResult = await classifyResponse.json();
+                
+                // Check if mock data is being used and notify user (only for real users, not demo)
+                if (!session?.isMockUser && classificationResult.modelUsed && classificationResult.modelUsed.includes('(Mock)')) {
+                  // Only add notification once to avoid spam - check if we haven't already added it
+                  const mockWarnings: Array<{type: string, timestamp: number}> = JSON.parse(localStorage.getItem('mockDataWarnings') || '[]');
+                  const recentWarning = mockWarnings.find((w) => 
+                    w.type === 'classification' && (Date.now() - w.timestamp) < 60000 // Within last minute
+                  );
+                  
+                  if (!recentWarning) {
+                    addNotification({
+                      id: generateRLNotificationId('mock_classification_warning'),
+                      type: 'rl_error',
+                      model_name: 'System Alert',
+                      message: `⚠️ Using UCI Spambase dataset for classification. Enable ML backend to train on your Gmail data for personalized predictions.`,
+                      timestamp: new Date(),
+                      start_time: new Date(),
+                      estimated_duration: 0,
+                    });
+                    
+                    // Track that we've shown this warning
+                    mockWarnings.push({ type: 'classification', timestamp: Date.now() });
+                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-5))); // Keep last 5
+                  }
+                }
+                
                 return {
                   ...email,
                   classification: classificationResult.classification as 'spam' | 'ham',
@@ -2008,12 +2145,13 @@ This email is totally legitimate and not suspicious at all.`,
       const initialStatus: BackgroundTrainingStatus = {
         isCompiling: true,
         isTraining: false,
-        currentModel: 'gradient_boosting',
+        currentModel: 'xgboost_rl',
         progress: 0,
-        selectedModel: 'gradient_boosting',
+        selectedModel: 'xgboost_rl',
         availableModels: {
           'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886, trained: false },
-          'gradient_boosting': { name: 'Gradient Boosting', f1_score: 0.934, trained: true },
+          'xgboost_rl': { name: 'XGBoost + RL', f1_score: 0.947, trained: true },
+      'xgboost': { name: 'XGBoost', f1_score: 0.925, trained: true },
           'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878, trained: false },
           'neural_network': { name: 'Neural Network', f1_score: 0.901, trained: false },
           'svm': { name: 'Support Vector Machine', f1_score: 0.891, trained: false },
@@ -2048,7 +2186,7 @@ This email is totally legitimate and not suspicious at all.`,
   const simulateBackgroundTraining = async () => {
     console.log('🔄 Starting background auto-training simulation...');
     
-          const models = ['logistic_regression', 'gradient_boosting', 'naive_bayes', 'neural_network', 'svm', 'random_forest'];
+          const models = ['xgboost_rl', 'xgboost', 'random_forest', 'neural_network', 'svm', 'logistic_regression', 'naive_bayes'];
     const currentStatus = JSON.parse(localStorage.getItem('backgroundTrainingStatus') || '{}') as BackgroundTrainingStatus;
     
     // Update to training phase
@@ -2125,7 +2263,7 @@ This email is totally legitimate and not suspicious at all.`,
       });
       
       // Update Dashboard availableModels if this is the best model
-      if (bestModelKey && bestModelKey[0] === 'gradient_boosting') {
+      if (bestModelKey && bestModelKey[0] === 'xgboost_rl') {
         setAvailableModels(prev => ({
           ...prev,
           [modelKey]: {
@@ -2195,7 +2333,7 @@ This email is totally legitimate and not suspicious at all.`,
       <Sidebar />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-auto">
         {/* Header */}
         <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -2218,7 +2356,7 @@ This email is totally legitimate and not suspicious at all.`,
                     </option>
                   ))}
                 </select>
-                {selectedModel === 'gradient_boosting' && (
+                {selectedModel === 'xgboost_rl' && (
                   <div className="flex items-center space-x-2">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
                       Best Model
@@ -2230,11 +2368,11 @@ This email is totally legitimate and not suspicious at all.`,
                     )}
                   </div>
                 )}
-              </div>
+            </div>
             
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
                   className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors shadow-sm"
                   title={`Sync emails from ${session?.user?.email || 'your Google account'}`}
                 >
@@ -2262,7 +2400,7 @@ This email is totally legitimate and not suspicious at all.`,
                       (Next auto-sync: {Math.floor(nextSyncCountdown / 60)}:{(nextSyncCountdown % 60).toString().padStart(2, '0')})
                     </span>
                   )}
-              </button>
+            </button>
             </div>
           </div>
         </header>
@@ -2287,7 +2425,7 @@ This email is totally legitimate and not suspicious at all.`,
               <span className="text-sm">{emailError.message}</span>
               {session?.isMockUser && (
                 <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                  🧪 Demo Mode
+                  Demo Mode
                 </span>
               )}
             </div>
@@ -2358,107 +2496,6 @@ This email is totally legitimate and not suspicious at all.`,
           </div>
         </div>
 
-        {/* Model Performance Overview */}
-        <div className="px-6 py-4">
-          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white flex items-center">
-                <BarChart3 className="mr-2 h-5 w-5" />
-                Model Performance Overview
-              </h3>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-400">All Models</span>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 border border-blue-700 text-blue-300">
-                  {Object.keys(availableModels).length} Models Active
-                </span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Object.entries(availableModels).map(([key, model]) => {
-                const isSelected = key === selectedModel;
-                const isRLEnhanced = model.name.includes('+ RL');
-                
-                return (
-                  <div 
-                    key={key} 
-                    className={`p-4 rounded-lg border transition-all duration-200 ${
-                      isSelected 
-                        ? 'bg-blue-900/20 border-blue-700 ring-1 ring-blue-500/50' 
-                        : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-white truncate">
-                          {model.name}
-                        </span>
-                        {isSelected && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
-                            Active
-                          </span>
-                        )}
-                        {isRLEnhanced && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
-                            🧠 RL ({getRLOptimizationCount()})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">F1-Score:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Accuracy:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 0.98 * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Precision:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 1.02 * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Recall:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 0.99 * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="mt-3 pt-2 border-t border-gray-600">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-gray-500">Last Updated:</span>
-                          <span className="text-xs text-gray-400">
-                            {new Date().toLocaleTimeString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {Object.keys(availableModels).length === 0 && (
-              <div className="text-center py-8 text-gray-400">
-                <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No model performance data available</p>
-                <p className="text-sm">Models will appear here after training</p>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Controls */}
         <div className="px-6 pb-4">
           <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
@@ -2497,10 +2534,10 @@ This email is totally legitimate and not suspicious at all.`,
                       id="email-limit"
                       type="number"
                       min="1"
-                      max="100"
+                      max="500"
                       value={emailLimit}
                       onChange={(e) => {
-                        const newLimit = Math.max(1, Math.min(100, parseInt(e.target.value) || 20));
+                        const newLimit = Math.max(1, Math.min(500, parseInt(e.target.value) || 100));
                         setEmailLimit(newLimit);
                       }}
                       className="w-16 px-2 py-1 text-sm border border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
@@ -2514,7 +2551,7 @@ This email is totally legitimate and not suspicious at all.`,
         </div>
 
         {/* Email List */}
-        <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <div className="flex-1 px-6 pb-6">
           <div className="bg-gray-800 rounded-lg shadow border border-gray-600 h-full flex flex-col">
             <div className="px-6 py-4 border-b border-gray-600">
               <h2 className="text-lg font-semibold text-white">Latest Emails</h2>
@@ -2577,7 +2614,7 @@ This email is totally legitimate and not suspicious at all.`,
                         </div>
                       </div>
                       
-                      <div className="flex-shrink-0 ml-6 relative">
+                      <div className="flex-shrink-0 ml-6 relative w-32 flex flex-col items-center">
                         <div 
                           className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer transition-all ${
                           email.classification === 'spam' 
@@ -2596,8 +2633,6 @@ This email is totally legitimate and not suspicious at all.`,
                           {userCorrectedEmails.has(email.id) && (
                             <span className="ml-1 text-xs">✓</span>
                           )}
-                          
-
                         </div>
 
                         {/* Enhanced Model Classifications Tooltip */}
@@ -2705,8 +2740,8 @@ This email is totally legitimate and not suspicious at all.`,
                             disabled={userFeedback[email.id] === 'correct'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'correct'
-                                ? 'bg-gray-800 border-gray-600 text-white'
-                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-800 dark:hover:bg-black hover:border-gray-400 dark:hover:border-gray-500 hover:text-white'
+                                ? 'bg-green-900/30 border-green-700 text-green-300'
+                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-600 hover:border-gray-500'
                             }`}
                             title="Classification is correct"
                           >
@@ -2721,27 +2756,29 @@ This email is totally legitimate and not suspicious at all.`,
                             disabled={userFeedback[email.id] === 'incorrect'}
                             className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
                               userFeedback[email.id] === 'incorrect'
-                                ? 'bg-gray-800 border-gray-600 text-white'
-                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-800 dark:hover:bg-black hover:border-gray-400 dark:hover:border-gray-500 hover:text-white'
+                                ? 'bg-red-900/30 border-red-700 text-red-300'
+                                : 'bg-gray-800 border-gray-600 text-white hover:bg-gray-600 hover:border-gray-500'
                             }`}
                             title="Classification is incorrect"
                           >
                             <ThumbsDown className="h-4 w-4" />
                           </button>
-                      </div>
+                        </div>
                         
-                        {/* Feedback Status */}
-                        {userFeedback[email.id] && (
-                          <div className="mt-2 text-xs text-center">
-                            <span className={`px-2 py-1 rounded-full ${
+                        {/* Feedback Status - Fixed height container to prevent layout shift */}
+                        <div className="mt-2 h-6 flex items-center justify-center">
+                          {userFeedback[email.id] ? (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               userFeedback[email.id] === 'correct'
-                                ? 'bg-gray-800 text-white border border-gray-600'
-                                : 'bg-gray-800 text-white border border-gray-600'
+                                ? 'bg-green-900/30 border border-green-700 text-green-300'
+                                : 'bg-red-900/30 border border-red-700 text-red-300'
                             }`}>
                               {userFeedback[email.id] === 'correct' ? '✓ Feedback: Correct' : '✗ Feedback: Incorrect'}
                             </span>
-                          </div>
-                        )}
+                          ) : (
+                            <span className="text-xs text-transparent select-none">&#8203;</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2756,6 +2793,107 @@ This email is totally legitimate and not suspicious at all.`,
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Model Performance Overview */}
+        <div className="px-6 py-4">
+          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white flex items-center">
+                <BarChart3 className="mr-2 h-5 w-5" />
+                Model Performance Overview
+              </h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-400">All Models</span>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 border border-blue-700 text-blue-300">
+                  {Object.keys(availableModels).length} Models Active
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Object.entries(availableModels).map(([key, model]) => {
+                const isSelected = key === selectedModel;
+                const isRLEnhanced = model.name.includes('+ RL');
+                
+                return (
+                  <div 
+                    key={key} 
+                    className={`p-4 rounded-lg border transition-all duration-200 ${
+                      isSelected 
+                        ? 'bg-blue-900/20 border-blue-700 ring-1 ring-blue-500/50' 
+                        : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-white truncate">
+                          {model.name}
+                        </span>
+                        {isSelected && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
+                            Active
+                          </span>
+                        )}
+                        {isRLEnhanced && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
+                            🧠 RL ({getRLOptimizationCount()})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">F1-Score:</span>
+                        <span className="text-sm font-medium text-white">
+                          {(model.f1_score * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Accuracy:</span>
+                        <span className="text-sm font-medium text-white">
+                          {(model.f1_score * 0.98 * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Precision:</span>
+                        <span className="text-sm font-medium text-white">
+                          {(model.f1_score * 1.02 * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Recall:</span>
+                        <span className="text-sm font-medium text-white">
+                          {(model.f1_score * 0.99 * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="mt-3 pt-2 border-t border-gray-600">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Last Updated:</span>
+                          <span className="text-xs text-gray-400" suppressHydrationWarning={true}>
+                            {new Date().toLocaleTimeString()}
+                          </span>
+          </div>
+        </div>
+      </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {Object.keys(availableModels).length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No model performance data available</p>
+                <p className="text-sm">Models will appear here after training</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

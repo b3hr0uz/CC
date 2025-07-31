@@ -167,7 +167,7 @@ python scripts/generate_embeddings.py
 | Assistant Response | <2s | TBD |
 | Database Queries | <100ms avg | TBD |
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 ### Unit Tests
 ```bash

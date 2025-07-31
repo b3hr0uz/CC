@@ -93,24 +93,15 @@ AVAILABLE_MODELS = {
 # Data models
 class PredictionRequest(BaseModel):
     features: List[float]
-    model_name: Optional[str] = "gradient_boosting"
-    
-    class Config:
-        protected_namespaces = ()
+    algorithm_name: Optional[str] = "gradient_boosting"  # Renamed from model_name to avoid Pydantic conflict
     
 class ModelTrainRequest(BaseModel):
-    model_names: Optional[List[str]] = None  # Train specific models or all if None
+    algorithm_names: Optional[List[str]] = None  # Train specific models or all if None (renamed from model_names)
     k_folds: Optional[int] = 5  # K-fold cross validation
-    
-    class Config:
-        protected_namespaces = ()
 
 class CrossValidationRequest(BaseModel):
-    model_name: str
+    algorithm_name: str  # Renamed from model_name to avoid Pydantic conflict
     k_folds: Optional[int] = 5
-    
-    class Config:
-        protected_namespaces = ()
 
 class SpamDetectionResponse(BaseModel):
     is_spam: bool
@@ -129,7 +120,7 @@ class StatisticsResponse(BaseModel):
     top_correlated_features: List[Dict[str, float]]
 
 class CrossValidationResponse(BaseModel):
-    model_name: str
+    algorithm_name: str  # Renamed from model_name to avoid Pydantic conflict
     cv_scores: List[float]
     mean_score: float
     std_score: float
@@ -283,7 +274,7 @@ async def train_models(request: ModelTrainRequest):
     global models
     
     # Determine which models to train
-    models_to_train = request.model_names if request.model_names else list(AVAILABLE_MODELS.keys())
+    models_to_train = request.algorithm_names if request.algorithm_names else list(AVAILABLE_MODELS.keys())
     
     # Validate model names
     invalid_models = [m for m in models_to_train if m not in AVAILABLE_MODELS]
@@ -383,14 +374,14 @@ async def cross_validate_model(request: CrossValidationRequest):
     if not data_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded")
     
-    if request.model_name not in AVAILABLE_MODELS:
+    if request.algorithm_name not in AVAILABLE_MODELS:
         raise HTTPException(
             status_code=404, 
-            detail=f"Model {request.model_name} not found. Available: {list(AVAILABLE_MODELS.keys())}"
+            detail=f"Model {request.algorithm_name} not found. Available: {list(AVAILABLE_MODELS.keys())}"
         )
     
     try:
-        model_config = AVAILABLE_MODELS[request.model_name]
+        model_config = AVAILABLE_MODELS[request.algorithm_name]
         model_class = model_config["class"]
         model = model_class(**model_config["params"])
         
@@ -429,11 +420,11 @@ async def predict_spam(request: PredictionRequest):
     if not models:
         raise HTTPException(status_code=404, detail="No models trained. Please train models first.")
     
-    if request.model_name not in models:
+    if request.algorithm_name not in models:
         available_models = list(models.keys())
         raise HTTPException(
             status_code=404, 
-            detail=f"Model {request.model_name} not trained. Available trained models: {available_models}"
+            detail=f"Model {request.algorithm_name} not trained. Available trained models: {available_models}"
         )
     
     try:
@@ -442,8 +433,8 @@ async def predict_spam(request: PredictionRequest):
         if len(request.features) != 57:
             raise HTTPException(status_code=400, detail="Features must contain exactly 57 values")
         
-        model = models[request.model_name]
-        model_config = AVAILABLE_MODELS[request.model_name]
+        model = models[request.algorithm_name]
+        model_config = AVAILABLE_MODELS[request.algorithm_name]
         
         # Apply appropriate preprocessing
         if model_config["scaling"] == "standard":
@@ -465,7 +456,7 @@ async def predict_spam(request: PredictionRequest):
         return SpamDetectionResponse(
             is_spam=bool(prediction),
             confidence=confidence,
-            model_used=request.model_name,
+            model_used=request.algorithm_name,
             model_display_name=model_config["name"]
         )
         
@@ -571,7 +562,7 @@ class FeedbackResponse(BaseModel):
     success: bool
     message: str
     feedback_id: Optional[str] = None
-    model_updated: bool = False
+    algorithm_updated: bool = False  # Renamed from model_updated to avoid Pydantic conflict
 
 # Store feedback data (in production, use proper database)
 user_feedback_storage = []
@@ -643,7 +634,7 @@ async def submit_user_feedback(feedback: UserFeedback):
             success=True,
             message=message,
             feedback_id=feedback_id,
-            model_updated=False  # Set to True when actual model updating is implemented
+            algorithm_updated=False  # Set to True when actual model updating is implemented
         )
         
     except Exception as e:
@@ -679,6 +670,79 @@ async def get_feedback_stats():
     except Exception as e:
         print(f"❌ Error getting feedback stats: {e}")
         raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+
+# Add missing optimal k-fold endpoint
+@app.post("/models/optimal-kfold")
+async def determine_optimal_kfold(request: Dict[str, Any]):
+    """Determine optimal k-fold value for cross-validation."""
+    try:
+        k_folds = request.get("k_folds", 5)
+        test_model = request.get("test_model", "gradient_boosting")
+        
+        # Map model names to actual models
+        model_mapping = {
+            "gradient_boosting": GradientBoostingClassifier(random_state=42),
+            "xgboost": GradientBoostingClassifier(random_state=42),  # Using GradientBoosting as XGBoost substitute
+            "logistic_regression": LogisticRegression(random_state=42, max_iter=1000),
+            "naive_bayes": MultinomialNB(),
+            "neural_network": MLPClassifier(random_state=42, max_iter=500)
+        }
+        
+        if not data_loaded:
+            await load_and_prepare_data()
+        
+        if test_model not in model_mapping:
+            test_model = "gradient_boosting"
+            
+        model = model_mapping[test_model]
+        
+        # Test different k-fold values
+        k_values = [3, 5, 7, 10]
+        best_k = 5
+        best_score = 0
+        results = {}
+        
+        for k in k_values:
+            try:
+                if test_model == "naive_bayes":
+                    scores = cross_val_score(model, X_train_nb, y_train, cv=k, scoring='f1')
+                else:
+                    scores = cross_val_score(model, X_train_scaled, y_train, cv=k, scoring='f1')
+                
+                mean_score = scores.mean()
+                results[f"k_{k}"] = {
+                    "mean_score": mean_score,
+                    "std_score": scores.std(),
+                    "scores": scores.tolist()
+                }
+                
+                if mean_score > best_score:
+                    best_score = mean_score
+                    best_k = k
+                    
+            except Exception as e:
+                print(f"Error with k={k}: {e}")
+                results[f"k_{k}"] = {"error": str(e)}
+        
+        return {
+            "optimal_k": best_k,
+            "best_score": best_score,
+            "results": results,
+            "test_model": test_model,
+            "recommendation": f"Use {best_k}-fold cross-validation for optimal performance"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error determining optimal k-fold: {e}")
+        raise HTTPException(status_code=500, detail=f"Error determining optimal k-fold: {str(e)}")
+
+# Include v1 API routers
+try:
+    from app.api.v1 import api_router
+    app.include_router(api_router, prefix="/api/v1")
+    print("✅ API v1 routers included successfully")
+except ImportError as e:
+    print(f"⚠️ Could not import v1 API routers: {e}")
 
 if __name__ == "__main__":
     import uvicorn

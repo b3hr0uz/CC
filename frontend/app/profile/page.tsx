@@ -1,61 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Sidebar from '../components/Sidebar';
 import NotificationSidebar from '../components/NotificationSidebar';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { 
-  User, Mail, Calendar, MapPin, Shield, 
-  Edit, Save, AlertCircle, CheckCircle, Camera, Globe
+  User, Mail
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 export default function ProfilePage() {
   const { data: session } = useSession();
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@gmail.com',
-    location: 'San Francisco, CA',
-    timezone: 'PST (UTC-8)',
-    memberSince: '2025-07-27',
-    avatar: '/api/placeholder/100/100'
-  });
 
 
-  const handleProfileUpdate = (key: string, value: string) => {
-    setProfile(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
 
-  const handleSaveProfile = async () => {
-    setIsSaving(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSaveStatus('success');
-      setIsEditing(false);
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
 
   return (
     <NotificationProvider>

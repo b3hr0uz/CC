@@ -3,9 +3,9 @@
 import React from 'react';
 import { 
   Play, CheckCircle, AlertCircle, Zap, Brain, 
-  X, Clock, TrendingUp, Target, Award, Bell
+  X, Target, Bell
 } from 'lucide-react';
-import { useNotifications, NotificationItem } from '../contexts/NotificationContext';
+import { useNotifications } from '../contexts/NotificationContext';
 
 interface NotificationSidebarProps {
   title?: string;
@@ -96,16 +96,7 @@ export default function NotificationSidebar({
     }
   };
 
-  const getNotificationTypeLabel = (type: string) => {
-    switch (type) {
-      case 'rl_optimization_start':
-      case 'rl_optimization_complete':
-      case 'rl_error':
-        return 'Optimization Event';
-      default:
-        return 'Training Event';
-    }
-  };
+
 
   return (
     <div className="h-screen w-80 border-l border-gray-700 flex flex-col" style={{backgroundColor: '#212121'}}>
@@ -198,8 +189,8 @@ export default function NotificationSidebar({
                 </div>
               )}
 
-              {/* Training Complete Details with Metrics */}
-              {notification.type === 'model_training_complete' && 'metrics' in notification && notification.metrics && (
+              {/* Training Complete Details with Metrics - Enhanced for Auto-Training */}
+              {(notification.type === 'model_training_complete' || notification.type === 'training_complete') && 'metrics' in notification && notification.metrics && (
                 <div className="text-xs space-y-2 bg-black/20 rounded p-3">
                   {/* Timing Information */}
                   {(notification.start_time || notification.end_time || notification.duration) && (
@@ -264,6 +255,24 @@ export default function NotificationSidebar({
                             </span>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Auto-Training Summary for training_complete type */}
+                    {notification.type === 'training_complete' && notification.model_name === 'Auto-Training System' && (
+                      <div className="border-t border-white/20 pt-2 mt-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span>📊 Summary:</span>
+                          <span className="font-mono">Auto-Training Complete</span>
+                        </div>
+                        {notification.message.includes('Models tested:') && (
+                          <div className="flex items-center justify-between text-xs mt-1">
+                            <span>🧪 Models tested:</span>
+                            <span className="font-mono font-semibold text-blue-300">
+                              {notification.message.match(/Models tested: (\d+)/)?.[1] || 'N/A'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
