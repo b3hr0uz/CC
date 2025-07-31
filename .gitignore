@@ -10,6 +10,7 @@
 *.pem
 *.crt
 secrets/
+.cursor/
 
 # Python Backend
 __pycache__/
