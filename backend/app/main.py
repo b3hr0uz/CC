@@ -768,13 +768,35 @@ async def determine_optimal_kfold(request: Dict[str, Any]):
         print(f"❌ Error determining optimal k-fold: {e}")
         raise HTTPException(status_code=500, detail=f"Error determining optimal k-fold: {str(e)}")
 
-# Include v1 API routers
+# Add simple embeddings endpoint for testing
+@app.post("/api/v1/embeddings/create")
+async def create_embedding_simple(request: dict):
+    """Simple embedding endpoint for testing."""
+    try:
+        email_id = request.get('email_id', 'unknown')
+        print(f"📊 Mock embedding creation for email: {email_id}")
+        return {
+            "success": True,
+            "embedding_id": abs(hash(email_id)) % 10000,
+            "vector_dimensions": 384,
+            "storage_status": "mock_created",
+            "message": "Mock vector embedding created (development mode)"
+        }
+    except Exception as e:
+        print(f"❌ Error in mock embedding: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# Include v1 API routers (with fallback)
 try:
     from app.api.v1 import api_router
     app.include_router(api_router, prefix="/api/v1")
     print("✅ API v1 routers included successfully")
 except ImportError as e:
     print(f"⚠️ Could not import v1 API routers: {e}")
+    print("✅ Using simple fallback endpoints")
 
 if __name__ == "__main__":
     import uvicorn

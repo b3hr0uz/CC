@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 from pydantic import BaseModel
 import time
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_db
 from app.services.ml_service import MLService

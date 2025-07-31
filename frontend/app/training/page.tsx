@@ -1190,6 +1190,10 @@ export default function TrainingPage() {
         }
       });
 
+      // ✅ CRITICAL: Trigger Training Analysis section update after auto-training completion
+      setAnalysisRefreshTrigger(prev => prev + 1);
+      console.log('🔄 Training Analysis refresh triggered after auto-training completion');
+
       console.log('✅ Auto-training sequence completed successfully');
       
       // Additional Training Analysis refresh to ensure UI updates (compareModels already triggered one)

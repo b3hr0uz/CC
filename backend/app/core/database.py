@@ -5,7 +5,8 @@ Database configuration and connection management
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base, sessionmaker
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 import asyncio
 
 from app.core.config import get_settings
