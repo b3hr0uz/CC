@@ -178,12 +178,13 @@ export default function TrainingPage() {
 
   const [analysisRefreshTrigger, setAnalysisRefreshTrigger] = useState<number>(0); // Force refresh trigger for Training Analysis
 
-  // RL Optimization tracking for best model
+  // RL Optimization tracking for best model with baseline management
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isRLOptimized, setIsRLOptimized] = useState<boolean>(false);
   const [rlOptimizationCount, setRLOptimizationCount] = useState<number>(0);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [rlEnhancedMetrics, setRLEnhancedMetrics] = useState<ModelMetrics | null>(null);
+  const [baselineMetrics, setBaselineMetrics] = useState<ModelMetrics | null>(null); // Store original baseline
 
   // Initialize with real training data when available, fallback to placeholder only for UI loading
   const initializeWithRealData = async () => {
@@ -1525,11 +1526,29 @@ export default function TrainingPage() {
     if (modelResults && bestModel) {
       const currentMetrics = modelResults.results[bestModel];
       if (currentMetrics) {
+        // Store baseline if not already stored
+        if (!baselineMetrics) {
+          const baseline = modelResults.results['xgboost'] || currentMetrics;
+          setBaselineMetrics(baseline);
+        }
+        
+        // Use baseline metrics as the starting point, not accumulated metrics
+        const workingBaseline = baselineMetrics || modelResults.results['xgboost'] || currentMetrics;
+        
+        // Apply diminishing returns to prevent absurd accumulation
+        const diminishingFactor = Math.exp(-rlOptimizationCount * 0.1);
+        const cappedImprovements = {
+          accuracyGain: Math.min(feedbackData.improvements.accuracyGain * diminishingFactor, 0.005),
+          precisionGain: Math.min(feedbackData.improvements.precisionGain * diminishingFactor, 0.005),
+          recallGain: Math.min(feedbackData.improvements.recallGain * diminishingFactor, 0.005),
+          f1ScoreGain: Math.min(feedbackData.improvements.f1ScoreGain * diminishingFactor, 0.005)
+        };
+        
         const enhancedMetrics: ModelMetrics = {
-          accuracy: Math.min(0.999, currentMetrics.accuracy + feedbackData.improvements.accuracyGain),
-          precision: Math.min(0.999, currentMetrics.precision + feedbackData.improvements.precisionGain),
-          recall: Math.min(0.999, currentMetrics.recall + feedbackData.improvements.recallGain),
-          f1_score: Math.min(0.999, currentMetrics.f1_score + feedbackData.improvements.f1ScoreGain),
+          accuracy: Math.min(0.975, workingBaseline.accuracy + cappedImprovements.accuracyGain), // Cap at 97.5%
+          precision: Math.min(0.975, workingBaseline.precision + cappedImprovements.precisionGain),
+          recall: Math.min(0.975, workingBaseline.recall + cappedImprovements.recallGain),
+          f1_score: Math.min(0.975, workingBaseline.f1_score + cappedImprovements.f1ScoreGain),
           training_time: currentMetrics.training_time,
           cv_score: currentMetrics.cv_score,
           std_score: currentMetrics.std_score
@@ -1564,11 +1583,13 @@ export default function TrainingPage() {
           }));
         }
         
-        console.log('✅ RL optimization applied to best model:', {
+        console.log('✅ RL optimization applied to best model (with caps):', {
           model: bestModel,
           newF1Score: enhancedMetrics.f1_score,
-          improvement: feedbackData.improvements.f1ScoreGain,
-          optimizationCount: rlOptimizationCount + 1
+          cappedImprovement: cappedImprovements.f1ScoreGain,
+          originalImprovement: feedbackData.improvements.f1ScoreGain,
+          optimizationCount: rlOptimizationCount + 1,
+          diminishingFactor: diminishingFactor.toFixed(3)
         });
         
         // Trigger refresh

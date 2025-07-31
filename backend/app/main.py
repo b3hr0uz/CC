@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from contextlib import asynccontextmanager
 import pandas as pd
 import numpy as np
 import json
@@ -25,11 +26,43 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
-# Initialize FastAPI app
+# Import ML service
+try:
+    from app.services.ml_service import get_ml_service
+    ML_SERVICE_AVAILABLE = True
+except ImportError:
+    ML_SERVICE_AVAILABLE = False
+    print("⚠️ ML service not available - running in fallback mode")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for FastAPI app startup and shutdown"""
+    # Startup
+    print("🚀 Starting ContextCleanse API...")
+    
+    # Initialize ML service if available
+    if ML_SERVICE_AVAILABLE:
+        try:
+            ml_service = get_ml_service()
+            app.state.ml_service = ml_service
+            print("✅ ML service initialized successfully")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize ML service: {e}")
+            app.state.ml_service = None
+    else:
+        app.state.ml_service = None
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down ContextCleanse API...")
+
+# Initialize FastAPI app with lifespan
 app = FastAPI(
     title="ContextCleanse API with Model Selection",
     description="Advanced email classification with multiple ML models and k-fold cross validation",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware

@@ -49,6 +49,14 @@ interface SystemResources {
   recommendedMaxModelSizeGB: number;
 }
 
+interface OllamaConfig {
+  apiUrl: string;
+  defaultModel: string;
+  alternativeModels: string[];
+  timeout: number;
+  streamSupport: boolean;
+}
+
 interface OllamaStatus {
   available: boolean;
   model: string;
@@ -58,6 +66,7 @@ interface OllamaStatus {
   systemResources: SystemResources | null;
   isDownloading: boolean;
   downloadProgress: number;
+  config: OllamaConfig;
 }
 
 interface RAGStats {
@@ -66,6 +75,59 @@ interface RAGStats {
   searchableEmails: number;
   vectorDimensions: number;
 }
+
+// OS Detection and Configuration
+const detectOS = (): 'windows' | 'macos' | 'linux' | 'unknown' => {
+  if (typeof window === 'undefined') return 'unknown';
+  
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const platform = window.navigator.platform.toLowerCase();
+  
+  if (platform.includes('win') || userAgent.includes('windows')) {
+    return 'windows';
+  } else if (platform.includes('mac') || userAgent.includes('mac')) {
+    return 'macos';
+  } else if (platform.includes('linux') || userAgent.includes('linux')) {
+    return 'linux';
+  }
+  
+  return 'unknown';
+};
+
+// OS-specific Ollama configurations
+const getOllamaConfig = (): OllamaConfig => {
+  const os = detectOS();
+  
+  switch (os) {
+    case 'windows':
+      return {
+        apiUrl: 'http://localhost:11434',
+        defaultModel: 'llama3:latest', // Windows users often have llama3:latest
+        alternativeModels: ['llama3.1:8b', 'llama3:8b', 'llama2:latest', 'codellama:latest'],
+        timeout: 8000, // Slightly longer timeout for Windows
+        streamSupport: true
+      };
+    
+    case 'macos':
+    case 'linux':
+      return {
+        apiUrl: 'http://localhost:11434',
+        defaultModel: 'llama3.1:8b', // macOS/Linux users typically prefer newer versions
+        alternativeModels: ['llama3:latest', 'llama3:8b', 'llama2:latest', 'codellama:latest'],
+        timeout: 6000, // Faster timeout for Unix systems
+        streamSupport: true
+      };
+    
+    default:
+      return {
+        apiUrl: 'http://localhost:11434',
+        defaultModel: 'llama3.1:8b',
+        alternativeModels: ['llama3:latest', 'llama3:8b', 'llama2:latest'],
+        timeout: 7000,
+        streamSupport: true
+      };
+  }
+};
 
 export default function AssistantPage() {
   const { data: session, status } = useSession();
@@ -77,16 +139,18 @@ export default function AssistantPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [emailEmbeddings, setEmailEmbeddings] = useState<EmailEmbedding[]>([]);
   
-  // Ollama states
+  // Ollama states with OS-specific configuration
+  const ollamaConfig = getOllamaConfig();
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus>({
     available: false,
-    model: 'llama3.1:8b',
+    model: ollamaConfig.defaultModel,
     status: 'Checking...',
     loading: true,
     availableModels: [],
     systemResources: null,
     isDownloading: false,
-    downloadProgress: 0
+    downloadProgress: 0,
+    config: ollamaConfig
   });
   
   // RAG states
@@ -171,39 +235,66 @@ export default function AssistantPage() {
     try {
       setOllamaStatus(prev => ({ ...prev, loading: true }));
       
-      // Check if Ollama is running locally
-      const response = await axios.get('http://localhost:11434/api/tags', {
-        timeout: 5000
+      // Check if Ollama is running locally using OS-specific config
+      const response = await axios.get(`${ollamaConfig.apiUrl}/api/tags`, {
+        timeout: ollamaConfig.timeout
       });
       
       const models = response.data.models || [];
-      const llamaModel = models.find((model: any) => 
-        model.name.includes('llama3.1') && model.name.includes('8b')
+      console.log(`🔍 Detected OS: ${detectOS()}, Available models:`, models.map((m: any) => m.name));
+      
+      // Try to find the default model for this OS first
+      let selectedModel = models.find((model: any) => 
+        model.name === ollamaConfig.defaultModel
       );
       
-      if (llamaModel) {
-        setOllamaStatus({
+      // If default model not found, try alternatives
+      if (!selectedModel) {
+        for (const altModel of ollamaConfig.alternativeModels) {
+          selectedModel = models.find((model: any) => model.name === altModel);
+          if (selectedModel) break;
+        }
+      }
+      
+      // Fallback to any llama model
+      if (!selectedModel) {
+        selectedModel = models.find((model: any) => 
+          model.name.toLowerCase().includes('llama')
+        );
+      }
+      
+      if (selectedModel) {
+        console.log(`✅ Selected model for ${detectOS()}: ${selectedModel.name}`);
+        setOllamaStatus(prev => ({
+          ...prev,
           available: true,
-          model: llamaModel.name,
-          status: 'Ready',  
-          loading: false
+          model: selectedModel.name,
+          status: `Ready (${detectOS()})`,  
+          loading: false,
+          availableModels: models
         });
       } else {
-        setOllamaStatus({
+        const os = detectOS();
+        const suggestedModel = ollamaConfig.defaultModel;
+        setOllamaStatus(prev => ({
+          ...prev,
           available: false,
-          model: 'llama3.1:8b',
-          status: 'Model not found - run: ollama pull llama3.1:8b',
+          model: suggestedModel,
+          status: `No compatible models found - run: ollama pull ${suggestedModel}`,
           loading: false
-        });
+        }));
       }
     } catch (error) {
       console.error('Ollama check failed:', error);
-      setOllamaStatus({
+      const os = detectOS();
+      const suggestedModel = ollamaConfig.defaultModel;
+      setOllamaStatus(prev => ({
+        ...prev,
         available: false,
-        model: 'llama3.1:8b',
-        status: 'Ollama not running - start with: ollama serve',
+        model: suggestedModel,
+        status: `Ollama not running (${os}) - start with: ollama serve`,
         loading: false
-      });
+      }));
     }
   };
 
@@ -245,15 +336,15 @@ export default function AssistantPage() {
 
       console.log(`🚀 Starting download of ${modelName}...`);
 
-      // Use streaming to show progress
-      const response = await fetch('http://localhost:11434/api/pull', {
+      // Use streaming to show progress with OS-specific config
+      const response = await fetch(`${ollamaConfig.apiUrl}/api/pull`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: modelName,
-          stream: true
+          stream: ollamaConfig.streamSupport
         })
       });
 
@@ -324,8 +415,10 @@ export default function AssistantPage() {
   };
 
   const getRecommendedModels = () => {
-    // List of recommended models with size estimates (in GB)
-    return [
+    const os = detectOS();
+    
+    // OS-specific model recommendations
+    const baseModels = [
       { name: 'llama3.2:1b', displayName: 'Llama 3.2 1B', size: 1.3, description: 'Lightweight, good for basic tasks' },
       { name: 'llama3.2:3b', displayName: 'Llama 3.2 3B', size: 2.0, description: 'Balanced performance and size' },
       { name: 'qwen2.5:0.5b', displayName: 'Qwen2.5 0.5B', size: 0.4, description: 'Ultra-lightweight, fastest' },
@@ -337,6 +430,41 @@ export default function AssistantPage() {
       { name: 'phi3:3.8b', displayName: 'Phi-3 3.8B', size: 2.2, description: 'Microsoft\'s efficient model' },
       { name: 'gemma2:2b', displayName: 'Gemma 2 2B', size: 1.6, description: 'Google\'s compact model' }
     ];
+    
+    switch (os) {
+      case 'windows':
+        // For Windows users, prioritize models that work well with their setup
+        return [
+          { name: 'llama3:8b', displayName: 'Llama 3 8B', size: 4.7, description: '⭐ Recommended for Windows - Compatible with llama3:latest' },
+          { name: 'llama3.1:8b', displayName: 'Llama 3.1 8B', size: 4.7, description: 'Latest version of Llama 3' },
+          { name: 'codellama:7b', displayName: 'Code Llama 7B', size: 3.8, description: 'Great for code assistance' },
+          { name: 'phi3:3.8b', displayName: 'Phi-3 3.8B', size: 2.2, description: 'Microsoft model - optimized for Windows' },
+          ...baseModels.filter(m => !['llama3.1:8b', 'phi3:3.8b'].includes(m.name))
+        ];
+      
+      case 'macos':
+        // For macOS users, prioritize newer models and efficiency
+        return [
+          { name: 'llama3.1:8b', displayName: 'Llama 3.1 8B', size: 4.7, description: '⭐ Recommended for macOS - Latest stable' },
+          { name: 'qwen2.5:7b', displayName: 'Qwen2.5 7B', size: 4.4, description: 'Excellent performance on Apple Silicon' },
+          { name: 'gemma2:2b', displayName: 'Gemma 2 2B', size: 1.6, description: 'Google model - efficient on macOS' },
+          { name: 'llama3.2:3b', displayName: 'Llama 3.2 3B', size: 2.0, description: 'Balanced for Mac systems' },
+          ...baseModels.filter(m => !['llama3.1:8b', 'qwen2.5:7b', 'gemma2:2b', 'llama3.2:3b'].includes(m.name))
+        ];
+      
+      case 'linux':
+        // For Linux users, prioritize performance and variety
+        return [
+          { name: 'llama3.1:8b', displayName: 'Llama 3.1 8B', size: 4.7, description: '⭐ Recommended for Linux - Best performance' },
+          { name: 'qwen2.5:7b', displayName: 'Qwen2.5 7B', size: 4.4, description: 'Excellent on Linux systems' },
+          { name: 'codellama:7b', displayName: 'Code Llama 7B', size: 3.8, description: 'Perfect for development work' },
+          { name: 'mistral:7b', displayName: 'Mistral 7B', size: 4.1, description: 'High quality alternative' },
+          ...baseModels.filter(m => !['llama3.1:8b', 'qwen2.5:7b'].includes(m.name))
+        ];
+      
+      default:
+        return baseModels;
+    }
   };
 
   const loadEmailEmbeddings = async () => {
@@ -506,7 +634,7 @@ Please provide a helpful response based on the email context provided.`;
       
       if (ollamaStatus.available) {
         try {
-          const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+          const ollamaResponse = await axios.post(`${ollamaConfig.apiUrl}/api/generate`, {
             model: ollamaStatus.model,
             prompt: `${systemPrompt}\n\n${userPrompt}`,
             stream: false,
@@ -515,7 +643,7 @@ Please provide a helpful response based on the email context provided.`;
               top_p: 0.9,
               num_predict: 500
             }
-          }, { timeout: 30000 });
+          }, { timeout: ollamaConfig.timeout * 4 }); // Use 4x the base timeout for generation
           
           assistantResponse = ollamaResponse.data.response || 'Sorry, I could not generate a response.';
         } catch (error) {
@@ -650,6 +778,9 @@ Please provide a helpful response based on the email context provided.`;
                 <h3 className="text-white font-semibold mb-3 flex items-center">
                   <Activity className="h-4 w-4 mr-2 text-green-400" />
                   Ollama Service
+                  <span className="ml-2 text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
+                    {detectOS().toUpperCase()}
+                  </span>
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -657,6 +788,16 @@ Please provide a helpful response based on the email context provided.`;
                     <span className={`${ollamaStatus.available ? 'text-green-400' : 'text-red-400'}`}>
                       {ollamaStatus.status}
                     </span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">API URL:</span>
+                    <span className="text-blue-400 text-xs">{ollamaConfig.apiUrl}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Timeout:</span>
+                    <span className="text-gray-300 text-xs">{ollamaConfig.timeout}ms</span>
                   </div>
                   
                   {/* Model Selection */}
