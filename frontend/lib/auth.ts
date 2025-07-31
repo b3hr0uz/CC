@@ -7,17 +7,20 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   providers: [
-    GoogleProvider({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-      authorization: {
-        params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
-          access_type: 'offline',
-          prompt: 'consent',
+    // Google Provider - Only include if environment variables are available  
+    ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET ? [
+      GoogleProvider({
+        clientId: process.env.AUTH_GOOGLE_ID!,
+        clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+        authorization: {
+          params: {
+            scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    }),
+      })
+    ] : []),
     // Mock Data Credentials Provider for testing/demo purposes
     CredentialsProvider({
       id: 'mock-data',
@@ -99,4 +102,20 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
+  // Enhanced error handling for production deployments
+  logger: {
+    error(code, metadata) {
+      console.error('NextAuth Error:', code, metadata)
+    },
+    warn(code) {
+      console.warn('NextAuth Warning:', code)
+    },
+    debug(code, metadata) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('NextAuth Debug:', code, metadata)
+      }
+    }
+  },
+  // Ensure secret is always available (fallback for Vercel)
+  secret: process.env.NEXTAUTH_SECRET || 'contextcleanse-fallback-secret-2024',
 }

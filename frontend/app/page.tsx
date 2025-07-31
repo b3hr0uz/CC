@@ -139,15 +139,35 @@ export default function HomePage() {
       })
       
       if (result?.error) {
-        toast.error('Invalid demo credentials. Use username: demo, password: demo')
+        console.error('Demo login error:', result.error)
+        
+        // Handle specific error types
+        if (result.error === 'Configuration') {
+          toast.error('Configuration error. Please check environment variables (NEXTAUTH_URL, NEXTAUTH_SECRET).')
+        } else if (result.error === 'CredentialsSignin') {
+          toast.error('Invalid demo credentials. Use username: demo, password: demo')
+        } else {
+          toast.error(`Demo login failed: ${result.error}`)
+        }
         setLoading(null)
       } else if (result?.ok) {
         toast.success('Successfully signed in with mock data!')
         router.push('/dashboard')
+      } else {
+        // Handle case where result is undefined or unexpected
+        console.error('Unexpected sign-in result:', result)
+        toast.error('Demo login failed. Check console for details.')
+        setLoading(null)
       }
     } catch (error) {
-      console.error('Mock login failed:', error)
-      toast.error('Mock login failed')
+      console.error('Mock login exception:', error)
+      
+      // Provide helpful error message for Vercel deployment
+      if (process.env.NODE_ENV === 'production') {
+        toast.error('Demo mode configuration error. Please check deployment environment variables.')
+      } else {
+        toast.error('Mock login failed. Check console for details.')
+      }
       setLoading(null)
     }
   }
