@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+interface EmailDocument {
+  id: string;
+  subject: string;
+  from: string;
+  content: string;
+  timestamp: string;
+  classification?: 'spam' | 'ham';
+}
+
 interface VectorDocument {
   id: string;
   content: string;
@@ -127,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform and add documents
-    const vectorDocs: VectorDocument[] = documents.map((doc: any) => ({
+    const vectorDocs: VectorDocument[] = documents.map((doc: EmailDocument) => ({
       id: doc.id,
       content: `${doc.subject} ${doc.content}`,
       metadata: {

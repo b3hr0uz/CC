@@ -8,7 +8,18 @@ interface ChatRequest {
   model?: string;
 }
 
-interface OllamaResponse {
+interface OllamaModel {
+  name: string;
+  size: number;
+  modified_at?: string;
+  digest?: string;
+}
+
+interface OllamaModelsResponse {
+  models: OllamaModel[];
+}
+
+interface OllamaChatResponse {
   response: string;
   done: boolean;
   context?: number[];
@@ -134,9 +145,9 @@ export async function GET(request: NextRequest) {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: OllamaModelsResponse = await response.json();
         const models = data.models || [];
-        const llamaModel = models.find((model: any) => 
+        const llamaModel = models.find((model: OllamaModel) => 
           model.name.includes('llama3.1') && model.name.includes('8b')
         );
 
@@ -144,7 +155,7 @@ export async function GET(request: NextRequest) {
           available: true,
           model: llamaModel?.name || 'llama3.1:8b',
           status: llamaModel ? 'Ready' : 'Model not found',
-          models: models.map((m: any) => ({ name: m.name, size: m.size }))
+          models: models.map((m: OllamaModel) => ({ name: m.name, size: m.size }))
         });
       } else {
         throw new Error('Ollama not responding');
