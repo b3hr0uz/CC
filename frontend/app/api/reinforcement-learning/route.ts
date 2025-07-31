@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../lib/auth';
+import { authOptions } from '@/lib/auth';
 
 interface RLOptimizationRequest {
   type: string;
@@ -16,6 +16,7 @@ interface RLOptimizationRequest {
       subject: string;
       from: string;
       content: string;
+      preview?: string; // Optional preview field
       hasLinks: boolean;
       hasAttachments: boolean;
       wordCount: number;
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
               content: body.feedbackData.emailFeatures.content || body.feedbackData.emailFeatures.preview,
               subject_length: body.feedbackData.emailFeatures.subject.length,
               sender_domain: body.feedbackData.emailFeatures.from.split('@')[1] || 'unknown',
-              content_length: (body.feedbackData.emailFeatures.content || body.feedbackData.emailFeatures.preview).length,
+              content_length: (body.feedbackData.emailFeatures.content || body.feedbackData.emailFeatures.preview || '').length,
               has_links: body.feedbackData.emailFeatures.hasLinks,
               has_attachments: body.feedbackData.emailFeatures.hasAttachments,
               word_count: body.feedbackData.emailFeatures.wordCount

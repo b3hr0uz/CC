@@ -4,9 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { 
-  Bot, Send, Loader2, Mail, Search, Database, 
-  MessageCircle, Settings, RefreshCw, Zap,
-  ChevronDown, ChevronUp, Activity
+  Bot, Send, Loader2, Search, Database, 
+  Settings, RefreshCw, Zap, Activity, Download
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import axios from 'axios';
@@ -180,6 +179,7 @@ export default function AssistantPage() {
   // Initialize on component mount
   useEffect(() => {
     initializeAssistant();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-scroll to bottom of messages
@@ -196,6 +196,7 @@ export default function AssistantPage() {
     }, 5 * 60 * 1000); // 5 minutes
     
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh]);
 
   const initializeAssistant = async () => {
@@ -211,11 +212,8 @@ export default function AssistantPage() {
     
     setMessages([welcomeMessage]);
     
-    // Check Ollama status
-    await checkOllamaStatus();
-    
-    // Load email embeddings
-    await loadEmailEmbeddings();
+    // Check Ollama status - will be called inline
+    // Load email embeddings - will be called inline
     
     // Update welcome message when ready
     setTimeout(() => {
@@ -240,28 +238,28 @@ export default function AssistantPage() {
         timeout: ollamaConfig.timeout
       });
       
-      const models = response.data.models || [];
-      console.log(`🔍 Detected OS: ${detectOS()}, Available models:`, models.map((m: any) => m.name));
-      
-      // Try to find the default model for this OS first
-      let selectedModel = models.find((model: any) => 
-        model.name === ollamaConfig.defaultModel
-      );
-      
-      // If default model not found, try alternatives
-      if (!selectedModel) {
-        for (const altModel of ollamaConfig.alternativeModels) {
-          selectedModel = models.find((model: any) => model.name === altModel);
-          if (selectedModel) break;
-        }
-      }
-      
-      // Fallback to any llama model
-      if (!selectedModel) {
-        selectedModel = models.find((model: any) => 
-          model.name.toLowerCase().includes('llama')
-        );
-      }
+             const models: OllamaModel[] = response.data.models || [];
+       console.log(`🔍 Detected OS: ${detectOS()}, Available models:`, models.map(m => m.name));
+       
+       // Try to find the default model for this OS first
+       let selectedModel = models.find((model: OllamaModel) => 
+         model.name === ollamaConfig.defaultModel
+       );
+       
+       // If default model not found, try alternatives
+       if (!selectedModel) {
+         for (const altModel of ollamaConfig.alternativeModels) {
+           selectedModel = models.find((model: OllamaModel) => model.name === altModel);
+           if (selectedModel) break;
+         }
+       }
+       
+       // Fallback to any llama model
+       if (!selectedModel) {
+         selectedModel = models.find((model: OllamaModel) => 
+           model.name.toLowerCase().includes('llama')
+         );
+       }
       
       if (selectedModel) {
         console.log(`✅ Selected model for ${detectOS()}: ${selectedModel.name}`);
@@ -272,9 +270,8 @@ export default function AssistantPage() {
           status: `Ready (${detectOS()})`,  
           loading: false,
           availableModels: models
-        });
+        }));
       } else {
-        const os = detectOS();
         const suggestedModel = ollamaConfig.defaultModel;
         setOllamaStatus(prev => ({
           ...prev,
@@ -286,37 +283,14 @@ export default function AssistantPage() {
       }
     } catch (error) {
       console.error('Ollama check failed:', error);
-      const os = detectOS();
       const suggestedModel = ollamaConfig.defaultModel;
       setOllamaStatus(prev => ({
         ...prev,
         available: false,
         model: suggestedModel,
-        status: `Ollama not running (${os}) - start with: ollama serve`,
+        status: `Ollama not running (${detectOS()}) - start with: ollama serve`,
         loading: false
       }));
-    }
-  };
-
-  const getSystemResources = async (): Promise<SystemResources> => {
-    try {
-      // Estimate system resources (in a real app, this would be server-side)
-      const estimatedTotalGB = 16; // Default estimate
-      const estimatedAvailableGB = 8; // Conservative estimate
-      const recommendedMaxGB = Math.min(estimatedAvailableGB * 0.6, 8); // Max 60% of available or 8GB
-      
-      return {
-        totalMemoryGB: estimatedTotalGB,
-        availableMemoryGB: estimatedAvailableGB,
-        recommendedMaxModelSizeGB: recommendedMaxGB
-      };
-    } catch (error) {
-      console.warn('Could not determine system resources:', error);
-      return {
-        totalMemoryGB: 8,
-        availableMemoryGB: 4,
-        recommendedMaxModelSizeGB: 2
-      };
     }
   };
 
@@ -379,9 +353,9 @@ export default function AssistantPage() {
               await checkOllamaStatus();
               return;
             }
-          } catch (_parseError) {
-            // Ignore parsing errors for streaming chunks
-          }
+                     } catch {
+             // Ignore parsing errors for streaming chunks
+           }
         }
       }
     } catch (error) {
@@ -405,13 +379,6 @@ export default function AssistantPage() {
 
   const getModelSizeGB = (sizeBytes: number): number => {
     return sizeBytes / (1024 * 1024 * 1024);
-  };
-
-  // Helper function to check if model is too large (used in UI logic)
-  const isModelTooLarge = (sizeBytes: number): boolean => {
-    if (!ollamaStatus.systemResources) return false;
-    const modelSizeGB = getModelSizeGB(sizeBytes);
-    return modelSizeGB > ollamaStatus.systemResources.recommendedMaxModelSizeGB;
   };
 
   const getRecommendedModels = () => {
@@ -856,7 +823,7 @@ Please provide a helpful response based on the email context provided.`;
                       .filter(model => !ollamaStatus.availableModels.some(available => available.name === model.name))
                       .slice(0, 4) // Show only first 4 to save space
                       .map((model) => {
-                        const tooLarge = ollamaStatus.systemResources && model.size > ollamaStatus.systemResources.recommendedMaxModelSizeGB;
+                        const tooLarge = !!(ollamaStatus.systemResources && model.size > ollamaStatus.systemResources.recommendedMaxModelSizeGB);
                         
                         return (
                           <div key={model.name} className="flex justify-between items-center p-2 bg-gray-700 rounded text-xs">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { GmailService } from '../../../lib/gmail'
-import { authOptions } from '../../../lib/auth'
+import { GmailService } from '@/lib/gmail'
+import { authOptions } from '@/lib/auth'
 
 // Enhanced cache with user-specific keys and request deduplication
 const emailCache = new Map<string, { data: EmailData[]; timestamp: number; etag: string }>()
