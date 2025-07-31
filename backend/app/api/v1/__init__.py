@@ -2,7 +2,7 @@
 API v1 router setup
 """
 from fastapi import APIRouter
-from .endpoints import feedback, spam
+from .endpoints import feedback, spam, embeddings
 
 # Create main API v1 router
 api_router = APIRouter()
@@ -18,4 +18,10 @@ api_router.include_router(
     spam.router, 
     prefix="/spam", 
     tags=["spam"]
+)
+
+api_router.include_router(
+    embeddings.router, 
+    prefix="/embeddings", 
+    tags=["embeddings"]
 )

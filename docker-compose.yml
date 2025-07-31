@@ -4,12 +4,15 @@ services:
     image: pgvector/pgvector:pg16
     container_name: cc_db
     environment:
-      POSTGRES_DB: spam_detection
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: contextcleanse
+      POSTGRES_USER: contextcleanse
+      POSTGRES_PASSWORD: contextcleanse_password
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
     networks:
       - app_network
 
@@ -30,7 +33,7 @@ services:
     volumes:
       - ./data:/app/data:ro  # Mount spambase data as read-only
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/spam_detection
+      - DATABASE_URL=postgresql://contextcleanse:contextcleanse_password@postgres:5432/contextcleanse
       - ENVIRONMENT=development
     depends_on:
       - postgres

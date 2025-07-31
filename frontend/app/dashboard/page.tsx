@@ -14,11 +14,8 @@ import {
 } from 'lucide-react';
 import type { EmailData } from '../../lib/gmail';
 import { 
-  getSimplifiedModelList, 
-  getAllModelKeys, 
   getModelInfo, 
   MODEL_DISPLAY_ORDER,
-  AVAILABLE_MODELS,
   type ModelDetails 
 } from '@/lib/models';
 import axios from 'axios'; // Added axios import
@@ -1362,6 +1359,43 @@ This email is totally legitimate and not suspicious at all.`,
 
 
 
+  // Function to create vector embeddings in the background
+  const createVectorEmbeddings = async (email: ExtendedEmailData) => {
+    try {
+      if (!email.content || !email.id) {
+        console.log(`⏭️ Skipping embedding creation for email without content/ID: ${email.subject}`);
+        return;
+      }
+
+      console.log(`📊 Starting background vector embedding creation for: ${email.subject}`);
+      
+      // Create embeddings in the background (fire and forget)
+      fetch('/api/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailId: email.id,
+          content: email.content,
+          subject: email.subject,
+          timestamp: email.timestamp || email.date
+        })
+      }).then(async (response) => {
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`✅ Vector embeddings created successfully for: ${email.subject}`, result);
+        } else {
+          console.warn(`⚠️ Failed to create embeddings for: ${email.subject}`, response.status);
+        }
+      }).catch((error) => {
+        console.warn(`⚠️ Background embedding creation failed for: ${email.subject}`, error);
+      });
+    } catch (error) {
+      console.warn(`⚠️ Error in background embedding creation for: ${email.subject}`, error);
+    }
+  };
+
   const handleEmailClick = async (email: ExtendedEmailData) => {
     setSelectedEmail(email);
     setIsEmailModalOpen(true);
@@ -1379,8 +1413,15 @@ This email is totally legitimate and not suspicious at all.`,
             e.id === email.id ? updatedEmail : e
           )
         );
+
+        // Create vector embeddings for mock data with content
+        if (updatedEmail.content && updatedEmail.content !== 'Email content not available for preview.') {
+          createVectorEmbeddings(updatedEmail);
+        }
       } else {
         console.log('📝 Mock email content already available:', email.subject);
+        // Create vector embeddings for existing mock content
+        createVectorEmbeddings(email);
       }
       return;
     }
@@ -1415,6 +1456,11 @@ This email is totally legitimate and not suspicious at all.`,
             e.id === email.id ? updatedEmail : e
           )
         );
+
+        // Create vector embeddings in the background after successful content fetch
+        if (fullContent) {
+          createVectorEmbeddings(updatedEmail);
+        }
       } catch (error) {
         console.error('❌ Error fetching email content:', error);
         // Fallback to preview if full content fails
@@ -1428,6 +1474,8 @@ This email is totally legitimate and not suspicious at all.`,
       }
     } else {
       console.log('📧 Gmail email content already available:', email.subject);
+      // Create vector embeddings for already available Gmail content
+      createVectorEmbeddings(email);
     }
   };
 
@@ -1700,13 +1748,14 @@ This email is totally legitimate and not suspicious at all.`,
     setAvailableModels(prev => {
       const updated = { ...prev };
       
-      // Update gradient_boosting to show RL enhancement
-      if (updated.gradient_boosting) {
-        const currentF1 = updated.gradient_boosting.f1_score;
+      // Update xgboost to show RL enhancement (legacy gradient_boosting reference removed)
+      if (updated.xgboost) {
+        const currentF1 = updated.xgboost.f1_score;
         const newF1 = Math.min(0.999, currentF1 + rlImprovements.f1ScoreGain);
         
-        updated.gradient_boosting = {
-          name: 'Gradient Boosting + RL',
+        updated.xgboost = {
+          ...updated.xgboost,
+          name: 'XGBoost + RL',
           f1_score: newF1
         };
         
@@ -2285,13 +2334,19 @@ This email is totally legitimate and not suspicious at all.`,
       
       // Update Dashboard availableModels if this is the best model
       if (bestModelKey && bestModelKey[0] === 'xgboost_rl') {
-        setAvailableModels(prev => ({
-          ...prev,
-          [modelKey]: {
-            name: currentStatus.availableModels[modelKey].name,
-            f1_score: currentStatus.availableModels[modelKey].f1_score
-          }
-        }));
+        const modelDetails = getModelInfo(modelKey);
+        if (modelDetails) {
+          setAvailableModels(prev => ({
+            ...prev,
+            [modelKey]: {
+              name: currentStatus.availableModels[modelKey].name,
+              f1_score: currentStatus.availableModels[modelKey].f1_score,
+              trained: modelDetails.trained,
+              description: modelDetails.description,
+              implementation_function: modelDetails.implementation_function
+            }
+          }));
+        }
       }
     }
     
@@ -2331,10 +2386,16 @@ This email is totally legitimate and not suspicious at all.`,
         // Update availableModels with background training results
         const updatedModels: typeof availableModels = {};
         Object.entries(trainingStatus.availableModels).forEach(([key, model]) => {
-          updatedModels[key] = {
-            name: model.name,
-            f1_score: model.f1_score
-          };
+          const modelDetails = getModelInfo(key);
+          if (modelDetails) {
+            updatedModels[key] = {
+              name: model.name,
+              f1_score: model.f1_score,
+              trained: modelDetails.trained,
+              description: modelDetails.description,
+              implementation_function: modelDetails.implementation_function
+            };
+          }
         });
         
         setAvailableModels(prev => ({
@@ -2637,7 +2698,7 @@ This email is totally legitimate and not suspicious at all.`,
                         </h3>
                         
                         <p className="text-sm text-white mb-2 line-clamp-2">
-                          {email.preview || 'No preview available'}
+                          {email.content || email.preview || 'No content available'}
                         </p>
                         
                         <div className="flex items-center space-x-4 text-xs text-gray-500">
@@ -2812,7 +2873,7 @@ This email is totally legitimate and not suspicious at all.`,
                         {/* Feedback Status - Fixed height container to prevent layout shift */}
                         <div className="mt-2 h-6 flex items-center justify-center">
                           {userFeedback[email.id] ? (
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium text-center ${
                               userFeedback[email.id] === 'correct'
                                 ? 'bg-green-900/30 border border-green-700 text-green-300'
                                 : 'bg-red-900/30 border border-red-700 text-red-300'
@@ -3060,7 +3121,7 @@ This email is totally legitimate and not suspicious at all.`,
                       {selectedEmail.content ? (
                         <div className="space-y-4">
                           {/* Render email content with enhanced formatting */}
-                          <div className="text-white whitespace-pre-wrap leading-relaxed font-mono text-sm bg-gray-800 p-4 rounded border border-gray-600 max-h-96 overflow-y-auto">
+                          <div className="text-white whitespace-pre-wrap leading-relaxed font-mono text-sm bg-gray-800 p-4 rounded border border-gray-600 max-h-[60vh] overflow-y-auto">
                             {selectedEmail.content}
                           </div>
                           
@@ -3107,7 +3168,10 @@ This email is totally legitimate and not suspicious at all.`,
                         </div>
                       ) : (
                         <div className="text-gray-400 italic">
-                          {selectedEmail.preview || 'Email content not available'}
+                          <div className="text-sm mb-2">Full content not yet loaded. Showing preview:</div>
+                          <div className="text-white whitespace-pre-wrap leading-relaxed text-sm bg-gray-800 p-4 rounded border border-gray-600">
+                            {selectedEmail.preview || 'Email content not available'}
+                          </div>
                         </div>
                       )}
                     </div>
