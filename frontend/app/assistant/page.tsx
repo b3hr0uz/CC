@@ -280,12 +280,14 @@ export default function AssistantPage() {
         }));
       } else {
         const suggestedModel = ollamaConfig.defaultModel;
+        console.log(`⚠️ No models found matching config. Expected: ${suggestedModel}, Available: ${models.map(m => m.name).join(', ')}`);
         setOllamaStatus(prev => ({
           ...prev,
           available: false,
           model: suggestedModel,
-          status: `No compatible models found - run: ollama pull ${suggestedModel}`,
-          loading: false
+          status: `Model ${suggestedModel} not found. Available: ${models.length > 0 ? models.map(m => m.name).join(', ') : 'none'}`,
+          loading: false,
+          availableModels: models
         }));
       }
     } catch (error) {

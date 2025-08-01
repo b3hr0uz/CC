@@ -109,6 +109,7 @@ interface AutoTrainingConfig {
   selected_models: string[];
   auto_start_on_login: boolean;
   sequential_training: boolean; // Train models one by one
+  interval_minutes: number; // Auto-training interval in minutes
 }
 
 // Interface for background training status
@@ -168,12 +169,15 @@ export default function TrainingPage() {
     resource_limit: 100, // 100% of system resources
     selected_models: getAllModelKeys(), // All 7 models including xgboost_rl
     auto_start_on_login: true, // Enable auto-start on login
-    sequential_training: true // Enable sequential training
+    sequential_training: true, // Enable sequential training
+    interval_minutes: 30 // Auto-training interval in minutes
   });
   const [isAutoTraining, setIsAutoTraining] = useState(false);
   const [bestModel, setBestModel] = useState<string>('xgboost_rl');
   const [previousModelMetrics, setPreviousModelMetrics] = useState<{[key: string]: ModelMetrics}>({});
   const [hasTriggeredAutoTraining, setHasTriggeredAutoTraining] = useState(false);
+  const [autoTrainingInterval, setAutoTrainingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [lastAutoTrainingTime, setLastAutoTrainingTime] = useState<Date | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
   const [selectedAnalysisModel, setSelectedAnalysisModel] = useState<string>('all'); // New state for Training Analysis model selection
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -474,15 +478,15 @@ export default function TrainingPage() {
     initializeData();
   }, []);
 
-  // Auto-training initialization (separate effect to avoid hoisting issues)
+  // Auto-training initialization with 30-minute interval
   useEffect(() => {
     if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled) {
       // Ensure data is loaded before starting auto-training
       const checkDataAndInitialize = () => {
         // Only initialize auto-training if models and stats are loaded
         if (!loadingStates.availableModels && !loadingStates.statistics) {
-          console.log('📊 Data loaded, initializing auto-training...');
-          initializeAutoTraining();
+          console.log('📊 Data loaded, initializing auto-training with interval...');
+          initializeAutoTrainingWithInterval();
         } else {
           // Re-check after a short delay if data isn't loaded yet
           setTimeout(checkDataAndInitialize, 1000);
@@ -491,6 +495,14 @@ export default function TrainingPage() {
       
       checkDataAndInitialize();
     }
+
+    // Cleanup interval on unmount
+    return () => {
+      if (autoTrainingInterval) {
+        clearInterval(autoTrainingInterval);
+        setAutoTrainingInterval(null);
+      }
+    };
   }, [autoTrainingConfig.auto_start_on_login, autoTrainingConfig.enabled, loadingStates.availableModels, loadingStates.statistics]);
 
   // Session-based auto-training trigger - runs when user logs in
@@ -532,45 +544,87 @@ export default function TrainingPage() {
 
   // Removed cleanup effect to ensure notifications persist across navigation
 
-  // Auto-training initialization on component mount (simulates login)
-  const initializeAutoTraining = async () => {
-    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled && !isAutoTraining && !hasTriggeredAutoTraining) {
-      console.log('🚀 Initializing auto-training on login...');
+  // Auto-training initialization with interval setup
+  const initializeAutoTrainingWithInterval = async () => {
+    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled && !autoTrainingInterval) {
+      console.log('🚀 Initializing auto-training with 30-minute interval...');
       
-      // Set flag to prevent duplicate initialization
-      setHasTriggeredAutoTraining(true);
+      // First training run immediately
+      await performAutoTraining(true);
+      setLastAutoTrainingTime(new Date());
       
-      // Show auto-training initialization notification
+      // Set up interval for subsequent runs
+      const intervalId = setInterval(async () => {
+        console.log('⏰ Auto-training interval triggered (30 minutes)');
+        await performAutoTraining(false);
+        setLastAutoTrainingTime(new Date());
+      }, autoTrainingConfig.interval_minutes * 60 * 1000); // Convert minutes to milliseconds
+      
+      setAutoTrainingInterval(intervalId);
+      
       addNotification({
-        id: generateNotificationId('auto_training_init', 'System'),
+        id: generateNotificationId('auto_training_schedule', 'Auto-Training System'),
         type: 'auto_training_init',
-        model_name: 'System',
-        message: `Auto-training initiated with optimal ${autoTrainingConfig.optimal_k_fold}-Fold CV using ${autoTrainingConfig.resource_limit}% system resources`,
+        model_name: 'Auto-Training System',
+        message: `Auto-training scheduled: First run completed, next run in ${autoTrainingConfig.interval_minutes} minutes`,
+        timestamp: new Date()
+      });
+    }
+  };
+
+  // Perform auto-training with backend verification
+  const performAutoTraining = async (isFirstRun: boolean) => {
+    if (isAutoTraining) {
+      console.log('⚠️ Auto-training already running, skipping interval trigger');
+      return;
+    }
+
+    // Verify backend connection before training
+    try {
+      const backendHealthResponse = await fetch('http://localhost:8000/health');
+      const healthData = await backendHealthResponse.json();
+      
+      if (!backendHealthResponse.ok || healthData.status !== 'healthy') {
+        console.warn('⚠️ Backend not healthy, skipping auto-training');
+        addNotification({
+          id: generateNotificationId('training_skip', 'Auto-Training System'),
+          type: 'training_error',
+          model_name: 'Auto-Training System',
+          message: `Auto-training skipped: Backend service unavailable (${isFirstRun ? 'first run' : 'scheduled'})`,
+          timestamp: new Date()
+        });
+        return;
+      }
+
+      console.log(`✅ Backend healthy, proceeding with auto-training (${isFirstRun ? 'first run' : 'scheduled'})`);
+      
+      addNotification({
+        id: generateNotificationId('auto_training_start', 'Auto-Training System'),
+        type: 'auto_training_init',
+        model_name: 'Auto-Training System',
+        message: `Auto-training ${isFirstRun ? 'initiated' : 'scheduled run'} with real backend connection verified`,
         timestamp: new Date()
       });
 
       // Determine optimal K-Fold CV rate
-      try {
-        const optimalKFold = await determineOptimalKFold();
-        setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
-        setKFolds(optimalKFold);
+      const optimalKFold = await determineOptimalKFold();
+      setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
+      setKFolds(optimalKFold);
 
-        // Start sequential training directly (use the working method)
-        console.log('🚀 Starting trainModelsSequentiallyWithNotifications...');
-        setTimeout(() => {
-          trainModelsSequentiallyWithNotifications();
-        }, 2000);
-      } catch (error) {
-        console.error('❌ Error in auto-training initialization:', error);
-        addNotification({
-          id: generateNotificationId('training_error', 'System'),
-          type: 'training_error',
-          model_name: 'System',
-          message: `Auto-training initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          timestamp: new Date()
-        });
-        setHasTriggeredAutoTraining(false); // Reset flag on error
-      }
+      // Start sequential training
+      setTimeout(() => {
+        trainModelsSequentiallyWithNotifications();
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ Backend connection check failed:', error);
+      addNotification({
+        id: generateNotificationId('training_error', 'Auto-Training System'),
+        type: 'training_error',
+        model_name: 'Auto-Training System',
+        message: `Auto-training failed: Backend connection error (${isFirstRun ? 'first run' : 'scheduled'})`,
+        timestamp: new Date()
+      });
     }
   };
 
