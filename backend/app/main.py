@@ -26,6 +26,53 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
+# Add missing data loading function
+def load_and_prepare_data_sync():
+    """Load and prepare the spambase dataset for training"""
+    global data_loaded, X_train, X_test, y_train, y_test
+    global X_train_scaled, X_test_scaled, X_train_nb, X_test_nb, X_full, y_full
+    
+    try:
+        # Load the spambase dataset
+        data_path = Path("data/spambase/spambase.data")
+        if not data_path.exists():
+            print("⚠️ Spambase dataset not found, using mock data")
+            return False
+            
+        # Read the dataset
+        df = pd.read_csv(data_path, header=None)
+        
+        # Separate features and target
+        X_full = df.iloc[:, :-1].values
+        y_full = df.iloc[:, -1].values
+        
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_full, y_full, test_size=0.2, random_state=42, stratify=y_full
+        )
+        
+        # Scale the data for algorithms that need it
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # For Naive Bayes (needs non-negative values)
+        min_max_scaler = MinMaxScaler()
+        X_train_nb = min_max_scaler.fit_transform(X_train)
+        X_test_nb = min_max_scaler.transform(X_test)
+        
+        data_loaded = True
+        print(f"✅ Dataset loaded successfully: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to load dataset: {e}")
+        return False
+
+async def load_and_prepare_data():
+    """Async wrapper for data loading"""
+    return load_and_prepare_data_sync()
+
 # Import ML service
 try:
     from app.services.ml_service import get_ml_service
@@ -721,7 +768,7 @@ async def determine_optimal_kfold(request: Dict[str, Any]):
         }
         
         if not data_loaded:
-            await load_and_prepare_data()
+            load_and_prepare_data_sync()
         
         if test_model not in model_mapping:
             test_model = "xgboost"

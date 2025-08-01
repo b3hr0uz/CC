@@ -2439,7 +2439,7 @@ This email is totally legitimate and not suspicious at all.`,
                       <option key={modelKey} value={modelKey} disabled={!model.trained}>
                         {model.name}
                         {!model.trained && ' (Not Trained)'}
-                        {model.trained && ` - F1: ${(model.f1_score * 100).toFixed(1)}%`}
+                        {model.trained && model.f1_score > 0 && ` - F1: ${(model.f1_score * 100).toFixed(1)}%`}
                       </option>
                     );
                   })}
@@ -2802,7 +2802,7 @@ This email is totally legitimate and not suspicious at all.`,
                                 <div className="flex items-center space-x-2">
                                   <span className="text-gray-400">
                                     Selected Model: <span className="text-white font-medium">{availableModels[selectedModel]?.name}</span>
-                                    {availableModels[selectedModel]?.f1_score && (
+                                    {availableModels[selectedModel]?.trained && availableModels[selectedModel]?.f1_score > 0 && (
                                       <span className="text-blue-300 ml-1">
                                         (F1: {(availableModels[selectedModel].f1_score * 100).toFixed(1)}%)
                                       </span>
@@ -2950,33 +2950,39 @@ This email is totally legitimate and not suspicious at all.`,
                     </div>
                     
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">F1-Score:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Accuracy:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 0.98 * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Precision:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 1.02 * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Recall:</span>
-                        <span className="text-sm font-medium text-white">
-                          {(model.f1_score * 0.99 * 100).toFixed(1)}%
-                        </span>
-                      </div>
+                      {model.trained && model.f1_score > 0 ? (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">F1-Score:</span>
+                            <span className="text-sm font-medium text-green-300">
+                              {(model.f1_score * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">Status:</span>
+                            <span className="text-sm font-medium text-green-300">
+                              Trained ✓
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">Status:</span>
+                            <span className="text-sm font-medium text-yellow-300">
+                              Not Trained
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">Action Required:</span>
+                            <span className="text-sm text-orange-300">
+                              Run Training
+                            </span>
+                          </div>
+                        </>
+                      )}
                       
                       <div className="mt-3 pt-2 border-t border-gray-600">
                         <div className="flex justify-between items-center">

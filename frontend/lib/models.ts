@@ -28,14 +28,15 @@ export interface ModelMetrics {
 }
 
 // Centralized model definitions - ALL 7 MODELS
+// Note: F1 scores and training status will be updated after actual model training
 export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'logistic_regression': {
     name: 'Logistic Regression',
     description: 'Linear model for binary classification with regularization',
-    f1_score: 0.886,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'StandardScaler',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Linear Classification',
     implementation_function: 'LogisticRegression.fit()',
     library_used: 'scikit-learn',
@@ -47,10 +48,10 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'xgboost': {
     name: 'XGBoost',
     description: 'Gradient boosting ensemble with advanced regularization',
-    f1_score: 0.920,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'None',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Gradient Boosting',
     implementation_function: 'XGBClassifier.fit()',
     library_used: 'xgboost',
@@ -62,26 +63,26 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'xgboost_rl': {
     name: 'XGBoost + RL',
     description: 'XGBoost enhanced with Deep Q-Learning reinforcement optimization',
-    f1_score: 0.947,
+    f1_score: 0.0, // Will be updated after training and RL optimization
     scaling_required: 'None',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Ensemble + Reinforcement Learning',
     implementation_function: 'XGBClassifier.fit() + DQNAgent.optimize()',
     library_used: 'xgboost + tensorflow/pytorch',
     hyperparameters: 'XGB params + RL: epsilon=0.1, learning_rate=0.001, discount=0.95',
     use_case: 'Adaptive model that learns from user feedback via RL',
-    strengths: ['Self-improving', 'Adapts to user preferences', 'Highest accuracy'],
+    strengths: ['Self-improving', 'Adapts to user preferences', 'Potential for highest accuracy'],
     weaknesses: ['Requires user feedback', 'More complex', 'Longer training time'],
     requires_user_feedback: true
   },
   'naive_bayes': {
     name: 'Naive Bayes',
     description: 'Probabilistic classifier based on Bayes theorem with independence assumption',
-    f1_score: 0.878,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'None',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Probabilistic Classification',
     implementation_function: 'MultinomialNB.fit()',
     library_used: 'scikit-learn',
@@ -93,10 +94,10 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'neural_network': {
     name: 'Neural Network (MLP)',
     description: 'Multi-layer perceptron with backpropagation learning',
-    f1_score: 0.901,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'StandardScaler',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Deep Learning',
     implementation_function: 'MLPClassifier.fit()',
     library_used: 'scikit-learn',
@@ -108,10 +109,10 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'svm': {
     name: 'Support Vector Machine',
     description: 'Kernel-based classification with maximum margin optimization',
-    f1_score: 0.891,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'StandardScaler',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Kernel-based Classification',
     implementation_function: 'SVC.fit()',
     library_used: 'scikit-learn',
@@ -123,10 +124,10 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   'random_forest': {
     name: 'Random Forest',
     description: 'Ensemble method combining multiple decision trees with bagging',
-    f1_score: 0.913,
+    f1_score: 0.0, // Will be updated after training
     scaling_required: 'None',
-    trained: true,
-    training_progress: 100,
+    trained: false,
+    training_progress: 0,
     algorithm_type: 'Ensemble (Bagging)',
     implementation_function: 'RandomForestClassifier.fit()',
     library_used: 'scikit-learn',
@@ -137,15 +138,15 @@ export const AVAILABLE_MODELS: Record<string, ModelDetails> = {
   }
 };
 
-// Model order for consistent display (best to worst F1-score)
+// Model order for consistent display (alphabetical order until training provides actual performance data)
 export const MODEL_DISPLAY_ORDER = [
-  'xgboost_rl',    // 94.7%
-  'xgboost',       // 92.0%
-  'random_forest', // 91.3%
-  'neural_network', // 90.1%
-  'svm',           // 89.1%
-  'logistic_regression', // 88.6%
-  'naive_bayes'    // 87.8%
+  'logistic_regression',
+  'naive_bayes',
+  'neural_network',
+  'random_forest',
+  'svm',
+  'xgboost',
+  'xgboost_rl'
 ];
 
 // Models that can be trained without user feedback (6 models)
