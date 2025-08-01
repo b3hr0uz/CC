@@ -38,6 +38,7 @@ def load_and_prepare_data_sync():
         data_path = Path("data/spambase/spambase.data")
         if not data_path.exists():
             print("⚠️ Spambase dataset not found, using mock data")
+            data_loaded = False
             return False
             
         # Read the dataset
@@ -62,14 +63,12 @@ def load_and_prepare_data_sync():
         X_train_nb = min_max_scaler.fit_transform(X_train)
         X_test_nb = min_max_scaler.transform(X_test)
         
-        global data_loaded
         data_loaded = True
         print(f"✅ Dataset loaded successfully: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples")
         return True
         
     except Exception as e:
         print(f"❌ Failed to load dataset: {e}")
-        global data_loaded
         data_loaded = False
         return False
 
@@ -283,7 +282,6 @@ async def startup_event():
         X_test_nb = nb_scaler.transform(X_test)
         scalers['minmax'] = nb_scaler
         
-        global data_loaded
         data_loaded = True
         print("✅ Data loaded and preprocessed successfully!")
         
@@ -377,7 +375,7 @@ async def train_models(request: ModelTrainRequest):
     global data_loaded
     if not data_loaded:
         print("⚠️ Data not loaded, attempting to load now...")
-        load_and_prepare_data_sync()
+        await startup_event()  # Use the existing startup data loading function
     
     if not data_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded")

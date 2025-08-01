@@ -1171,21 +1171,26 @@ export default function TrainingPage() {
         return total + calculateActualTrainingTime(modelName);
       }, 0);
       
-      // Final enhanced notification with more parameters
+      // Get best model metrics for display
+      const bestModelMetrics = modelResults?.results[currentBestModel];
+      const f1Score = bestModelMetrics?.f1_score ? (bestModelMetrics.f1_score * 100).toFixed(1) : 'N/A';
+      const accuracy = bestModelMetrics?.accuracy ? (bestModelMetrics.accuracy * 100).toFixed(1) : 'N/A';
+      
+      // Final enhanced notification with more parameters and performance numbers
       addNotification({
         id: generateNotificationId('training_complete', 'Auto-Training System'),
         type: 'training_complete',
         model_name: 'Auto-Training System',
-        message: `Auto-training completed successfully. Best model: ${currentBestModel} | Total time: ${totalTrainingTime.toFixed(1)}s | Models tested: ${autoTrainingConfig.selected_models.length}`,
+        message: `Auto-training completed successfully. Best model: ${getModelDisplayName(currentBestModel)} (F1: ${f1Score}%, Acc: ${accuracy}%) | Total time: ${totalTrainingTime.toFixed(1)}s | Models tested: ${autoTrainingConfig.selected_models.length}`,
         timestamp: new Date(),
         end_time: new Date(),
         duration: totalTrainingTime,
         // Additional metadata for enhanced notification display
         metrics: {
-          accuracy: modelResults?.results[currentBestModel]?.accuracy || 0,
-          precision: modelResults?.results[currentBestModel]?.precision || 0,
-          recall: modelResults?.results[currentBestModel]?.recall || 0,
-          f1_score: modelResults?.results[currentBestModel]?.f1_score || 0,
+          accuracy: bestModelMetrics?.accuracy || 0,
+          precision: bestModelMetrics?.precision || 0,
+          recall: bestModelMetrics?.recall || 0,
+          f1_score: bestModelMetrics?.f1_score || 0,
           training_time: totalTrainingTime
         }
       });

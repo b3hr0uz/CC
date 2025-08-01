@@ -282,33 +282,29 @@ export default function DashboardPage() {
 
   // Initialize data and fetch emails when component mounts or session changes
   useEffect(() => {
-    // Pre-load dashboard with mock emails immediately for better UX
+    // Always pre-load dashboard with emails immediately for better UX
     if (emails.length === 0) {
       console.log('📧 Pre-loading dashboard with emails...');
       
-      // First try to load from persistent storage
-      const signInMethod = session?.user?.email?.includes('gmail') ? 'google' : 
-                          session?.isMockUser ? 'mock' : 'unknown';
-      const storedEmails = loadEmailsFromStorage(signInMethod);
+      // Always start with mock emails for immediate display
+      const mockEmails = getMockEmails();
+      setEmails(mockEmails);
+      setUsingMockData(true);
+      setLoading(false);
       
-      if (storedEmails.length > 0) {
-        console.log(`📧 Pre-loaded ${storedEmails.length} emails from ${signInMethod} storage`);
-        setEmails(storedEmails);
-        
-        // Show storage info to user
-        const storageInfo = getStoredEmailInfo();
-        if (storageInfo) {
-          addNotification({
-            id: generateRLNotificationId('storage_preload'),
-            type: 'email_fetch_complete',
-            model_name: 'Storage Preload',
-            message: `Loaded ${storageInfo.count} emails from ${storageInfo.signInMethod} (${new Date(storageInfo.timestamp).toLocaleString()})`,
-            timestamp: new Date(),
-          });
-        }
-      } else {
-        console.log('📧 No stored emails found, pre-loading with mock emails');
-        setEmails(getMockEmails());
+      console.log(`📧 Pre-loaded ${mockEmails.length} emails for immediate display`);
+      
+      addNotification({
+        id: generateRLNotificationId('email_preload'),
+        type: 'email_fetch_complete',
+        model_name: 'Email Preload',
+        message: `Loaded ${mockEmails.length} sample emails - ready for classification`,
+        timestamp: new Date(),
+      });
+      
+      // Then try to load real emails in background if authenticated
+      if (session && !session.isMockUser) {
+        fetchEmails();
       }
     }
   }, [session, status, router, emailLimit]);
