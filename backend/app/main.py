@@ -21,9 +21,10 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
 # Add missing data loading function
@@ -61,12 +62,15 @@ def load_and_prepare_data_sync():
         X_train_nb = min_max_scaler.fit_transform(X_train)
         X_test_nb = min_max_scaler.transform(X_test)
         
+        global data_loaded
         data_loaded = True
         print(f"✅ Dataset loaded successfully: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples")
         return True
         
     except Exception as e:
         print(f"❌ Failed to load dataset: {e}")
+        global data_loaded
+        data_loaded = False
         return False
 
 async def load_and_prepare_data():
@@ -167,6 +171,27 @@ AVAILABLE_MODELS = {
         },
         "scaling": "standard",
         "description": "Multi-layer perceptron with 3 hidden layers"
+    },
+    "svm": {
+        "name": "Support Vector Machine",
+        "class": SVC,
+        "params": {"kernel": "rbf", "C": 1.0, "gamma": "scale", "random_state": 42},
+        "scaling": "standard",
+        "description": "Kernel-based classification with maximum margin optimization"
+    },
+    "random_forest": {
+        "name": "Random Forest",
+        "class": RandomForestClassifier,
+        "params": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "random_state": 42},
+        "scaling": "none",
+        "description": "Ensemble method combining multiple decision trees with bagging"
+    },
+    "xgboost_rl": {
+        "name": "XGBoost + RL",
+        "class": GradientBoostingClassifier,  # Use GradientBoosting as base for now
+        "params": {"n_estimators": 150, "learning_rate": 0.1, "max_depth": 4, "random_state": 42},
+        "scaling": "none",
+        "description": "XGBoost enhanced with Deep Q-Learning reinforcement optimization"
     }
 }
 
@@ -258,6 +283,7 @@ async def startup_event():
         X_test_nb = nb_scaler.transform(X_test)
         scalers['minmax'] = nb_scaler
         
+        global data_loaded
         data_loaded = True
         print("✅ Data loaded and preprocessed successfully!")
         
@@ -348,6 +374,11 @@ async def get_available_models():
 @app.post("/models/train")
 async def train_models(request: ModelTrainRequest):
     """Train selected ML models with optional k-fold cross validation"""
+    global data_loaded
+    if not data_loaded:
+        print("⚠️ Data not loaded, attempting to load now...")
+        load_and_prepare_data_sync()
+    
     if not data_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded")
     
