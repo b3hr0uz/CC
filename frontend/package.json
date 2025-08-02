@@ -9,10 +9,20 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
+    "build:profile": "next build --profile",
+    "build:debug": "next build --debug",
+    "precompile": "npm run type-check && npm run lint && npm run build",
     "start": "next start",
+    "start:production": "NODE_ENV=production next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "clean": "rm -rf .next out",
+    "prebuild": "npm run clean"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

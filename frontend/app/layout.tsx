@@ -4,6 +4,8 @@ import './globals.css'
 import SessionProvider from '../components/providers/SessionProvider'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { Toaster } from 'react-hot-toast'
+import PagePreloader from './components/PagePreloader'
+import ServerWarmup from './components/ServerWarmup'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -29,6 +31,8 @@ export default function RootLayout({
         <NotificationProvider>
           <SessionProvider>
             <main>{children}</main>
+            <PagePreloader />
+            <ServerWarmup />
             <Toaster 
               position="top-right"
               toastOptions={{

@@ -31,37 +31,50 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 def load_and_prepare_data_sync():
     """Load and prepare the spambase dataset for training"""
     global data_loaded, X_train, X_test, y_train, y_test
-    global X_train_scaled, X_test_scaled, X_train_nb, X_test_nb, X_full, y_full
+    global X_train_scaled, X_test_scaled, X_train_nb, X_test_nb, X_full, y_full, scalers
     
     try:
-        # Load the spambase dataset
-        data_path = Path("data/spambase/spambase.data")
-        if not data_path.exists():
-            print("⚠️ Spambase dataset not found, using mock data")
+        # Try multiple possible paths for the spambase dataset (same as startup)
+        possible_paths = [
+            Path("data/spambase/spambase.data"),
+            Path("../data/spambase/spambase.data"),
+            Path("../../data/spambase/spambase.data"),
+            Path("C:/Users/b3h/Documents/Repositories/CC/data/spambase/spambase.data")
+        ]
+        
+        data_path = None
+        for path in possible_paths:
+            if path.exists():
+                data_path = path
+                break
+        
+        if data_path is None:
+            print("⚠️ Spambase dataset not found in any expected location")
             data_loaded = False
             return False
             
-        # Read the dataset
+        print(f"📁 Loading dataset from: {data_path}")
         df = pd.read_csv(data_path, header=None)
+        X_full = df.iloc[:, :-1]
+        y_full = df.iloc[:, -1]
         
-        # Separate features and target
-        X_full = df.iloc[:, :-1].values
-        y_full = df.iloc[:, -1].values
+        print(f"📊 Dataset loaded: {X_full.shape[0]} samples, {X_full.shape[1]} features")
         
-        # Split the data
+        # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X_full, y_full, test_size=0.2, random_state=42, stratify=y_full
+            X_full, y_full, test_size=0.3, random_state=42, stratify=y_full
         )
         
-        # Scale the data for algorithms that need it
+        # Preprocessing (same as startup event)
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
+        scalers['standard'] = scaler
         
-        # For Naive Bayes (needs non-negative values)
-        min_max_scaler = MinMaxScaler()
-        X_train_nb = min_max_scaler.fit_transform(X_train)
-        X_test_nb = min_max_scaler.transform(X_test)
+        nb_scaler = MinMaxScaler()
+        X_train_nb = nb_scaler.fit_transform(X_train)
+        X_test_nb = nb_scaler.transform(X_test)
+        scalers['minmax'] = nb_scaler
         
         data_loaded = True
         print(f"✅ Dataset loaded successfully: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples")
@@ -325,8 +338,17 @@ async def health_check():
 @app.get("/statistics", response_model=StatisticsResponse)
 async def get_statistics():
     """Get comprehensive dataset statistics as per Assignment 2"""
+    global data_loaded
+    
+    # If data is not loaded, try to load it on-demand
     if not data_loaded:
-        raise HTTPException(status_code=503, detail="Data not loaded")
+        print("📊 Data not loaded, attempting to load on-demand...")
+        success = load_and_prepare_data_sync()
+        if not success:
+            raise HTTPException(
+                status_code=503, 
+                detail="Data not loaded and could not be loaded on-demand. Please ensure the spambase dataset is available."
+            )
     
     # Calculate statistics
     total_samples = len(y_full)

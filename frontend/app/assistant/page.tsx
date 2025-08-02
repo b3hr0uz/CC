@@ -8,6 +8,8 @@ import {
   Settings, RefreshCw, Zap, Activity, Download, AlertCircle
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import NotificationSidebar from '../components/NotificationSidebar';
+import { useNotifications } from '../contexts/NotificationContext';
 import axios from 'axios';
 
 interface EmailEmbedding {
@@ -138,6 +140,42 @@ const getOllamaConfig = (): OllamaConfig => {
 export default function AssistantPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  
+  // Access global notification system for training events and metrics synchronization
+  const { notifications } = useNotifications();
+  
+  // GLOBAL SYNC: Listen for training events and update model performance across all pages
+  useEffect(() => {
+    const syncGlobalModelMetrics = () => {
+      try {
+        const globalMetrics = localStorage.getItem('globalModelMetrics');
+        if (globalMetrics) {
+          const metrics = JSON.parse(globalMetrics);
+          console.log('🌐 Assistant syncing with global model metrics:', metrics);
+          
+          // Log sync for visibility - Assistant doesn't manage models directly but needs to be aware
+          Object.keys(metrics).forEach(modelKey => {
+            const metric = metrics[modelKey];
+            if (metric.trainingSource === 'legitimate_backend') {
+              console.log(`🔄 Assistant synced with updated ${modelKey}: F1=${(metric.f1_score * 100).toFixed(1)}%`);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('❌ Assistant error syncing global model metrics:', error);
+      }
+    };
+
+    // Sync when training notifications arrive
+    const latestTrainingNotifications = notifications.filter(n => 
+      n.type === 'model_training_complete' && !n.model_name.includes('Background Training')
+    );
+    
+    if (latestTrainingNotifications.length > 0) {
+      console.log('🔄 Assistant detected legitimate training completion, syncing metrics...');
+      syncGlobalModelMetrics();
+    }
+  }, [notifications]); // Re-run when notifications change
   
   // Core states
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1099,6 +1137,11 @@ Please provide a helpful response based on the email context provided.`;
           </div>
         </div>
       </div>
+      
+      {/* Events Sidebar */}
+      <NotificationSidebar 
+        title="Events"
+      />
     </div>
   );
 }

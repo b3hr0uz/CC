@@ -266,7 +266,7 @@ docker-compose up -d
 
 ```bash
 # Production build
-docker-compose -f docker-compose.prod.yml up -d
+FRONTEND_BUILD_TARGET=production ENVIRONMENT=production docker-compose up -d
 
 # Environment variables
 export ENVIRONMENT=production

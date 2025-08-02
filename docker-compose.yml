@@ -1,45 +1,166 @@
 services:
-  # PostgreSQL Database with pgvector extension
-  postgres:
+  # PostgreSQL Database with pgvector extension - Production-optimized
+  db:
     image: pgvector/pgvector:pg16
     container_name: cc_db
+    
+    # Environment configuration with fallback defaults
     environment:
-      POSTGRES_DB: contextcleanse
-      POSTGRES_USER: contextcleanse
-      POSTGRES_PASSWORD: contextcleanse_password
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: ${POSTGRES_DB:-contextcleanse}
+      POSTGRES_USER: ${POSTGRES_USER:-contextcleanse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contextcleanse_password}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_AUTH_METHOD:-trust}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+    
+    # Optimized PostgreSQL configuration for performance
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements,vector
+      -c pg_stat_statements.track=all
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-200}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}
+      -c effective_cache_size=${POSTGRES_EFFECTIVE_CACHE:-2GB}
+      -c maintenance_work_mem=128MB
+      -c checkpoint_completion_target=0.7
+      -c wal_buffers=32MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=8MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_worker_processes=8
+      -c max_parallel_workers_per_gather=4
+      -c max_parallel_workers=8
+      -c log_statement=${POSTGRES_LOG_STATEMENT:-none}
+      -c log_min_duration_statement=1000
+    
+    # Port configuration
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
+    
+    # Persistent volumes with initialization
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    
+    # Resource management
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMORY_LIMIT:-2G}
+          cpus: ${POSTGRES_CPU_LIMIT:-1}
+        reservations:
+          memory: ${POSTGRES_MEMORY_RESERVATION:-1G}
+          cpus: ${POSTGRES_CPU_RESERVATION:-0.5}
+    
+    # Production-grade health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contextcleanse} -d ${POSTGRES_DB:-contextcleanse}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+        labels: "service=database"
+    
+    # Network configuration
     networks:
       - app_network
+    
+    # Restart policy
+    restart: unless-stopped
 
-  # FastAPI Backend
+  # FastAPI Backend - Enhanced with ML optimizations
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: app  # Use the optimized production stage
+      target: ${BACKEND_BUILD_TARGET:-production}
       cache_from:
-        - cc_backend:latest
+        - contextcleanse-backend:latest
+        - contextcleanse-backend:${BACKEND_BUILD_TARGET:-production}
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: cc_backend:latest
+        - ENVIRONMENT=${ENVIRONMENT:-production}
+    
+    image: contextcleanse-backend:latest
     container_name: cc_backend
+    
+    # Port configuration
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
+    
+    # Volume mounts for data and development
     volumes:
-      - ./data:/app/data:ro  # Mount spambase data as read-only
+      - ./data:/app/data:ro
+      - backend_logs:/app/logs
+    
+    # Environment configuration
     environment:
-      - DATABASE_URL=postgresql://contextcleanse:contextcleanse_password@postgres:5432/contextcleanse
-      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-contextcleanse}:${POSTGRES_PASSWORD:-contextcleanse_password}@db:5432/${POSTGRES_DB:-contextcleanse}
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - REDIS_URL=redis://redis:6379/0
+    
+    # Resource management for ML operations
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-4G}
+          cpus: ${BACKEND_CPU_LIMIT:-2}
+        reservations:
+          memory: ${BACKEND_MEMORY_RESERVATION:-2G}
+          cpus: ${BACKEND_CPU_RESERVATION:-1}
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 15s
+    
+    # Production health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    
+    # Security configuration (production)
+    read_only: ${BACKEND_READ_ONLY:-false}
+    tmpfs:
+      - /tmp:noexec,nosuid,size=200m
+      - /app/logs:noexec,nosuid,size=100m
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service=backend"
+    
+    # Dependencies
     depends_on:
-      - postgres
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Network configuration
     networks:
       - app_network
+    
+    # Restart policy
     restart: unless-stopped
+    
+    # Development watch mode (when enabled)
     develop:
       watch:
         - action: sync
@@ -48,78 +169,333 @@ services:
           ignore:
             - __pycache__/
             - "*.pyc"
+            - "*.log"
         - action: rebuild
           path: ./backend/requirements.txt
 
-  # NextJS Frontend
+  # Next.js Frontend - Fully optimized with precompilation
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development  # Use development stage for local development
+      target: ${FRONTEND_BUILD_TARGET:-development}
       cache_from:
-        - cc_frontend:latest
+        - contextcleanse-frontend:latest
+        - contextcleanse-frontend:${FRONTEND_BUILD_TARGET:-development}
+        - contextcleanse-frontend:builder
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: cc_frontend:latest
+        - NODE_ENV=${NODE_ENV:-development}
+        - NEXT_TELEMETRY_DISABLED=1
+        - DOCKER_BUILD=true
+    
+    image: contextcleanse-frontend:latest
     container_name: cc_frontend
+    
+    # Port configuration
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
+    
+    # Volume mounts for development hot-reloading
+    volumes:
+      - ./frontend:/app:cached
+      - frontend_node_modules:/app/node_modules
+      - frontend_next_cache:/app/.next/cache
+    
+    # Comprehensive environment configuration
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Next.js Configuration
+      - NODE_ENV=${NODE_ENV:-development}
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PRIVATE_DEBUG_CACHE=${NEXT_DEBUG_CACHE:-1}
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      
+      # Development optimizations
+      - WATCHPACK_POLLING=${WATCHPACK_POLLING:-false}
+      - FAST_REFRESH=${FAST_REFRESH:-true}
+      
+      # API Configuration
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - INTERNAL_API_URL=http://backend:8000
+      
       # NextAuth Configuration
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=contextcleanse-secure-jwt-secret-2024-development-only
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-contextcleanse-secure-jwt-secret-2024}
+      
       # OAuth Provider Credentials
       - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}
       - AUTH_GOOGLE_SECRET=${AUTH_GOOGLE_SECRET}
+      
       # reCAPTCHA Configuration
       - NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
-      # Ollama Configuration for host access
-      - NEXT_PUBLIC_OLLAMA_HOST=host.docker.internal:11434
+      
+      # Ollama Configuration
+      - NEXT_PUBLIC_OLLAMA_HOST=${NEXT_PUBLIC_OLLAMA_HOST:-host.docker.internal:11434}
+    
+    # Resource management
+    deploy:
+      resources:
+        limits:
+          memory: ${FRONTEND_MEMORY_LIMIT:-2G}
+          cpus: ${FRONTEND_CPU_LIMIT:-1}
+        reservations:
+          memory: ${FRONTEND_MEMORY_RESERVATION:-1G}
+          cpus: ${FRONTEND_CPU_RESERVATION:-0.5}
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 10s
+    
+    # Optimized health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: ${FRONTEND_HEALTH_START_PERIOD:-15s}
+    
+    # Security configuration (production)
+    read_only: ${FRONTEND_READ_ONLY:-false}
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /app/logs:noexec,nosuid,size=50m
+    
+    # Enable init process for proper signal handling
+    init: true
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=frontend"
+    
+    # Production labels for reverse proxy integration
+    labels:
+      - "traefik.enable=${TRAEFIK_ENABLE:-true}"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.tls=${TRAEFIK_TLS:-false}"
+      - "traefik.http.routers.frontend.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.frontend-compress.compress=true"
+      - "traefik.http.routers.frontend.middlewares=frontend-compress"
+    
+    # Dependencies
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    
+    # Network configuration
     networks:
       - app_network
+    
+    # Restart policy
     restart: unless-stopped
+    
+    # Development watch mode (when enabled)
     develop:
       watch:
         - action: sync
           path: ./frontend/app
           target: /app/app
         - action: sync
-          path: ./frontend
-          target: /app
-          ignore:
-            - node_modules/
-            - .next/
-            - "*.log"
+          path: ./frontend/components
+          target: /app/components
+        - action: sync
+          path: ./frontend/lib
+          target: /app/lib
+        - action: sync
+          path: ./frontend/types
+          target: /app/types
         - action: rebuild
           path: ./frontend/package.json
 
-  # Redis for caching (future enhancement)
+  # Redis Cache - Enhanced for production
   redis:
     image: redis:7-alpine
     container_name: cc_redis
+    
+    # Port configuration
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    
+    # Persistent storage
     volumes:
       - redis_data:/data
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100m
+    
+    # Redis configuration for production
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory ${REDIS_MAX_MEMORY:-256mb}
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 300
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    # Resource management
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY_LIMIT:-512M}
+          cpus: ${REDIS_CPU_LIMIT:-0.5}
+        reservations:
+          memory: ${REDIS_MEMORY_RESERVATION:-256M}
+          cpus: ${REDIS_CPU_RESERVATION:-0.25}
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=redis"
+    
+    # Network configuration
     networks:
       - app_network
-    command: redis-server --appendonly yes
+    
+    # Restart policy
+    restart: unless-stopped
 
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: cc_nginx
+    
+    # Port configuration
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    
+    # Configuration and SSL certificates
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    
+    # Resource management
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=nginx"
+    
+    # Dependencies
+    depends_on:
+      - frontend
+    
+    # Network configuration
+    networks:
+      - app_network
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Only run if enabled
+    profiles:
+      - nginx
+      - production
+
+# Named volumes for data persistence and performance
 volumes:
+  # Database persistence
   postgres_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./volumes/postgres}
+    labels:
+      - "backup.enable=true"
+      - "service=database"
+  
+  # Redis cache persistence
   redis_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./volumes/redis}
+    labels:
+      - "backup.enable=false"
+      - "service=cache"
+  
+  # Frontend optimized volumes for development
+  frontend_node_modules:
+    driver: local
+    labels:
+      - "purpose=development"
+      - "service=frontend"
+  
+  frontend_next_cache:
+    driver: local
+    labels:
+      - "purpose=development"
+      - "service=frontend"
+  
+  # Backend log volume
+  backend_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BACKEND_LOGS_PATH:-./volumes/backend/logs}
+    labels:
+      - "purpose=logging"
+      - "service=backend"
 
+# Optimized network configuration
 networks:
+  # Main application network with custom subnet
   app_network:
     driver: bridge
     ipam:
+      driver: default
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: ${NETWORK_SUBNET:-172.20.0.0/16}
+          gateway: ${NETWORK_GATEWAY:-172.20.0.1}
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+    labels:
+      - "environment=${ENVIRONMENT:-development}"
+      - "project=contextcleanse"

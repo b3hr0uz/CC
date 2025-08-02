@@ -1870,6 +1870,52 @@ This email is totally legitimate and not suspicious at all.`,
     };
   }, [session, status]);
 
+  // GLOBAL SYNC: Listen for training events and update model metrics across all pages
+  useEffect(() => {
+    const syncGlobalModelMetrics = () => {
+      try {
+        const globalMetrics = localStorage.getItem('globalModelMetrics');
+        if (globalMetrics) {
+          const metrics = JSON.parse(globalMetrics);
+          console.log('🌐 Dashboard syncing with global model metrics:', metrics);
+          
+          // Update availableModels with latest metrics from legitimate backend runs
+          setAvailableModels(prev => {
+            const updated = { ...prev };
+            Object.keys(metrics).forEach(modelKey => {
+              const metric = metrics[modelKey];
+              if (metric.trainingSource === 'legitimate_backend' && updated[modelKey]) {
+                updated[modelKey] = {
+                  ...updated[modelKey],
+                  f1_score: metric.f1_score,
+                  trained: true, // Mark as trained since it has legitimate metrics
+                  lastUpdated: metric.lastUpdated
+                };
+                console.log(`🔄 Updated ${modelKey} metrics: F1=${(metric.f1_score * 100).toFixed(1)}%`);
+              }
+            });
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error syncing global model metrics:', error);
+      }
+    };
+
+    // Initial sync
+    syncGlobalModelMetrics();
+    
+    // Sync when training notifications arrive
+    const latestTrainingNotifications = notifications.filter(n => 
+      n.type === 'model_training_complete' && !n.model_name.includes('Background Training')
+    );
+    
+    if (latestTrainingNotifications.length > 0) {
+      console.log('🔄 Dashboard detected legitimate training completion, syncing metrics...');
+      syncGlobalModelMetrics();
+    }
+  }, [notifications]); // Re-run when notifications change
+
   useEffect(() => {
     // Pre-load dashboard with mock emails immediately for better UX
     if (emails.length === 0) {
@@ -2239,131 +2285,24 @@ This email is totally legitimate and not suspicious at all.`,
         estimated_duration: 10,
       });
       
-      // Simulate background compilation process
-      setTimeout(async () => {
-        await simulateBackgroundTraining();
-      }, 2000);
+      // DISABLED: Fake background training simulation removed per user requirements
+      // Only legitimate backend training runs should generate events
+      console.log('⚠️ Background training simulation disabled - only real backend runs generate events');
       
     } catch (error) {
       console.error('❌ Error initializing background training:', error);
     }
   };
 
+  // DISABLED: simulateBackgroundTraining function removed per user requirements
+  // This function was generating fake training events and mock data
+  // Only legitimate backend training runs should generate events
   const simulateBackgroundTraining = async () => {
-    console.log('🔄 Starting background auto-training simulation...');
+    console.log('⚠️ Background training simulation disabled - only real backend runs generate events');
+    console.log('ℹ️ To enable real training, use the Training page with actual backend connection');
     
-          const models = ['xgboost_rl', 'xgboost', 'random_forest', 'neural_network', 'svm', 'logistic_regression', 'naive_bayes'];
-    const currentStatus = JSON.parse(localStorage.getItem('backgroundTrainingStatus') || '{}') as BackgroundTrainingStatus;
-    
-    // Update to training phase
-    currentStatus.isCompiling = false;
-    currentStatus.isTraining = true;
-    localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
-    
-    // Add compilation completion notification
-    addNotification({
-      id: generateRLNotificationId('training_compilation_complete'),
-      type: 'model_training_complete',
-      model_name: 'Training Compiler',
-      message: 'Training page compiled successfully - starting auto-training...',
-      timestamp: new Date(),
-      end_time: new Date(),
-      duration: 2.5,
-    });
-    
-    // Train each model sequentially in background
-    for (let i = 0; i < models.length; i++) {
-      const modelKey = models[i];
-      const modelName = currentStatus.availableModels[modelKey]?.name || modelKey;
-      
-      // Update current training model
-      currentStatus.currentModel = modelKey;
-      currentStatus.progress = Math.round(((i + 1) / models.length) * 100);
-      currentStatus.lastUpdate = new Date().toISOString();
-      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
-      
-      // Add training start notification
-      addNotification({
-        id: generateRLNotificationId('bg_training_start', modelKey),
-        type: 'model_training_start',
-        model_name: `Background Training (${modelName})`,
-        message: `Training ${modelName} in background (${i + 1}/${models.length})...`,
-        timestamp: new Date(),
-        start_time: new Date(),
-        estimated_duration: Math.random() * 3 + 2, // 2-5 seconds
-      });
-      
-      // Simulate training time
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 2000));
-      
-      // Update model as trained with improved metrics
-      const baseF1 = currentStatus.availableModels[modelKey]?.f1_score || 0.85;
-      const improvement = Math.random() * 0.02 + 0.01; // 1-3% improvement
-      currentStatus.availableModels[modelKey] = {
-        ...currentStatus.availableModels[modelKey],
-        f1_score: Math.min(0.999, baseF1 + improvement),
-        trained: true
-      };
-      
-      // Determine best model
-      const bestModelKey = Object.entries(currentStatus.availableModels)
-        .filter(([, model]) => model.trained)
-        .sort(([, a], [, b]) => b.f1_score - a.f1_score)[0];
-      
-      if (bestModelKey) {
-        currentStatus.selectedModel = bestModelKey[0];
-      }
-      
-      currentStatus.lastUpdate = new Date().toISOString();
-      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
-      
-      // Add training completion notification
-      addNotification({
-        id: generateRLNotificationId('bg_training_complete', modelKey),
-        type: 'model_training_complete',
-        model_name: `Background Training (${modelName})`,
-        message: `${modelName} training complete - F1: ${(currentStatus.availableModels[modelKey].f1_score * 100).toFixed(1)}%`,
-        timestamp: new Date(),
-        end_time: new Date(),
-        duration: Math.random() * 3 + 2,
-      });
-      
-      // Update Dashboard availableModels if this is the best model
-      if (bestModelKey && bestModelKey[0] === 'xgboost_rl') {
-        const modelDetails = getModelInfo(modelKey);
-        if (modelDetails) {
-          setAvailableModels(prev => ({
-            ...prev,
-            [modelKey]: {
-              name: currentStatus.availableModels[modelKey].name,
-              f1_score: currentStatus.availableModels[modelKey].f1_score,
-              trained: modelDetails.trained,
-              description: modelDetails.description,
-              implementation_function: modelDetails.implementation_function
-            }
-          }));
-        }
-      }
-    }
-    
-    // Mark training as complete
-    currentStatus.isTraining = false;
-    currentStatus.progress = 100;
-    currentStatus.lastUpdate = new Date().toISOString();
-    localStorage.setItem('backgroundTrainingStatus', JSON.stringify(currentStatus));
-    
-    // Add final completion notification
-    addNotification({
-      id: generateRLNotificationId('bg_training_all_complete'),
-      type: 'model_training_complete',
-      model_name: 'Background Training',
-      message: `All models trained in background - Best: ${currentStatus.availableModels[currentStatus.selectedModel]?.name}`,
-      timestamp: new Date(),
-      end_time: new Date(),
-      duration: 15.5,
-    });
-    
-    console.log('✅ Background training completed successfully');
+    // Clear any existing fake background training status
+    localStorage.removeItem('backgroundTrainingStatus');
   };
 
   // Function to sync with background training status

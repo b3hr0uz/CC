@@ -16,6 +16,7 @@ import {
   getTrainingConfigModels, 
   getAllModelKeys,
   getModelInfo,
+  getModelDisplayName,
   type ModelDetails 
 } from '@/lib/models';
 
@@ -27,6 +28,37 @@ const API_BASE_URL = (typeof window === 'undefined'
   ? process.env.INTERNAL_API_URL || 'http://backend:8000'  // Server-side
   : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'  // Client-side
 );
+
+// Enhanced backend health check with proper error handling
+const checkBackendHealth = async (timeoutMs: number = 5000): Promise<{isHealthy: boolean, error?: string}> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/health`, {
+      timeout: timeoutMs,
+      validateStatus: function (status) {
+        return status < 500; // Resolve only if status code is less than 500
+      }
+    });
+    
+    if (response.status === 200 && response.data?.status === 'healthy') {
+      return { isHealthy: true };
+    } else {
+      return { isHealthy: false, error: `Backend returned unhealthy status: ${response.status}` };
+    }
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response: { status: number; data?: { detail?: string } } };
+      // Server responded with error status
+      return { isHealthy: false, error: `Backend error: ${axiosError.response.status} - ${axiosError.response.data?.detail || 'Unknown error'}` };
+    } else if (error && typeof error === 'object' && 'request' in error) {
+      // Request was made but no response received
+      return { isHealthy: false, error: 'Backend not reachable - connection timeout or network error' };
+    } else {
+      // Request setup error
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return { isHealthy: false, error: `Request setup error: ${message}` };
+    }
+  }
+};
 
 // Types
 interface ModelMetrics {
@@ -579,33 +611,33 @@ export default function TrainingPage() {
       return;
     }
 
-    // Verify backend connection before training
-    try {
-      const backendHealthResponse = await fetch('http://localhost:8000/health');
-      const healthData = await backendHealthResponse.json();
-      
-      if (!backendHealthResponse.ok || healthData.status !== 'healthy') {
-        console.warn('⚠️ Backend not healthy, skipping auto-training');
-        addNotification({
-          id: generateNotificationId('training_skip', 'Auto-Training System'),
-          type: 'training_error',
-          model_name: 'Auto-Training System',
-          message: `Auto-training skipped: Backend service unavailable (${isFirstRun ? 'first run' : 'scheduled'})`,
-          timestamp: new Date()
-        });
-        return;
-      }
-
-      console.log(`✅ Backend healthy, proceeding with auto-training (${isFirstRun ? 'first run' : 'scheduled'})`);
-      
+    // Enhanced backend health check before training  
+    console.log('🔍 Checking backend health before auto-training...');
+    const healthCheck = await checkBackendHealth(10000); // 10 second timeout for health check
+    
+    if (!healthCheck.isHealthy) {
+      console.warn('⚠️ Backend health check failed, skipping auto-training:', healthCheck.error);
       addNotification({
-        id: generateNotificationId('auto_training_start', 'Auto-Training System'),
-        type: 'auto_training_init',
+        id: generateNotificationId('training_skip', 'Auto-Training System'),
+        type: 'training_error',
         model_name: 'Auto-Training System',
-        message: `Auto-training ${isFirstRun ? 'initiated' : 'scheduled run'} with real backend connection verified`,
+        message: `Auto-training skipped: ${healthCheck.error || 'Backend service unavailable'} (${isFirstRun ? 'first run' : 'scheduled'})`,
         timestamp: new Date()
       });
+      return;
+    }
 
+    console.log(`✅ Backend health check passed, proceeding with auto-training (${isFirstRun ? 'first run' : 'scheduled'})`);
+    
+    addNotification({
+      id: generateNotificationId('auto_training_start', 'Auto-Training System'),
+      type: 'auto_training_init',
+      model_name: 'Auto-Training System',
+      message: `Auto-training ${isFirstRun ? 'initiated' : 'scheduled run'} with real backend connection verified`,
+      timestamp: new Date()
+    });
+
+    try {
       // Determine optimal K-Fold CV rate
       const optimalKFold = await determineOptimalKFold();
       setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
@@ -615,14 +647,13 @@ export default function TrainingPage() {
       setTimeout(() => {
         trainModelsSequentiallyWithNotifications();
       }, 2000);
-
     } catch (error) {
-      console.error('❌ Backend connection check failed:', error);
+      console.error('❌ Auto-training setup failed:', error);
       addNotification({
-        id: generateNotificationId('training_error', 'Auto-Training System'),
+        id: generateNotificationId('training_setup_error', 'Auto-Training System'),
         type: 'training_error',
         model_name: 'Auto-Training System',
-        message: `Auto-training failed: Backend connection error (${isFirstRun ? 'first run' : 'scheduled'})`,
+        message: `Auto-training setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date()
       });
     }
@@ -670,42 +701,56 @@ export default function TrainingPage() {
       // Start progress simulation
       simulateProgress('statistics', 2500);
       
-      const response = await axios.get(`${API_BASE_URL}/statistics`);
-      setStatistics(response.data);
-      setIsBackendAvailable(true);
-      setBackendError(null);
+      const response = await axios.get(`${API_BASE_URL}/statistics`, {
+        timeout: 10000,
+        validateStatus: function (status) {
+          return status < 500; // Resolve only if status code is less than 500
+        }
+      });
       
-      // Complete progress immediately on success
-      setLoadingProgress(prev => ({ ...prev, statistics: 100 }));
-      setLoadingStates(prev => ({ ...prev, statistics: false }));
-      console.log('✅ Statistics loaded successfully');
-    } catch (error) {
+      if (response.status === 200 && response.data) {
+        setStatistics(response.data);
+        setIsBackendAvailable(true);
+        setBackendError(null);
+        
+        // Complete progress immediately on success
+        setLoadingProgress(prev => ({ ...prev, statistics: 100 }));
+        setLoadingStates(prev => ({ ...prev, statistics: false }));
+        console.log('✅ Statistics loaded successfully from backend');
+      } else {
+        throw new Error(`Backend returned status ${response.status}`);
+      }
+    } catch (error: unknown) {
       console.error('Error fetching statistics:', error);
+      
+      let errorMessage = 'Failed to load dataset statistics';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { status: number; data?: { detail?: string } } };
+        // Server responded with error status
+        if (axiosError.response.status === 503) {
+          errorMessage = 'Dataset not loaded on backend - Please ensure the spambase dataset is available';
+        } else {
+          errorMessage = `Backend error: ${axiosError.response.status} - ${axiosError.response.data?.detail || 'Unknown error'}`;
+        }
+      } else if (error && typeof error === 'object' && 'request' in error) {
+        // Request was made but no response received
+        errorMessage = 'Backend service unavailable - Connection timeout or network error';
+      } else {
+        // Request setup error
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        errorMessage = `Request error: ${message}`;
+      }
+      
       setIsBackendAvailable(false);
-      setBackendError('ML Backend service is not available. Some features may be limited.');
+      setBackendError(errorMessage);
       
-      // Set mock statistics for demo purposes
-      const mockStats = {
-        total_samples: 1000,
-        spam_percentage: 45.2,
-        feature_count: 50,
-        class_distribution: {
-          not_spam: 548,
-          spam: 452
-        },
-        top_correlated_features: [
-          { feature_index: 1, correlation: 0.89 },
-          { feature_index: 15, correlation: 0.76 },
-          { feature_index: 8, correlation: 0.65 }
-        ]
-      };
-      
-      setStatistics(mockStats);
+      // Do not set mock statistics - leave statistics null to show error state
+      setStatistics(null);
       
       // Complete progress and loading state
       setLoadingProgress(prev => ({ ...prev, statistics: 100 }));
       setLoadingStates(prev => ({ ...prev, statistics: false }));
-      console.log('✅ Mock statistics loaded as fallback');
+      console.log('❌ Statistics loading failed:', errorMessage);
     }
   };
 
@@ -1029,7 +1074,7 @@ export default function TrainingPage() {
     console.log('🔍 compareModels started - current modelResults:', modelResults);
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/feedback/models/compare`);
+      const response = await axios.get(`${API_BASE_URL}/compare`);
       const comparisonData = response.data;
       
       console.log('📊 Received comparison data from backend:', comparisonData);
@@ -1314,16 +1359,37 @@ export default function TrainingPage() {
       const endTime = new Date();
       const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
 
-      // Get new metrics from response or generate mock metrics
-      let newMetrics: ModelMetrics;
+      // CRITICAL: Only update metrics if they come from legitimate backend model runs
+      let newMetrics: ModelMetrics | null = null;
+      let isLegitimateBackendRun = false;
+      
+      // Validate backend response has real metrics data
       if (response.data && response.data.metrics && response.data.metrics[modelName]) {
-        newMetrics = response.data.metrics[modelName];
-      } else {
-        // Generate improved mock metrics
-        newMetrics = generateImprovedMetrics(modelName, previousMetrics);
+        // Verify the response contains actual training results (not mock data)
+        const backendMetrics = response.data.metrics[modelName];
+        if (backendMetrics.accuracy && backendMetrics.precision && backendMetrics.recall && backendMetrics.f1_score) {
+          newMetrics = backendMetrics;
+          isLegitimateBackendRun = true;
+          console.log(`✅ Received legitimate backend metrics for ${modelName}:`, newMetrics);
+        }
       }
 
-      // Calculate metric changes
+      // If backend didn't return legitimate metrics, skip this training update
+      if (!isLegitimateBackendRun || !newMetrics) {
+        console.warn(`⚠️ Backend did not return legitimate metrics for ${modelName}. Skipping parameter update.`);
+        
+        // Add notification about skipped update
+        addNotification({
+          id: generateNotificationId('training_skipped', modelName),
+          type: 'training_error',
+          model_name: modelName,
+          message: `Training skipped for ${modelName.replace('_', ' ').toUpperCase()}: Backend temporarily unavailable. Using local model training and cached results. All models remain functional.`,
+          timestamp: new Date()
+        });
+        return; // Exit early without updating any parameters
+      }
+
+      // Calculate metric changes (only for legitimate backend runs)
       const metricChanges = previousMetrics ? {
         accuracy_change: newMetrics.accuracy - previousMetrics.accuracy,
         precision_change: newMetrics.precision - previousMetrics.precision,
@@ -1331,10 +1397,10 @@ export default function TrainingPage() {
         f1_score_change: newMetrics.f1_score - previousMetrics.f1_score
       } : undefined;
 
-      // Store updated metrics
+      // Store updated metrics (only for legitimate backend runs)
       setPreviousModelMetrics(prev => ({
         ...prev,
-        [modelName]: newMetrics
+        [modelName]: newMetrics!
       }));
 
       // Training complete notification
@@ -1362,6 +1428,20 @@ export default function TrainingPage() {
       console.log(`🔄 Refreshing TopBar dropdown for ${modelName}...`);
       await fetchAvailableModels();
       
+      // GLOBAL SYNC: Update model metrics across all pages (Dashboard, Assistant, Training)
+      console.log(`🌐 Syncing global model metrics for ${modelName}...`);
+      const globalModelUpdate = {
+        [modelName]: {
+          ...newMetrics,
+          lastUpdated: new Date().toISOString(),
+          trainingSource: 'legitimate_backend'
+        }
+      };
+      localStorage.setItem('globalModelMetrics', JSON.stringify({
+        ...JSON.parse(localStorage.getItem('globalModelMetrics') || '{}'),
+        ...globalModelUpdate
+      }));
+      
       // Trigger Training Analysis refresh after individual model training
       console.log(`🔄 Triggering Training Analysis refresh after ${modelName} training...`);
       setAnalysisRefreshTrigger(prev => prev + 1);
@@ -1369,47 +1449,26 @@ export default function TrainingPage() {
     } catch (error) {
       console.error(`❌ Error training ${modelName}:`, error);
       
-      // Even on error, generate some mock improved metrics
-      const newMetrics = generateImprovedMetrics(modelName, previousMetrics);
-      const metricChanges = previousMetrics ? {
-        accuracy_change: newMetrics.accuracy - previousMetrics.accuracy,
-        precision_change: newMetrics.precision - previousMetrics.precision,
-        recall_change: newMetrics.recall - previousMetrics.recall,
-        f1_score_change: newMetrics.f1_score - previousMetrics.f1_score
-      } : undefined;
-
-      setPreviousModelMetrics(prev => ({
-        ...prev,
-        [modelName]: newMetrics
-      }));
+      // CRITICAL: Do NOT update parameters when training fails - only legitimate backend runs should update parameters
+      console.warn(`⚠️ Training failed for ${modelName}. No parameters will be updated.`);
+      
+      // Do not store any metrics or update parameters on error
 
       addNotification({
-        id: generateNotificationId('model_training_complete', modelName),
-        type: 'model_training_complete',
+        id: generateNotificationId('training_failed', modelName),
+        type: 'training_error',
         model_name: modelName,
-        message: `Training completed for ${modelName.replace('_', ' ').toUpperCase()} (using mock data)`,
+        message: `Training failed for ${modelName.replace('_', ' ').toUpperCase()}: Backend connection error. No parameters updated.`,
         timestamp: new Date(),
         start_time: startTime,
         end_time: new Date(),
-        duration: (Date.now() - startTime.getTime()) / 1000,
-        metrics: {
-          ...newMetrics,
-          previous_metrics: previousMetrics,
-          metric_changes: metricChanges
-        }
+        duration: (Date.now() - startTime.getTime()) / 1000
+        // No metrics provided for failed training
       });
       
-      // After individual model training (even on error), update the analysis sections
-      console.log(`⚠️ Training failed for ${modelName}, but updating Training Analysis with mock data...`);
-      await compareModels();
-      
-      // Update available models to refresh TopBar dropdown even after training failure
-      console.log(`🔄 Refreshing TopBar dropdown after ${modelName} training failure...`);
-      await fetchAvailableModels();
-      
-      // Trigger Training Analysis refresh even after training failure
-      console.log(`🔄 Triggering Training Analysis refresh after ${modelName} training failure...`);
-      setAnalysisRefreshTrigger(prev => prev + 1);
+      // Do not update analysis sections or call compareModels when training fails
+      // This prevents propagation of invalid data through the system
+      console.log(`⚠️ Training failed for ${modelName}. Skipping analysis updates to prevent invalid data propagation.`);
     }
   };
 
@@ -1424,70 +1483,9 @@ export default function TrainingPage() {
     return timeEstimates[modelName] || 30;
   };
 
-  // Generate improved metrics with realistic progression
-  const generateImprovedMetrics = (modelName: string, previousMetrics?: ModelMetrics): ModelMetrics => {
-    const baseMetrics: {[key: string]: ModelMetrics} = {
-      'logistic_regression': {
-        accuracy: 0.887,
-        precision: 0.892,
-        recall: 0.881,
-        f1_score: 0.886,
-        description: 'Linear model with good baseline performance',
-        training_time: 12.3,
-        cv_score: 0.884,
-        std_score: 0.023
-      },
-      'xgboost': {
-        accuracy: 0.920,
-        precision: 0.925,
-        recall: 0.915,
-        f1_score: 0.920,
-        description: 'Gradient boosting ensemble method',
-        training_time: 45.7,
-        cv_score: 0.921,
-        std_score: 0.018
-      },
-      'naive_bayes': {
-        accuracy: 0.845,
-        precision: 0.849,
-        recall: 0.841,
-        f1_score: 0.845,
-        description: 'Fast probabilistic classifier',
-        training_time: 3.2,
-        cv_score: 0.842,
-        std_score: 0.031
-      },
-      'neural_network': {
-        accuracy: 0.901,
-        precision: 0.895,
-        recall: 0.907,
-        f1_score: 0.901,
-        description: 'Deep learning approach with good performance',
-        training_time: 127.4,
-        cv_score: 0.898,
-        std_score: 0.025
-      }
-    };
-
-    const base = baseMetrics[modelName] || baseMetrics['logistic_regression'];
-    
-    // If we have previous metrics, generate small improvements
-    if (previousMetrics) {
-      const improvementFactor = 0.002 + Math.random() * 0.008; // 0.2% to 1% improvement
-      return {
-        ...base,
-        accuracy: Math.min(0.99, previousMetrics.accuracy + improvementFactor),
-        precision: Math.min(0.99, previousMetrics.precision + improvementFactor),
-        recall: Math.min(0.99, previousMetrics.recall + improvementFactor),
-        f1_score: Math.min(0.99, previousMetrics.f1_score + improvementFactor),
-        training_time: calculateActualTrainingTime(modelName) || base.training_time || 4.5, // Use actual training time
-        cv_score: Math.min(0.99, (previousMetrics.cv_score || base.cv_score || 0.8) + improvementFactor * 0.8),
-        std_score: Math.max(0.001, (previousMetrics.std_score || base.std_score || 0.02) - improvementFactor * 0.5)
-      };
-    }
-
-    return base;
-  };
+  // DEPRECATED: generateImprovedMetrics function removed per user requirements
+  // AUTO-TRAINING SYSTEM should only update parameters from legitimate backend model runs
+  // Mock data generation has been disabled to ensure data integrity
 
   // Removed cleanup effect to ensure notifications persist across navigation
 
