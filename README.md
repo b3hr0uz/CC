@@ -115,7 +115,7 @@ ContextCleanse/
 | **SVM** | Support vector machines | 89.1% | Strong generalization |
 | **Random Forest** | Ensemble of decision trees | 91.3% | Robust, handles overfitting |
 
-### **2. Advanced RL Model (1 Model)**
+### **2. Advanced RL Model (3 Models)**
 
 #### **🏆 XGBoost + RL (Default Best Model)**
 - **Base Algorithm**: XGBoost trained on UCI Spambase dataset (4,601 emails)
