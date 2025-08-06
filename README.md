@@ -1,4 +1,4 @@
-# ContextCleanse - AI-Powered Email Intelligence Platform
+# ContextCleanse - Email Intelligence
 
 [![Machine Learning](https://img.shields.io/badge/ML-XGBoost%20%2B%20RL-blue)](https://github.com/dmlongo/xgboost)
 [![Deep Learning](https://img.shields.io/badge/RL-Q--Learning%20%2B%20Policy%20Gradient-green)](https://github.com/openai/gym)
@@ -8,10 +8,10 @@
 
 ## 🚀 **Project Overview**
 
-ContextCleanse is an advanced email spam detection system that combines traditional machine learning with cutting-edge **Reinforcement Learning (RL)** techniques. The system features 7 different models, including our flagship **XGBoost + RL** model that continuously learns and improves from user feedback.
+ContextCleanse is an advanced email spam detection system that combines traditional machine learning with cutting-edge Reinforcement Learning (RL) techniques. The system features 7 different models, including our flagship XGBoost + RL model, which continuously learns and improves from user feedback.
 
 ### **Key Features**
-- **🤖 Assistant**: Llama 3.1 8B with RAG pipeline for context-aware email queries
+- **🤖 Assistant**: An LLM hosted with Ollama with RAG pipeline for context-aware email queries
 - **🧠 Reinforcement Learning**: Deep Q-Learning + Policy Gradient optimization
 - **📊 7 ML Models**: Logistic Regression, XGBoost, Neural Network, SVM, Random Forest, Naive Bayes, and XGBoost + RL
 - **🔍 Semantic Search**: Vector embeddings for intelligent email retrieval
@@ -26,11 +26,12 @@ ContextCleanse is an advanced email spam detection system that combines traditio
 
 Before setting up ContextCleanse, ensure you have:
 
+- **Git** - For version control
 - **Docker & Docker Compose** - For containerized deployment
 - **Node.js 18+** - For frontend development  
-- **npm 11.5.2+** - Latest package manager with performance improvements
 - **Python 3.11+** - For backend development
-- **Git** - For version control
+- **Ollama** - For hosting LLMs
+
 
 ---
 
@@ -206,7 +207,7 @@ The RL system converts email content into an 8-dimensional state vector:
 2. **Cross-Validation**: 5-fold stratified cross-validation
 3. **Model Training**: Train all 7 models on the full dataset
 4. **Performance Evaluation**: Calculate accuracy, precision, recall, F1-score
-5. **RL Enhancement**: Apply reinforcement learning to XGBoost base model
+5. **RL Enhancement**: Apply reinforcement learning to the XGBoost base model
 6. **Model Comparison**: Rank models by F1-score performance
 
 ---
@@ -278,8 +279,8 @@ git clone <repository-url>
 cd ContextCleanse
 
 # 2. Upgrade npm (Required)
-npm install -g npm@11.5.2
-npm --version  # Should output: 11.5.2
+npm install -g npm@latest
+npm --version
 
 # 3. Verify npm version in Docker
 ./scripts/verify-npm-version.sh
@@ -299,7 +300,7 @@ docker-compose up -d
 
 ### **Gmail Integration Setup**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
+2. Create a new project or select an existing one
 3. Enable Gmail API
 4. Create OAuth 2.0 credentials
 5. Add credentials to `.env` file
@@ -481,9 +482,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 **Acknowledgments**
 
 - **UCI Machine Learning Repository** for the Spambase dataset
-- **XGBoost Community** for the excellent gradient boosting implementation
+- **XGBoost Community** for the gradient boosting implementation
 - **OpenAI** for reinforcement learning research and methodologies
-- **FastAPI Team** for the modern, fast web framework
+- **FastAPI Team** for the web framework
 - **Next.js Team** for the React-based frontend framework
 
 ---
