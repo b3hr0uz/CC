@@ -8,7 +8,7 @@
 
 ## 🚀 **Project Overview**
 
-ContextCleanse is an advanced email spam detection system that combines traditional machine learning with cutting-edge Reinforcement Learning (RL) techniques. The system features 7 different models, including our flagship XGBoost + RL model, which continuously learns and improves from user feedback.
+ContextCleanse is an email spam detection system that combines traditional machine learning with Reinforcement Learning (RL) techniques, plus an LLM assistant with RAG Pipeline. The system features seven different models, including the XGBoost + RL model, which continuously learns and improves from user feedback. Users can ask about the content of their Google emails or instruct the assistant to extract certain information from their emails.
 
 ### **Key Features**
 - **🤖 Assistant**: An LLM hosted with Ollama with RAG pipeline for context-aware email queries
