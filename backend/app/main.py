@@ -1,8 +1,7 @@
 """
-FastAPI Backend for Spam Email Detection System
-Assignment 2 - COMP442 Group Project
+FastAPI Backend for CC
 
-Enhanced version with model selection and k-fold cross validation
+Version with model selection and k-fold cross validation
 """
 
 from fastapi import FastAPI, HTTPException
@@ -103,12 +102,23 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting ContextCleanse API...")
     
+    # Load dataset first
+    try:
+        success = await load_and_prepare_data()
+        if success:
+            print("✅ UCI Spambase dataset loaded successfully")
+        else:
+            print("⚠️ Failed to load UCI Spambase dataset - training will use fallback")
+    except Exception as e:
+        print(f"❌ Dataset loading error: {e}")
+    
     # Initialize ML service if available
     if ML_SERVICE_AVAILABLE:
         try:
             ml_service = get_ml_service()
+            await ml_service.load_models()  # Load models properly
             app.state.ml_service = ml_service
-            print("✅ ML service initialized successfully")
+            print("✅ ML service initialized and models loaded")
         except Exception as e:
             print(f"⚠️ Failed to initialize ML service: {e}")
             app.state.ml_service = None
@@ -869,19 +879,19 @@ async def determine_optimal_kfold(request: Dict[str, Any]):
 # Add simple embeddings endpoint for testing
 @app.post("/api/v1/embeddings/create")
 async def create_embedding_simple(request: dict):
-    """Simple embedding endpoint for testing."""
+    """Simple embedding endpoint - only provides mock data in demo mode."""
     try:
-        email_id = request.get('email_id', 'unknown')
-        print(f"📊 Mock embedding creation for email: {email_id}")
+        # In non-demo mode, embedding service should be properly implemented
+        # For now, return error instead of mock data
+        print(f"❌ Embedding service not implemented - no mock data in production mode")
         return {
-            "success": True,
-            "embedding_id": abs(hash(email_id)) % 10000,
-            "vector_dimensions": 384,
-            "storage_status": "mock_created",
-            "message": "Mock vector embedding created (development mode)"
+            "success": False,
+            "error": "Embedding service not available",
+            "details": "Real embedding service not implemented. No mock data provided in production mode.",
+            "code": "SERVICE_NOT_IMPLEMENTED"
         }
     except Exception as e:
-        print(f"❌ Error in mock embedding: {e}")
+        print(f"❌ Error in embedding endpoint: {e}")
         return {
             "success": False,
             "error": str(e)

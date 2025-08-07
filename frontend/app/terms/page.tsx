@@ -175,8 +175,10 @@ export default function TermsOfService() {
             </div>
           </main>
         </div>
-        {/* Notification Sidebar */}
-        <NotificationSidebar />
+        {/* Events Sidebar */}
+        <NotificationSidebar 
+          title="Events"
+        />
       </div>
     </NotificationProvider>
   )

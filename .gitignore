@@ -79,8 +79,7 @@ lerna-debug.log*
 coverage/
 .nyc_output
 
-# Package Manager Files
-package-lock.json
+# Package Manager Files (keep package-lock.json for dependency consistency)
 yarn.lock
 pnpm-lock.yaml
 
@@ -90,18 +89,18 @@ docker-compose.override.yml
 Dockerfile.dev
 *.dockerfile.swp
 
-# Database Files
-# PostgreSQL data directories
+# Docker Volumes & Persistent Data
+volumes/
+*.sql.backup
+*.sql.dump
+dump.rdb
+*.rdb
+
+# Legacy Database Directories (if using non-containerized setup)
 postgres_data/
 pgdata/
 database/data/
-*.sql.backup
-*.sql.dump
-
-# Redis data
 redis_data/
-dump.rdb
-*.rdb
 
 # Machine Learning Models & Data
 models/

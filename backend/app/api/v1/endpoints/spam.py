@@ -39,8 +39,7 @@ class SpamCheckResponse(BaseModel):
 @router.post("/check", response_model=SpamCheckResponse)
 async def check_spam(
     request: SpamCheckRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks
 ):
     """
     Check if email content is spam
@@ -98,17 +97,8 @@ async def check_spam(
         
         processing_time = (time.time() - start_time) * 1000
         
-        # Store email in background for analysis (skip if database issues)
-        try:
-            background_tasks.add_task(
-                store_email_prediction,
-                db=db,
-                request=request,
-                prediction=prediction,
-                processing_time=processing_time
-            )
-        except Exception as bg_error:
-            logger.warning(f"⚠️ Failed to store email prediction in background: {bg_error}")
+        # Note: Email storage disabled for now - focusing on classification functionality
+        logger.debug(f"Email classification completed for {request.content[:50]}... - storage skipped")
         
         return SpamCheckResponse(
             is_spam=prediction["is_spam"],
@@ -127,8 +117,7 @@ async def check_spam(
 @router.post("/batch", response_model=List[SpamCheckResponse])
 async def check_spam_batch(
     requests: List[SpamCheckRequest],
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks
 ):
     """
     Batch spam checking for multiple emails
@@ -164,14 +153,7 @@ async def check_spam_batch(
                 model_version=prediction["model_version"]
             ))
             
-            # Store in background
-            background_tasks.add_task(
-                store_email_prediction,
-                db=db,
-                request=request,
-                prediction=prediction,
-                processing_time=processing_time / len(requests)
-            )
+            # Note: Email storage disabled - focusing on classification functionality
         
         return results
         
@@ -181,7 +163,7 @@ async def check_spam_batch(
 
 
 @router.get("/stats")
-async def get_spam_stats(db: AsyncSession = Depends(get_db)):
+async def get_spam_stats():
     """Get email classification statistics"""
     try:
         # This would be implemented with proper database queries

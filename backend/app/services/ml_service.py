@@ -1104,8 +1104,14 @@ class MLService:
         logger.info(f"📋 Generated fallback metrics for {model_name}: F1={base_metrics['f1_score']:.3f} (ESTIMATES ONLY)")
         return base_metrics
     
-    async def compare_all_models(self) -> Dict[str, Any]:
-        """Compare all available models including XGBoost + RL using real trained models when available"""
+    async def compare_all_models(self, allow_fallback_estimates: bool = False) -> Dict[str, Any]:
+        """
+        Compare all available models including XGBoost + RL using real trained models when available
+        
+        Args:
+            allow_fallback_estimates: If True, includes estimate metrics for untrained models (demo mode)
+                                     If False, only includes actually trained models (production mode)
+        """
         try:
             results = {}
             best_model = None
@@ -1129,11 +1135,22 @@ class MLService:
                         logger.info(f"✅ Using calculated real metrics for {model_name}: F1={metrics['f1_score']:.3f}")
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to calculate real metrics for {model_name}: {e}")
-                        metrics = await self._get_fallback_metrics(model_name, 5, model_name == "xgboost_rl")
+                        if allow_fallback_estimates:
+                            metrics = await self._get_fallback_metrics(model_name, 5, model_name == "xgboost_rl")
+                            logger.info(f"📋 Using fallback estimates for {model_name} (demo mode)")
+                        else:
+                            # Skip this model - no real data available and fallback not allowed
+                            logger.info(f"⏭️ Skipping {model_name} - no real training data available (non-demo mode)")
+                            continue
                 else:
-                    # No real training results available - use fallback estimates ONLY
-                    metrics = await self._get_fallback_metrics(model_name, 5, model_name == "xgboost_rl")
-                    logger.info(f"📋 Using fallback estimates for untrained model {model_name} (no real results available)")
+                    # No real training results available
+                    if allow_fallback_estimates:
+                        metrics = await self._get_fallback_metrics(model_name, 5, model_name == "xgboost_rl")
+                        logger.info(f"📋 Using fallback estimates for untrained model {model_name} (demo mode)")
+                    else:
+                        # Skip this model - no real data available and fallback not allowed
+                        logger.info(f"⏭️ Skipping {model_name} - no real training data available (non-demo mode)")
+                        continue
                 
                 results[model_name] = metrics
                 

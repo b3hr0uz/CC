@@ -565,7 +565,8 @@ async def compare_models():
             }
         
         ml_service = get_ml_service()
-        comparison_results = await ml_service.compare_all_models()
+        # Never use fallback estimates in production - only show real trained model data
+        comparison_results = await ml_service.compare_all_models(allow_fallback_estimates=False)
         
         # Check if we have real trained models
         has_real_models = any(

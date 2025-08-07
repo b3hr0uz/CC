@@ -144,20 +144,7 @@ interface AutoTrainingConfig {
   interval_minutes: number; // Auto-training interval in minutes
 }
 
-// Interface for background training status
-interface BackgroundTrainingStatus {
-  isCompiling: boolean;
-  isTraining: boolean;
-  currentModel: string;
-  progress: number;
-  selectedModel: string;
-  availableModels: Record<string, { 
-    name: string; 
-    f1_score: number; 
-    trained?: boolean 
-  }>;
-  lastUpdate: string;
-}
+
 
 export default function TrainingPage() {
   const { data: session, status } = useSession();
@@ -904,82 +891,16 @@ export default function TrainingPage() {
     let completedModels = 0;
     let totalDuration = 0;
 
-    // If backend is not available, use mock training
+    // Check if backend is available for training
     if (!isBackendAvailable) {
-      console.log('🔄 Backend unavailable, using mock training process...');
+      console.error('❌ Backend unavailable - training cannot proceed without ML backend');
       
       addNotification({
-        id: generateNotificationId('training_start', 'Mock Training'),
-        type: 'training_start',
-        model_name: 'Mock Training',
-        message: `Starting mock training for ${totalModels} models (Backend in demo mode)`,
+        id: generateNotificationId('training_error', 'Backend Connection'),
+        type: 'training_error', 
+        model_name: 'Training System',
+        message: 'Training failed: ML backend service unavailable. Please ensure backend is running.',
         timestamp: new Date()
-      });
-
-      // Mock training for each model
-      for (const modelName of modelsToTrain) {
-        if (!isAutoTraining) break; // Stop if user cancels
-
-        addNotification({
-          id: generateNotificationId('model_training_start', modelName),
-          type: 'model_training_start',
-          model_name: modelName,
-          message: `Training ${modelName} with ${kFolds}-Fold CV...`,
-          timestamp: new Date(),
-          estimated_duration: 45,
-          resource_usage: {
-            cpu_percent: autoTrainingConfig.resource_limit,
-            memory_mb: 1024 * (autoTrainingConfig.resource_limit / 100)
-          }
-        });
-
-        // Simulate training time
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        const mockDuration = Math.random() * 30 + 15; // 15-45 seconds
-        totalDuration += mockDuration;
-
-        // Generate mock improved metrics
-        const mockMetrics = {
-          accuracy: 0.85 + Math.random() * 0.15,
-          precision: 0.80 + Math.random() * 0.15,
-          recall: 0.82 + Math.random() * 0.15,
-          f1_score: 0.83 + Math.random() * 0.15,
-          training_time: mockDuration,
-          cv_score: 0.81 + Math.random() * 0.12,
-          std_score: 0.01 + Math.random() * 0.03
-        };
-
-        addNotification({
-          id: generateNotificationId('model_training_complete', modelName),
-          type: 'model_training_complete',
-          model_name: modelName,
-          message: `${modelName} training complete. F1-Score: ${mockMetrics.f1_score.toFixed(4)}`,
-          timestamp: new Date(),
-          duration: mockDuration,
-          end_time: new Date(),
-          metrics: mockMetrics,
-          resource_usage: {
-            cpu_percent: autoTrainingConfig.resource_limit,
-            memory_mb: 1024 * (autoTrainingConfig.resource_limit / 100)
-          }
-        });
-
-        completedModels++;
-        
-        // Small delay between models
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Final completion notification
-      addNotification({
-        id: generateNotificationId('training_complete', 'Mock Training'),
-        type: 'training_complete',
-        model_name: 'Mock Training System',
-        message: `Mock training completed for ${completedModels}/${totalModels} models. Total time: ${totalDuration.toFixed(1)}s`,
-        timestamp: new Date(),
-        duration: totalDuration,
-        end_time: new Date()
       });
 
       setIsAutoTraining(false);
@@ -1676,103 +1597,7 @@ export default function TrainingPage() {
     }
   }, [bestModel, modelResults]);
 
-  // Sync with background training status from Dashboard
-  useEffect(() => {
-    const syncWithBackgroundTraining = () => {
-      try {
-        const status = localStorage.getItem('backgroundTrainingStatus');
-        if (status) {
-          const trainingStatus: BackgroundTrainingStatus = JSON.parse(status);
-          console.log('🔄 Training page syncing with background training status:', trainingStatus);
-          
-          // Update selectedModel if background training determined a better model
-          if (trainingStatus.selectedModel && trainingStatus.selectedModel !== selectedModel) {
-            console.log(`🔄 Background training selected new best model: ${trainingStatus.selectedModel}`);
-            setSelectedModel(trainingStatus.selectedModel);
-            setBestModel(trainingStatus.selectedModel);
-          }
-          
-          // Update availableModels with background training results
-          if (trainingStatus.availableModels) {
-            const updatedModels: Record<string, ModelInfo> = {};
-            Object.entries(trainingStatus.availableModels).forEach(([key, model]) => {
-              updatedModels[key] = {
-                name: model.name,
-                description: hasRealTrainingData ? `Background trained model with F1: ${(model.f1_score * 100).toFixed(1)}%` : 'Model available for training',
-                scaling_required: 'standard',
-                trained: model.trained || false,
-                f1_score: model.f1_score || 0.85, // Add missing f1_score with default value
-                training_progress: model.trained ? 100 : 0,
-                estimated_time: Math.random() * 5 + 2,
-                resource_usage: {
-                  cpu_percent: Math.random() * 50 + 25,
-                  memory_mb: Math.random() * 500 + 200
-                }
-              };
-            });
-            
-            setAvailableModels(prev => ({
-              ...prev,
-              ...updatedModels
-            }));
-            
-            console.log('🔄 Training page updated availableModels from background training');
-          }
-          
-          // If background training is complete, update model results
-          if (!trainingStatus.isTraining && trainingStatus.progress === 100) {
-            const resultsMap: Record<string, ModelMetrics> = {};
-            Object.entries(trainingStatus.availableModels).forEach(([key, model]) => {
-              resultsMap[key] = {
-                accuracy: model.f1_score * 0.98,
-                precision: model.f1_score * 1.02,
-                recall: model.f1_score * 0.99,
-                f1_score: model.f1_score,
-                training_time: calculateActualTrainingTime(key) || (key === 'xgboost_rl' ? 4.8 : key === 'xgboost' ? 4.1 : key === 'neural_network' ? 8.7 : key === 'random_forest' ? 5.2 : key === 'svm' ? 3.8 : key === 'logistic_regression' ? 2.3 : 1.2),
-                cv_score: model.f1_score * 0.97,
-                std_score: 0.02 + Math.random() * 0.03
-              };
-            });
-            
-            const mockComparisonResults: ComparisonResults = {
-              best_model: {
-                key: trainingStatus.selectedModel,
-                name: trainingStatus.availableModels[trainingStatus.selectedModel]?.name || 'Unknown',
-                metrics: resultsMap[trainingStatus.selectedModel] || {
-                  accuracy: 0.92,
-                  precision: 0.94,
-                  recall: 0.93,
-                  f1_score: 0.924,
-                  training_time: 3.5,
-                  cv_score: 0.90,
-                  std_score: 0.025
-                }
-              },
-              results: resultsMap,
-              ranking: Object.entries(trainingStatus.availableModels)
-                .sort(([, a], [, b]) => b.f1_score - a.f1_score)
-                .map(([key, model], index: number) => [key, model.f1_score, `#${index + 1}`] as [string, number, string])
-            };
-            
-            setModelResults(mockComparisonResults);
-            console.log('🔄 Training page updated model results from background training');
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error syncing with background training:', error);
-      }
-    };
-    
-    // Initial sync on component mount
-    syncWithBackgroundTraining();
-    
-    // Set up periodic sync every 5 seconds
-    const syncInterval = setInterval(syncWithBackgroundTraining, 5000);
-    
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, []); // Run once on mount and set up interval
+
 
   return (
     <div className="flex h-screen bg-gray-800">

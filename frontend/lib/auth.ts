@@ -21,29 +21,7 @@ export const authOptions: NextAuthOptions = {
         },
       })
     ] : []),
-    // Mock Data Credentials Provider for testing/demo purposes
-    CredentialsProvider({
-      id: 'mock-data',
-      name: 'Mock Data',
-      credentials: {
-        username: { label: 'Username', type: 'text', placeholder: 'demo' },
-        password: { label: 'Password', type: 'password', placeholder: 'demo' }
-      },
-      async authorize(credentials) {
-        // Simple mock authentication - in production, this would validate against a database
-        if (credentials?.username === 'demo' && credentials?.password === 'demo') {
-          return {
-            id: 'mock-user-001',
-            name: 'Demo User',
-            email: 'demo@contextcleanse.ai',
-            image: null,
-            // Flag to indicate this is a mock user
-            isMockUser: true
-          }
-        }
-        return null
-      }
-    }),
+
     // Apple Provider (disabled for now - requires Apple Developer account setup)
     ...(process.env.AUTH_APPLE_ID && process.env.AUTH_APPLE_SECRET ? [
       AppleProvider({
@@ -67,19 +45,26 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, account, user }) {
+      // Initial sign in
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
+        token.accessTokenExpires = account.expires_at * 1000 // Convert to milliseconds
+        return token
       }
-      if (user && 'isMockUser' in user) {
-        token.isMockUser = user.isMockUser
+
+      // Return previous token if the access token has not expired yet
+      if (Date.now() < (token.accessTokenExpires as number)) {
+        return token
       }
-      return token
+
+      // Access token has expired, try to refresh it
+      return await refreshAccessToken(token)
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken
       session.refreshToken = token.refreshToken
-      session.isMockUser = token.isMockUser as boolean
+      session.error = token.error
       return session
     },
   },
@@ -118,4 +103,48 @@ export const authOptions: NextAuthOptions = {
   },
   // Ensure secret is always available (fallback for Vercel)
   secret: process.env.NEXTAUTH_SECRET || 'contextcleanse-fallback-secret-2024',
+}
+
+/**
+ * Takes a token, and returns a new token with updated
+ * `accessToken` and `accessTokenExpires`. If an error occurs,
+ * returns the old token and an error property
+ */
+async function refreshAccessToken(token: any) {
+  try {
+    const url = "https://oauth2.googleapis.com/token"
+
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      method: "POST",
+      body: new URLSearchParams({
+        client_id: process.env.AUTH_GOOGLE_ID!,
+        client_secret: process.env.AUTH_GOOGLE_SECRET!,
+        grant_type: "refresh_token",
+        refresh_token: token.refreshToken,
+      }),
+    })
+
+    const refreshedTokens = await response.json()
+
+    if (!response.ok) {
+      throw refreshedTokens
+    }
+
+    return {
+      ...token,
+      accessToken: refreshedTokens.access_token,
+      accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
+      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Fall back to old refresh token
+    }
+  } catch (error) {
+    console.error("Error refreshing access token:", error)
+
+    return {
+      ...token,
+      error: "RefreshAccessTokenError",
+    }
+  }
 }

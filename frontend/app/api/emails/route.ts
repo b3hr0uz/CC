@@ -12,6 +12,11 @@ const DEMO_CACHE_TTL = 5 * 60 * 1000 // 5 minutes for demo mode
 const USER_CACHE_TTL = 3 * 60 * 1000  // 3 minutes for real users
 const MAX_CACHE_ENTRIES = 100 // Prevent memory bloat
 
+// Mock email content generator for demo users
+function generateMockEmailContent(messageId: string): string {
+  return `This is a mock email content for message ID: ${messageId}. In demo mode, actual email content is not fetched from Gmail for privacy reasons.`
+}
+
 interface EmailData {
   id: string
   from: string
@@ -49,14 +54,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Check if there was an error refreshing the token
+    if (session.error === "RefreshAccessTokenError") {
+      return NextResponse.json(
+        { 
+          error: 'Authentication token expired. Please sign out and sign in again.',
+          code: 'TOKEN_EXPIRED'
+        },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
     const userId = session.user?.email || 'unknown'
     
-    // Create user-specific cache key for better cache segmentation
-    const cacheKey = session.isMockUser 
-      ? `mock-emails-${limit}` 
-      : `user-${userId}-emails-${limit}`
+    // Create user-specific cache key for authenticated users
+    const cacheKey = `user-${userId}-emails-${limit}`
 
     // Check for existing request in progress (request deduplication)
     const existingRequest = requestInProgress.get(cacheKey)
@@ -67,7 +81,7 @@ export async function GET(request: NextRequest) {
         { emails },
         {
           headers: {
-            'Cache-Control': session.isMockUser ? 'public, max-age=300' : 'private, max-age=180',
+            'Cache-Control': 'private, max-age=180',
             'X-Cache': 'DEDUP',
             'X-Response-Time': `${Date.now() - startTime}ms`
           }
@@ -75,9 +89,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Check cache with enhanced key structure
+    // Check cache for authenticated users
     const cached = emailCache.get(cacheKey)
-    const cacheTTL = session.isMockUser ? DEMO_CACHE_TTL : USER_CACHE_TTL
+    const cacheTTL = USER_CACHE_TTL
     
     if (cached && (Date.now() - cached.timestamp) < cacheTTL) {
       console.log(`📦 Cache hit for ${cacheKey} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
@@ -85,7 +99,7 @@ export async function GET(request: NextRequest) {
         { emails: cached.data },
         {
           headers: {
-            'Cache-Control': session.isMockUser ? 'public, max-age=300' : 'private, max-age=180',
+            'Cache-Control': 'private, max-age=180',
             'X-Cache': 'HIT',
             'X-Response-Time': `${Date.now() - startTime}ms`,
             'ETag': cached.etag
@@ -121,7 +135,7 @@ export async function GET(request: NextRequest) {
         { emails },
         {
           headers: {
-            'Cache-Control': session.isMockUser ? 'public, max-age=300' : 'private, max-age=180',
+            'Cache-Control': 'private, max-age=180',
             'X-Cache': 'MISS',
             'X-Response-Time': `${responseTime}ms`,
             'X-Email-Count': emails.length.toString(),
@@ -139,7 +153,15 @@ export async function GET(request: NextRequest) {
     // Check if it's an authentication/scope error
     if (typeof error === 'object' && error !== null && ('code' in error || 'status' in error)) {
       const errorWithCode = error as { code?: number; status?: number };
-      if (errorWithCode.code === 403 || errorWithCode.status === 403) {
+      if (errorWithCode.code === 401 || errorWithCode.status === 401) {
+        return NextResponse.json(
+          { 
+            error: 'Gmail authentication failed. Please sign out and sign in again to refresh your access.',
+            code: 'AUTH_FAILED'
+          },
+          { status: 401 }
+        )
+      } else if (errorWithCode.code === 403 || errorWithCode.status === 403) {
         return NextResponse.json(
           { 
             error: 'Gmail access not authorized. Please sign out and sign in again to grant Gmail permissions.',
@@ -148,6 +170,18 @@ export async function GET(request: NextRequest) {
           { status: 403 }
         )
       }
+    }
+
+    // Check if the error message contains authentication-related keywords
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('authentication failed') || errorMessage.includes('sign out and sign in')) {
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          code: 'AUTH_FAILED'
+        },
+        { status: 401 }
+      )
     }
 
     return NextResponse.json(
@@ -160,17 +194,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Optimized email fetching function
-async function fetchEmailsWithOptimizations(session: { isMockUser?: boolean; accessToken?: string }, limit: number): Promise<EmailData[]> {
-  // Handle mock/demo users with enhanced mock data
-  if (session.isMockUser) {
-    // Simulate variable response time for realism
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 100))
-    return generateMockEmails(limit)
+// Real email fetching function - only works with authenticated Gmail users
+async function fetchEmailsWithOptimizations(session: { accessToken?: string }, limit: number): Promise<EmailData[]> {
+  if (!session.accessToken) {
+    throw new Error('No access token available for Gmail API')
   }
 
-  // For real Gmail users with optimizations
-  const gmailService = new GmailService(session.accessToken as string)
+  // Use real Gmail service for authenticated users
+  const gmailService = new GmailService(session.accessToken)
   return await gmailService.getEmails(limit)
 }
 
@@ -183,6 +214,17 @@ export async function POST(request: NextRequest) {
     if (!session?.accessToken) {
       return NextResponse.json(
         { error: 'Not authenticated or no access token' },
+        { status: 401 }
+      )
+    }
+
+    // Check if there was an error refreshing the token
+    if (session.error === "RefreshAccessTokenError") {
+      return NextResponse.json(
+        { 
+          error: 'Authentication token expired. Please sign out and sign in again.',
+          code: 'TOKEN_EXPIRED'
+        },
         { status: 401 }
       )
     }
@@ -232,7 +274,15 @@ export async function POST(request: NextRequest) {
     // Check if it's an authentication/scope error
     if (typeof error === 'object' && error !== null && ('code' in error || 'status' in error)) {
       const errorWithCode = error as { code?: number; status?: number };
-      if (errorWithCode.code === 403 || errorWithCode.status === 403) {
+      if (errorWithCode.code === 401 || errorWithCode.status === 401) {
+        return NextResponse.json(
+          { 
+            error: 'Gmail authentication failed. Please sign out and sign in again to refresh your access.',
+            code: 'AUTH_FAILED'
+          },
+          { status: 401 }
+        )
+      } else if (errorWithCode.code === 403 || errorWithCode.status === 403) {
         return NextResponse.json(
           { 
             error: 'Gmail access not authorized. Please sign out and sign in again to grant Gmail permissions.',
@@ -242,74 +292,26 @@ export async function POST(request: NextRequest) {
         )
       }
     }
+
+    // Check if the error message contains authentication-related keywords
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('authentication failed') || errorMessage.includes('sign out and sign in')) {
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          code: 'AUTH_FAILED'
+        },
+        { status: 401 }
+      )
+    }
     
     return NextResponse.json(
-      { error: 'Failed to fetch email content' },
+      { 
+        error: 'Failed to fetch email content',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
 }
 
-// Helper function to generate mock emails for demo users
-function generateMockEmails(limit: number) {
-  const mockEmails = []
-  const senders = [
-    'newsletter@company.com',
-    'support@service.com', 
-    'noreply@bank.com',
-    'updates@social.com',
-    'info@retailer.com'
-  ]
-  
-  const subjects = [
-    'Weekly Newsletter - Industry Updates',
-    'Your Account Statement is Ready',
-    'Special Offer: 50% Off Everything',
-    'Security Alert: New Login Detected',
-    'Monthly Report - October 2024'
-  ]
-
-  for (let i = 0; i < limit; i++) {
-    const isSpam = Math.random() > 0.7
-    const sender = senders[Math.floor(Math.random() * senders.length)]
-    const subject = subjects[Math.floor(Math.random() * subjects.length)]
-    
-    mockEmails.push({
-      id: `mock-${i}-${Date.now()}`,
-      from: sender,
-      subject: isSpam ? `[SPAM] ${subject}` : subject,
-      preview: `This is a mock email preview for demo purposes. Email ${i + 1} of ${limit}.`,
-      date: new Date(Date.now() - i * 3600000).toISOString(), // 1 hour intervals
-      isRead: Math.random() > 0.3,
-      threadId: `thread-${i}`
-    })
-  }
-
-  return mockEmails
-}
-
-// Helper function to generate mock email content
-function generateMockEmailContent(messageId: string) {
-  return `
-This is mock email content for message ID: ${messageId}
-
-Dear User,
-
-This is a demonstration email content generated for the ContextCleanse demo mode.
-
-In a real implementation, this would contain the actual email content retrieved from Gmail.
-
-Key features of the optimized email system:
-- Intelligent caching with TTL
-- Batch processing for better performance
-- Error handling and graceful fallbacks
-- Mock data for development and demo purposes
-
-Best regards,
-ContextCleanse Demo System
-
----
-Generated at: ${new Date().toISOString()}
-Message ID: ${messageId}
-  `.trim()
-}

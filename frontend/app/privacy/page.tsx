@@ -21,14 +21,14 @@ export const metadata = {
 }
 
 // Precompiled Client Wrapper Component
-import dynamic from 'next/dynamic'
+import dynamicImport from 'next/dynamic'
 
-const ClientPrivacyWrapper = dynamic(() => import('./PrivacyClient'), {
+const ClientPrivacyWrapper = dynamicImport(() => import('./PrivacyClient'), {
   ssr: true,
   loading: () => (
     <div className="min-h-screen bg-gray-800 flex items-center justify-center">
       <div className="text-white">Loading Privacy Policy...</div>
-    </div>
+      </div>
   )
 })
 

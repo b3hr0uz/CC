@@ -263,8 +263,10 @@ export default function PrivacyClient() {
             </div>
           </main>
         </div>
-        {/* Notification Sidebar */}
-        <NotificationSidebar />
+        {/* Events Sidebar */}
+        <NotificationSidebar 
+          title="Events"
+        />
       </div>
     </NotificationProvider>
   )

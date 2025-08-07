@@ -24,7 +24,7 @@ RUN corepack enable
 
 # Upgrade npm to exact version for consistency
 RUN --mount=type=cache,target=/root/.npm \
-    npm install -g npm@11.5.2 --no-audit --no-fund
+    npm install -g npm@latest --no-audit --no-fund
 
 # Create app user for security with proper permissions
 RUN addgroup --system --gid 1001 nodejs && \
@@ -152,9 +152,10 @@ ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PRIVATE_DEBUG_CACHE=1
 
-# Create cache directories with proper permissions
-RUN mkdir -p .next/cache && \
-    chown -R nextjs:nodejs /app
+# Create all necessary Next.js directories with proper permissions
+RUN mkdir -p .next/cache .next/server .next/server/pages .next/server/app && \
+    chown -R nextjs:nodejs /app && \
+    chmod -R 777 /app/.next
 
 # Switch to non-root user for security
 USER nextjs
@@ -166,8 +167,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Use Turbo mode for fastest development experience
-CMD ["npm", "run", "dev:turbo"]
+# Use regular dev mode for stable development experience
+CMD ["npm", "run", "dev"]
 
 # ==========================================
 # Production Stage - Ultra-optimized runtime image

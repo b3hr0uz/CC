@@ -38,6 +38,7 @@ interface ModelInfo {
   trained: boolean;
   description?: string;
   implementation_function?: string;
+  lastUpdated?: Date;
 }
 
 interface ExtendedEmailData extends EmailData {
@@ -95,7 +96,7 @@ export default function DashboardPage() {
 
 
   // Use global notification context
-  const { addNotification } = useNotifications();
+  const { addNotification, notifications } = useNotifications();
 
   // Add state to prevent duplicate email fetching
   const [isFetchingEmails, setIsFetchingEmails] = useState(false);
@@ -282,39 +283,31 @@ export default function DashboardPage() {
 
   // Initialize data and fetch emails when component mounts or session changes
   useEffect(() => {
-    // Always pre-load dashboard with emails immediately for better UX
-    if (emails.length === 0) {
-      console.log('📧 Pre-loading dashboard with emails...');
+    // Load real emails if authenticated, otherwise show authentication prompt
+    if (emails.length === 0 && session && status === 'authenticated') {
+      console.log('📧 Authenticated user detected - fetching real emails...');
       
-      // Always start with mock emails for immediate display
-      const mockEmails = getMockEmails();
-      setEmails(mockEmails);
-      setUsingMockData(true);
-      setLoading(false);
-      
-      console.log(`📧 Pre-loaded ${mockEmails.length} emails for immediate display`);
-      
-      addNotification({
-        id: generateRLNotificationId('email_preload'),
-        type: 'email_fetch_complete',
-        model_name: 'Email Preload',
-        message: `Loaded ${mockEmails.length} sample emails - ready for classification`,
-        timestamp: new Date(),
-      });
-      
-      // Then try to load real emails in background if authenticated
-      if (session && !session.isMockUser) {
+      if (session.accessToken) {
         fetchEmails();
+      } else {
+        setEmailError({
+          type: 'error',
+          message: 'Authentication required. Please sign in with Google to access your emails.'
+        });
+        setLoading(false);
       }
+    } else if (status === 'unauthenticated') {
+      console.log('❌ User not authenticated - showing authentication prompt');
+      setEmailError({
+        type: 'error',
+        message: 'Please sign in with Google to access your Gmail inbox.'
+      });
+      setLoading(false);
     }
   }, [session, status, router, emailLimit]);
 
   useEffect(() => {
-    // Pre-load dashboard with mock emails immediately for better UX
-    if (emails.length === 0) {
-      console.log('📧 Pre-loading dashboard with mock emails for immediate content display');
-      setEmails(getMockEmails());
-    }
+    // This useEffect is being deprecated - email fetching handled above
     
     const fetchEmails = async () => {
       // Prevent duplicate email fetching operations
@@ -495,26 +488,26 @@ export default function DashboardPage() {
                 
                 // Check if mock data is being used and notify user (only for real users, not demo)
                 if (!session?.isMockUser && classificationResult.modelUsed && classificationResult.modelUsed.includes('(Mock)')) {
-                  // Only add notification once to avoid spam - check if we haven't already added it
+                  // Minimal fallback notification - only show once per session
                   const mockWarnings: Array<{type: string, timestamp: number}> = JSON.parse(localStorage.getItem('mockDataWarnings') || '[]');
                   const recentWarning = mockWarnings.find((w) => 
-                    w.type === 'classification' && (Date.now() - w.timestamp) < 60000 // Within last minute
+                    w.type === 'classification' && (Date.now() - w.timestamp) < 1800000 // Within last 30 minutes
                   );
                   
                   if (!recentWarning) {
                     addNotification({
-                      id: generateRLNotificationId('mock_classification_warning'),
-                      type: 'rl_error',
-                      model_name: 'System Alert',
-                      message: `⚠️ Using UCI Spambase dataset for classification. Enable ML backend to train on your Gmail data for personalized predictions.`,
+                      id: generateRLNotificationId('classification_fallback'),
+                      type: 'email_fetch_complete',
+                      model_name: 'Classification',
+                      message: `Using fallback classification model - connect ML backend for personalized results`,
                       timestamp: new Date(),
                       start_time: new Date(),
                       estimated_duration: 0,
                     });
                     
-                    // Track that we've shown this warning
+                    // Track that we've shown this warning (reduced frequency)
                     mockWarnings.push({ type: 'classification', timestamp: Date.now() });
-                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-5))); // Keep last 5
+                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-3))); // Keep last 3
                   }
                 }
                 
@@ -1175,27 +1168,16 @@ This email is totally legitimate and not suspicious at all.`,
       setLoading(true);
       setEmailError(null);
       
-      // Check if this is a mock user session
-      if (session?.isMockUser) {
-        console.log('Mock user detected - using mock data only');
+      // Only authenticated Gmail users can access emails
+      if (!session?.accessToken) {
+        console.error('❌ No access token available - cannot fetch emails');
         setEmailError({
-          type: 'info',
-          message: 'Demo mode active - showing sample email data.'
+          type: 'error',
+          message: 'Email access requires Gmail authentication. Please sign in with Google.'
         });
-        setUsingMockData(true);
-        const mockEmails = getMockEmails();
-        setEmails(mockEmails);
-        
-        // Add notification for mock data completion
-        addNotification({
-          id: generateRLNotificationId('email_fetch_complete'),
-          type: 'email_fetch_complete',
-          model_name: 'Email Sync',
-          message: `Demo mode: Loaded ${mockEmails.length} sample emails`,
-          timestamp: new Date(),
-          start_time: new Date(),
-          estimated_duration: 0,
-        });
+        setLoading(false);
+        setIsFetchingEmails(false);
+        setIsRefreshing(false);
         return;
       }
       
@@ -1284,18 +1266,17 @@ This email is totally legitimate and not suspicious at all.`,
       console.error('Error fetching emails:', error);
       setEmailError({
         type: 'error',
-        message: 'Unable to fetch emails. Using demo data instead.'
+        message: 'Unable to fetch emails. Please check your internet connection and Gmail permissions.'
       });
-      setUsingMockData(true);
-      const mockEmails = getMockEmails();
-      setEmails(mockEmails);
+      setUsingMockData(false);
+      setEmails([]);
       
-      // Add notification for error fallback to mock data
+      // Add notification for email fetch error
       addNotification({
-        id: generateRLNotificationId('email_fetch_complete'),
-        type: 'email_fetch_complete',
+        id: generateRLNotificationId('email_fetch_error'),
+        type: 'email_fetch_error',
         model_name: 'Email Sync',
-        message: `Error occurred: Using ${mockEmails.length} demo emails instead`,
+        message: `Failed to fetch emails: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date(),
         start_time: new Date(),
         estimated_duration: 0,
@@ -1835,37 +1816,26 @@ This email is totally legitimate and not suspicious at all.`,
     loadExistingRLOptimizations();
   }, []); // Run once on mount
 
-  // Initialize background training when user logs in
+  // Monitor authentication events when status changes
   useEffect(() => {
-    if (session && status === 'authenticated') {
-      console.log('👤 User authenticated - starting background Training page compilation...');
-      
-      // Check if background training was already initialized
-      const existingStatus = localStorage.getItem('backgroundTrainingStatus');
-      if (!existingStatus) {
-        initializeBackgroundTraining();
-      } else {
-        // Sync with existing background training
-        syncWithBackgroundTraining();
-        console.log('🔄 Found existing background training status - syncing...');
-      }
-    }
+    console.log('🔐 Authentication status changed - monitoring events...');
+    monitorAuthenticationChanges();
   }, [session, status]); // Trigger when authentication status changes
 
-  // Periodic sync with background training status
+  // Periodic monitoring for authentication state changes
   useEffect(() => {
-    let syncInterval: NodeJS.Timeout | null = null;
+    let authInterval: NodeJS.Timeout | null = null;
     
     if (session && status === 'authenticated') {
-      // Sync every 5 seconds to catch background training updates
-      syncInterval = setInterval(() => {
-        syncWithBackgroundTraining();
-      }, 5000);
+      // Monitor authentication state every 15 seconds to catch changes
+      authInterval = setInterval(() => {
+        monitorAuthenticationChanges();
+      }, 15000);
     }
     
     return () => {
-      if (syncInterval) {
-        clearInterval(syncInterval);
+      if (authInterval) {
+        clearInterval(authInterval);
       }
     };
   }, [session, status]);
@@ -2102,26 +2072,26 @@ This email is totally legitimate and not suspicious at all.`,
                 
                 // Check if mock data is being used and notify user (only for real users, not demo)
                 if (!session?.isMockUser && classificationResult.modelUsed && classificationResult.modelUsed.includes('(Mock)')) {
-                  // Only add notification once to avoid spam - check if we haven't already added it
+                  // Minimal fallback notification - only show once per session
                   const mockWarnings: Array<{type: string, timestamp: number}> = JSON.parse(localStorage.getItem('mockDataWarnings') || '[]');
                   const recentWarning = mockWarnings.find((w) => 
-                    w.type === 'classification' && (Date.now() - w.timestamp) < 60000 // Within last minute
+                    w.type === 'classification' && (Date.now() - w.timestamp) < 1800000 // Within last 30 minutes
                   );
                   
                   if (!recentWarning) {
                     addNotification({
-                      id: generateRLNotificationId('mock_classification_warning'),
-                      type: 'rl_error',
-                      model_name: 'System Alert',
-                      message: `⚠️ Using UCI Spambase dataset for classification. Enable ML backend to train on your Gmail data for personalized predictions.`,
+                      id: generateRLNotificationId('classification_fallback'),
+                      type: 'email_fetch_complete',
+                      model_name: 'Classification',
+                      message: `Using fallback classification model - connect ML backend for personalized results`,
                       timestamp: new Date(),
                       start_time: new Date(),
                       estimated_duration: 0,
                     });
                     
-                    // Track that we've shown this warning
+                    // Track that we've shown this warning (reduced frequency)
                     mockWarnings.push({ type: 'classification', timestamp: Date.now() });
-                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-5))); // Keep last 5
+                    localStorage.setItem('mockDataWarnings', JSON.stringify(mockWarnings.slice(-3))); // Keep last 3
                   }
                 }
                 
@@ -2237,113 +2207,69 @@ This email is totally legitimate and not suspicious at all.`,
     }
   }, [session, status, router, emailLimit]); // Removed stable function references that don't change
 
-  // Interface for background training status
-  interface BackgroundTrainingStatus {
-    isCompiling: boolean;
-    isTraining: boolean;
-    currentModel: string;
-    progress: number;
-    selectedModel: string;
-    availableModels: Record<string, { name: string; f1_score: number; trained?: boolean }>;
-    lastUpdate: string;
-  }
 
-  // Background training service functions
-  const initializeBackgroundTraining = async () => {
-    console.log('🚀 Initializing background Training page compilation...');
-    
-    try {
-      // Set background training status
-      const initialStatus: BackgroundTrainingStatus = {
-        isCompiling: true,
-        isTraining: false,
-        currentModel: 'xgboost_rl',
-        progress: 0,
-        selectedModel: 'xgboost_rl',
-        availableModels: {
-          'logistic_regression': { name: 'Logistic Regression', f1_score: 0.886, trained: false },
-          'xgboost_rl': { name: 'XGBoost + RL', f1_score: 0.947, trained: true },
-      'xgboost': { name: 'XGBoost', f1_score: 0.925, trained: true },
-          'naive_bayes': { name: 'Naive Bayes', f1_score: 0.878, trained: false },
-          'neural_network': { name: 'Neural Network', f1_score: 0.901, trained: false },
-          'svm': { name: 'Support Vector Machine', f1_score: 0.891, trained: false },
-          'random_forest': { name: 'Random Forest', f1_score: 0.913, trained: false }
-        },
-        lastUpdate: new Date().toISOString()
-      };
-      
-      localStorage.setItem('backgroundTrainingStatus', JSON.stringify(initialStatus));
-      
-      // Add notification for background compilation start
-      addNotification({
-        id: generateRLNotificationId('training_compilation_start'),
-        type: 'model_training_start',
-        model_name: 'Training Compiler',
-        message: 'Starting background Training page compilation and auto-training...',
-        timestamp: new Date(),
-        start_time: new Date(),
-        estimated_duration: 10,
-      });
-      
-      // DISABLED: Fake background training simulation removed per user requirements
-      // Only legitimate backend training runs should generate events
-      console.log('⚠️ Background training simulation disabled - only real backend runs generate events');
-      
-    } catch (error) {
-      console.error('❌ Error initializing background training:', error);
-    }
+
+  // Authentication event handlers for real user interactions
+  const handleAuthenticationEvent = (eventType: 'login' | 'logout' | 'email_access_granted' | 'email_access_denied', details?: string) => {
+    const eventMessages = {
+      login: `User authenticated via ${session?.user?.email?.includes('gmail') ? 'Google OAuth' : 'Email'} successfully`,
+      logout: 'User logged out from ContextCleanse',
+      email_access_granted: `Gmail access granted for ${session?.user?.email || 'user'}`,
+      email_access_denied: 'Gmail access permission denied or expired'
+    };
+
+    console.log(`🔐 Authentication Event: ${eventType} - ${details || eventMessages[eventType]}`);
+
+    addNotification({
+      id: generateRLNotificationId(`auth_${eventType}`),
+      type: eventType === 'login' ? 'email_fetch_start' : 'email_fetch_complete',
+      model_name: 'Authentication System',
+      message: details || eventMessages[eventType],
+      timestamp: new Date(),
+      start_time: new Date(),
+      estimated_duration: 0,
+    });
   };
 
-  // DISABLED: simulateBackgroundTraining function removed per user requirements
-  // This function was generating fake training events and mock data
-  // Only legitimate backend training runs should generate events
-  const simulateBackgroundTraining = async () => {
-    console.log('⚠️ Background training simulation disabled - only real backend runs generate events');
-    console.log('ℹ️ To enable real training, use the Training page with actual backend connection');
-    
-    // Clear any existing fake background training status
-    localStorage.removeItem('backgroundTrainingStatus');
-  };
-
-  // Function to sync with background training status
-  const syncWithBackgroundTraining = () => {
+  // Monitor real authentication status changes and generate events
+  const monitorAuthenticationChanges = () => {
     try {
-      const status = localStorage.getItem('backgroundTrainingStatus');
-      if (status) {
-        const trainingStatus: BackgroundTrainingStatus = JSON.parse(status);
+      // Check if user just authenticated
+      if (status === 'authenticated' && session?.user) {
+        const lastAuthCheck = localStorage.getItem('lastAuthCheck');
+        const currentTime = Date.now();
         
-        // Update selectedModel if background training determined a better model
-        if (trainingStatus.selectedModel && trainingStatus.selectedModel !== selectedModel) {
-          console.log(`🔄 Background training selected new best model: ${trainingStatus.selectedModel}`);
-          setSelectedModel(trainingStatus.selectedModel);
-        }
-        
-        // Update availableModels with background training results
-        const updatedModels: typeof availableModels = {};
-        Object.entries(trainingStatus.availableModels).forEach(([key, model]) => {
-          const modelDetails = getModelInfo(key);
-          if (modelDetails) {
-            updatedModels[key] = {
-              name: model.name,
-              f1_score: model.f1_score,
-              trained: modelDetails.trained,
-              description: modelDetails.description,
-              implementation_function: modelDetails.implementation_function
-            };
+        if (!lastAuthCheck || (currentTime - parseInt(lastAuthCheck)) > 10000) {
+          // User just authenticated
+          handleAuthenticationEvent('login');
+          
+          if (session.accessToken) {
+            handleAuthenticationEvent('email_access_granted', 
+              `Gmail API access authorized for ${session.user.email}`);
+          } else {
+            handleAuthenticationEvent('email_access_denied', 
+              'Gmail API access not available - limited functionality');
           }
-        });
+          
+          localStorage.setItem('lastAuthCheck', currentTime.toString());
+        }
+      } else if (status === 'unauthenticated') {
+        const lastLogoutCheck = localStorage.getItem('lastLogoutCheck');
+        const currentTime = Date.now();
         
-        setAvailableModels(prev => ({
-          ...prev,
-          ...updatedModels
-        }));
-        
-        console.log('🔄 Synced with background training status');
+        if (!lastLogoutCheck || (currentTime - parseInt(lastLogoutCheck)) > 10000) {
+          handleAuthenticationEvent('logout');
+          localStorage.setItem('lastLogoutCheck', currentTime.toString());
+          // Clear any cached authentication data
+          localStorage.removeItem('lastAuthCheck');
+        }
       }
     } catch (error) {
-      console.error('❌ Error syncing with background training:', error);
+      console.error('❌ Error monitoring authentication changes:', error);
     }
   };
+
+
 
   return (
     <div className="flex h-screen bg-gray-800">

@@ -54,8 +54,10 @@ class SimpleCache {
 export class GmailService {
   private gmail: gmail_v1.Gmail;
   private cache = new SimpleCache();
+  private accessToken: string;
 
   constructor(accessToken: string) {
+    this.accessToken = accessToken;
     const oauth2Client = new google.auth.OAuth2()
     oauth2Client.setCredentials({ access_token: accessToken })
     
@@ -204,9 +206,21 @@ export class GmailService {
       console.log(`✅ Fetched ${sortedEmails.length} emails in ${endTime - startTime}ms (avg: ${avgTimePerEmail}ms/email)`)
 
       return sortedEmails
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching emails:', error)
-      throw new Error('Failed to fetch emails from Gmail')
+      
+      // Handle specific Gmail API errors
+      if (error.code === 401 || error.status === 401) {
+        throw new Error('Gmail authentication failed. Please sign out and sign in again to refresh your access.')
+      } else if (error.code === 403 || error.status === 403) {
+        throw new Error('Gmail access denied. Please check your Gmail permissions.')
+      } else if (error.code === 429 || error.status === 429) {
+        throw new Error('Gmail API rate limit exceeded. Please try again in a few minutes.')
+      } else if (error.code >= 500 || error.status >= 500) {
+        throw new Error('Gmail service is temporarily unavailable. Please try again later.')
+      } else {
+        throw new Error(`Failed to fetch emails from Gmail: ${error.message || 'Unknown error'}`)
+      }
     }
   }
 
@@ -266,9 +280,23 @@ export class GmailService {
       console.log(`✅ Fetched email content in ${endTime - startTime}ms`)
 
       return body
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching email content:', error)
-      throw new Error('Failed to fetch email content')
+      
+      // Handle specific Gmail API errors
+      if (error.code === 401 || error.status === 401) {
+        throw new Error('Gmail authentication failed. Please sign out and sign in again to refresh your access.')
+      } else if (error.code === 403 || error.status === 403) {
+        throw new Error('Gmail access denied. Please check your Gmail permissions.')
+      } else if (error.code === 404 || error.status === 404) {
+        throw new Error('Email not found or may have been deleted.')
+      } else if (error.code === 429 || error.status === 429) {
+        throw new Error('Gmail API rate limit exceeded. Please try again in a few minutes.')
+      } else if (error.code >= 500 || error.status >= 500) {
+        throw new Error('Gmail service is temporarily unavailable. Please try again later.')
+      } else {
+        throw new Error(`Failed to fetch email content: ${error.message || 'Unknown error'}`)
+      }
     }
   }
 

@@ -308,14 +308,14 @@ export async function POST(request: NextRequest) {
     }
 
     const startTime = Date.now();
-    let usingMockData = false;
-    let mockReason = '';
+    let usingFallbackClassification = false;
+    let fallbackReason = '';
     
     // Check if this is a mock/demo user session
     if (session?.isMockUser) {
-      console.log('Demo mode detected - using mock classification');
-      usingMockData = true;
-      mockReason = 'Demo mode active - using UCI Spambase dataset for training';
+      console.log('Demo mode detected - using UCI Spambase classification');
+      usingFallbackClassification = true;
+      fallbackReason = 'Demo mode active - using UCI Spambase dataset for training';
     } else {
       // Try to connect to real ML backend service
       try {
@@ -366,20 +366,34 @@ export async function POST(request: NextRequest) {
 
           return NextResponse.json(response);
         } else {
-          console.warn(`⚠️ ML backend returned ${backendResponse.status}, falling back to mock data`);
-          usingMockData = true;
-          mockReason = `ML backend returned ${backendResponse.status} - using UCI Spambase trained models`;
+          // In non-demo mode, backend failure should return error - NO MOCK DATA
+          console.error(`❌ ML backend returned ${backendResponse.status} - classification unavailable`);
+          return NextResponse.json(
+            { 
+              error: 'Classification service temporarily unavailable',
+              details: `Backend returned status ${backendResponse.status}`,
+              code: 'SERVICE_UNAVAILABLE'
+            },
+            { status: 503 }
+          );
         }
       } catch (error) {
-        console.warn(`⚠️ ML backend connection failed, falling back to mock data:`, error instanceof Error ? error.message : 'Unknown error');
-        usingMockData = true;
-        mockReason = 'ML backend connection failed - using UCI Spambase trained models for classification';
+        // In non-demo mode, backend failure should return error - NO MOCK DATA
+        console.error(`❌ ML backend connection failed - classification unavailable:`, error instanceof Error ? error.message : 'Unknown error');
+        return NextResponse.json(
+          { 
+            error: 'Classification service unreachable',
+            details: error instanceof Error ? error.message : 'Connection failed',
+            code: 'CONNECTION_FAILED'
+          },
+          { status: 503 }
+        );
       }
     }
 
-    // Fallback to mock data if needed
-    if (usingMockData) {
-      // Get RL-enhanced model performance for mock classification
+    // Only use UCI Spambase classification in DEMO MODE
+    if (usingFallbackClassification && session?.isMockUser) {
+      // Get RL-enhanced model performance for UCI Spambase classification
       const ENHANCED_MODEL_PERFORMANCE = getRLEnhancedModelPerformance(
         request.headers.get('X-RL-Optimizations') || undefined
       );
@@ -422,18 +436,29 @@ export async function POST(request: NextRequest) {
         }))
       };
 
-      console.log(`🎭 Mock classification complete (${mockReason}):`, {
+      console.log(`📊 UCI Spambase classification complete (${fallbackReason}):`, {
         emailId,
         classification: response.classification,
         confidence: response.confidence.toFixed(3),
         modelUsed,
         processingTime: `${processingTime}ms`,
         datasetSource: 'UCI Spambase + ML enhancements',
-        reason: mockReason
+        reason: fallbackReason
       });
 
       return NextResponse.json(response);
     }
+
+    // If we reach here, we're in non-demo mode but backend is unavailable
+    // Return error instead of using mock data
+    return NextResponse.json(
+      { 
+        error: 'Classification service unavailable',
+        details: 'No backend service available and not in demo mode',
+        code: 'NO_SERVICE_AVAILABLE'
+      },
+      { status: 503 }
+    );
 
   } catch (error) {
     console.error('Error classifying email:', error);

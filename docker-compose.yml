@@ -82,10 +82,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: ${BACKEND_BUILD_TARGET:-production}
+      target: ${BACKEND_BUILD_TARGET:-app}
       cache_from:
         - contextcleanse-backend:latest
-        - contextcleanse-backend:${BACKEND_BUILD_TARGET:-production}
+        - contextcleanse-backend:${BACKEND_BUILD_TARGET:-app}
       args:
         - BUILDKIT_INLINE_CACHE=1
         - ENVIRONMENT=${ENVIRONMENT:-production}
@@ -136,7 +136,6 @@ services:
     read_only: ${BACKEND_READ_ONLY:-false}
     tmpfs:
       - /tmp:noexec,nosuid,size=200m
-      - /app/logs:noexec,nosuid,size=100m
     
     # Logging configuration
     logging:
@@ -198,9 +197,8 @@ services:
     
     # Volume mounts for development hot-reloading
     volumes:
-      - ./frontend:/app:cached
+      # - ./frontend:/app:cached  # Temporarily disabled to fix startup issues
       - frontend_node_modules:/app/node_modules
-      - frontend_next_cache:/app/.next/cache
     
     # Comprehensive environment configuration
     environment:
@@ -257,10 +255,10 @@ services:
       start_period: ${FRONTEND_HEALTH_START_PERIOD:-15s}
     
     # Security configuration (production)
-    read_only: ${FRONTEND_READ_ONLY:-false}
+    read_only: false
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
-      - /app/logs:noexec,nosuid,size=50m
+      - /app/.next/server:size=200m
     
     # Enable init process for proper signal handling
     init: true
