@@ -83,14 +83,21 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: ${BACKEND_BUILD_TARGET:-app}
-      cache_from:
-        - contextcleanse-backend:latest
-        - contextcleanse-backend:${BACKEND_BUILD_TARGET:-app}
+
       args:
         - BUILDKIT_INLINE_CACHE=1
-        - ENVIRONMENT=${ENVIRONMENT:-production}
+        - ENVIRONMENT=${ENVIRONMENT:-development}
+        - BUILD_DATE=${BUILD_DATE:-}
+        - GIT_COMMIT=${GIT_COMMIT:-}
+      x-bake:
+        contexts:
+          - .
+        cache-from:
+          - type=local,src=/tmp/.buildx-cache/backend
+        cache-to:
+          - type=local,dest=/tmp/.buildx-cache/backend,mode=max
     
-    image: contextcleanse-backend:latest
+    image: contextcleanse/backend:latest
     container_name: cc_backend
     
     # Port configuration
@@ -178,17 +185,23 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: ${FRONTEND_BUILD_TARGET:-development}
-      cache_from:
-        - contextcleanse-frontend:latest
-        - contextcleanse-frontend:${FRONTEND_BUILD_TARGET:-development}
-        - contextcleanse-frontend:builder
+
       args:
         - BUILDKIT_INLINE_CACHE=1
         - NODE_ENV=${NODE_ENV:-development}
         - NEXT_TELEMETRY_DISABLED=1
         - DOCKER_BUILD=true
+        - BUILD_DATE=${BUILD_DATE:-}
+        - GIT_COMMIT=${GIT_COMMIT:-}
+      x-bake:
+        contexts:
+          - .
+        cache-from:
+          - type=local,src=/tmp/.buildx-cache/frontend
+        cache-to:
+          - type=local,dest=/tmp/.buildx-cache/frontend,mode=max
     
-    image: contextcleanse-frontend:latest
+    image: contextcleanse/frontend:latest
     container_name: cc_frontend
     
     # Port configuration

@@ -48,9 +48,12 @@ CREATE TRIGGER update_email_embeddings_modtime
     BEFORE UPDATE ON email_embeddings 
     FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 
--- Grant necessary permissions (adjust as needed)
--- GRANT ALL PRIVILEGES ON email_embeddings TO contextcleanse;
--- GRANT USAGE, SELECT ON SEQUENCE email_embeddings_id_seq TO contextcleanse;
+-- Create user and grant necessary permissions
+CREATE USER contextcleanse WITH PASSWORD 'contextcleanse_password';
+GRANT ALL PRIVILEGES ON DATABASE contextcleanse TO contextcleanse;
+GRANT ALL PRIVILEGES ON email_embeddings TO contextcleanse;
+GRANT USAGE, SELECT ON SEQUENCE email_embeddings_id_seq TO contextcleanse;
+GRANT ALL PRIVILEGES ON SCHEMA public TO contextcleanse;
 
 -- Insert some logging
 DO $$
