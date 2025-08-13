@@ -3,7 +3,6 @@
 import React from 'react';
 import { useSidebar } from '../contexts/SidebarContext';
 import Sidebar from './Sidebar';
-import SidebarToggle from './SidebarToggle';
 import NotificationSidebar from './NotificationSidebar';
 
 interface AppLayoutProps {
@@ -16,16 +15,11 @@ export default function AppLayout({ children, showNotificationSidebar = false }:
 
   return (
     <div className="flex h-screen">
-      {/* Main Sidebar */}
+      {/* Main Sidebar (now handles its own toggle) */}
       <Sidebar />
       
-      {/* Sidebar Toggle Button */}
-      <SidebarToggle />
-      
       {/* Main Content Area */}
-      <div className={`flex-1 flex transition-all duration-300 ease-in-out ${
-        isCollapsed ? 'ml-0' : 'ml-0'
-      }`}>
+      <div className="flex-1 flex transition-all duration-300 ease-in-out">
         {/* Page Content */}
         <div className="flex-1 overflow-hidden">
           {children}
