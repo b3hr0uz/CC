@@ -14,19 +14,23 @@ export default function AppLayout({ children, showNotificationSidebar = false }:
   const { isCollapsed } = useSidebar();
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Main Sidebar (now handles its own toggle) */}
       <Sidebar />
       
       {/* Main Content Area */}
-      <div className="flex-1 flex transition-all duration-300 ease-in-out">
+      <div className="flex-1 flex min-w-0">
         {/* Page Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden">
           {children}
         </div>
         
         {/* Notification Sidebar */}
-        {showNotificationSidebar && <NotificationSidebar />}
+        {showNotificationSidebar && (
+          <div className="flex-shrink-0">
+            <NotificationSidebar />
+          </div>
+        )}
       </div>
     </div>
   );

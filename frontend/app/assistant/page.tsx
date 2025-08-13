@@ -785,13 +785,13 @@ Please provide a helpful response based on the email context provided.`;
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-800">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-800">
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
-          <div className="flex justify-between items-center">
+        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center">
-                <Bot className="h-6 w-6 mr-2 text-blue-400" />
+              <h1 className="text-xl lg:text-2xl font-bold text-white flex items-center">
+                <Bot className="h-5 w-5 lg:h-6 lg:w-6 mr-2 text-blue-400" />
                 Assistant
               </h1>
             </div>

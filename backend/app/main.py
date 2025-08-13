@@ -4,7 +4,7 @@ FastAPI Backend for CC
 Version with model selection and k-fold cross validation
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -15,6 +15,8 @@ import json
 import joblib
 import os
 from pathlib import Path
+import threading
+import time
 
 # ML imports
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
@@ -155,6 +157,7 @@ X_train, X_test, y_train, y_test = None, None, None, None
 X_train_scaled, X_test_scaled = None, None
 X_train_nb, X_test_nb = None, None
 X_full, y_full = None, None  # For cross-validation
+training_status = {"is_training": False, "progress": 0, "current_model": None, "models_completed": []}
 
 # Available models configuration
 AVAILABLE_MODELS = {
@@ -403,8 +406,9 @@ async def get_available_models():
 
 @app.post("/models/train")
 async def train_models(request: ModelTrainRequest):
-    """Train selected ML models with optional k-fold cross validation"""
-    global data_loaded
+    """Train selected ML models with optional k-fold cross validation (non-blocking using threading)"""
+    global data_loaded, training_status
+    
     if not data_loaded:
         print("⚠️ Data not loaded, attempting to load now...")
         await startup_event()  # Use the existing startup data loading function
@@ -412,10 +416,21 @@ async def train_models(request: ModelTrainRequest):
     if not data_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded")
     
-    global models
+    if training_status["is_training"]:
+        return {
+            "message": "Training already in progress",
+            "status": "training_in_progress",
+            "current_model": training_status["current_model"],
+            "progress": training_status["progress"]
+        }
     
-    # Determine which models to train
-    models_to_train = request.algorithm_names if request.algorithm_names else list(AVAILABLE_MODELS.keys())
+    # Determine which models to train (limit to 2 models by default to prevent API blocking)
+    if request.algorithm_names:
+        models_to_train = request.algorithm_names
+    else:
+        # Default to training only the most important models to prevent API blocking
+        models_to_train = ["logistic_regression", "xgboost"]
+        print("⚡ Using limited model set for faster training. Specify algorithm_names to train specific models.")
     
     # Validate model names
     invalid_models = [m for m in models_to_train if m not in AVAILABLE_MODELS]
@@ -425,13 +440,34 @@ async def train_models(request: ModelTrainRequest):
             detail=f"Invalid model names: {invalid_models}. Available: {list(AVAILABLE_MODELS.keys())}"
         )
     
+    # Start training in separate thread
+    training_thread = threading.Thread(target=train_models_background, args=(models_to_train, request))
+    training_thread.daemon = True
+    training_thread.start()
+    
+    return {
+        "message": "Training started in background thread",
+        "models_to_train": models_to_train,
+        "status": "training_started",
+        "note": "Check /models/available or /models/training-status for updates"
+    }
+
+def train_models_background(models_to_train: list, request: ModelTrainRequest):
+    """Background thread function for training models to avoid blocking the API"""
+    global models, data_loaded, training_status
+    
     results = {}
     cv_results = {}
     
     try:
-        print(f"🚀 Starting training for models: {models_to_train}")
+        training_status["is_training"] = True
+        training_status["progress"] = 0
+        training_status["models_completed"] = []
+        print(f"🚀 Starting background thread training for models: {models_to_train}")
         
-        for model_key in models_to_train:
+        for i, model_key in enumerate(models_to_train):
+            training_status["current_model"] = model_key
+            training_status["progress"] = int((i / len(models_to_train)) * 100)
             model_config = AVAILABLE_MODELS[model_key]
             print(f"Training {model_config['name']}...")
             
@@ -490,24 +526,32 @@ async def train_models(request: ModelTrainRequest):
                 }
         
         # Find best model
-        best_model = max(results.items(), key=lambda x: x[1]['f1_score'])
+        if results:
+            best_model = max(results.items(), key=lambda x: x[1]['f1_score'])
+            print(f"✅ All selected models trained successfully! Best model: {best_model[1]['name']} (F1: {best_model[1]['f1_score']:.3f})")
+        else:
+            print("⚠️ No models were successfully trained")
         
-        print("✅ All selected models trained successfully!")
-        return {
-            "status": "success",
-            "message": f"Successfully trained {len(models_to_train)} models",
-            "results": results,
-            "cross_validation": cv_results if cv_results else None,
-            "best_model": {
-                "key": best_model[0],
-                "name": best_model[1]['name'],
-                "f1_score": best_model[1]['f1_score']
-            },
-            "k_folds_used": request.k_folds
-        }
+        print(f"📊 Training completed for {len(results)} out of {len(models_to_train)} models")
+        
+        # Mark training as complete
+        training_status["is_training"] = False
+        training_status["progress"] = 100
+        training_status["current_model"] = None
+        training_status["models_completed"] = list(results.keys())
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+        print(f"❌ Background training failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Reset training status on error
+        training_status["is_training"] = False
+        training_status["current_model"] = None
+
+@app.get("/models/training-status")
+async def get_training_status():
+    """Get current training status"""
+    return training_status
 
 @app.post("/models/cross-validate", response_model=CrossValidationResponse)
 async def cross_validate_model(request: CrossValidationRequest):

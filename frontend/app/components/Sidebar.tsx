@@ -184,7 +184,7 @@ export default function Sidebar() {
           className="w-full flex items-center px-3 py-2 mb-2 rounded-lg text-sm font-medium text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white transition-colors"
         >
           <Menu className="h-5 w-5 mr-3" />
-          Collapse sidebar
+          Toggle Sidebar
         </button>
         
         <div className="space-y-2">

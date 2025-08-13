@@ -99,7 +99,7 @@ export default function NotificationSidebar({
 
 
   return (
-    <div className="h-screen w-80 border-l border-gray-700 flex flex-col" style={{backgroundColor: '#212121'}}>
+    <div className="h-screen w-64 lg:w-80 xl:w-96 border-l border-gray-700 flex flex-col overflow-hidden" style={{backgroundColor: '#212121'}}>
       {/* Header */}
       <div className="p-4 border-b border-gray-700 flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -122,24 +122,26 @@ export default function NotificationSidebar({
       </div>
 
       {/* Notifications List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3 custom-scrollbar">
         {notifications.length === 0 ? (
           <div className="text-center text-gray-400 mt-8">
             <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No notifications</p>
+            <p className="text-sm">No notifications</p>
           </div>
         ) : (
           notifications.map((notification) => (
             <div
               key={notification.id}
-              className={`p-4 rounded-lg border-l-4 text-white shadow-lg ${getNotificationColor(notification.type)}`}
+              className={`p-3 lg:p-4 rounded-lg border-l-4 text-white shadow-lg break-words ${getNotificationColor(notification.type)}`}
             >
               {/* Header */}
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  {getNotificationIcon(notification.type)}
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-sm">
+              <div className="flex items-start justify-between mb-2 min-w-0">
+                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                  <div className="flex-shrink-0">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-semibold text-sm truncate">
                       {notification.model_name.replace('_', ' ').toUpperCase()}
                     </span>
                     <span className="text-xs opacity-75 font-medium">
@@ -147,14 +149,14 @@ export default function NotificationSidebar({
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs opacity-75">
+                <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                  <span className="text-xs opacity-75 hidden sm:inline">
                     {notification.timestamp.toLocaleTimeString()}
                   </span>
                   {removeNotification && (
                     <button
                       onClick={() => removeNotification(notification.id)}
-                      className="text-white/60 hover:text-white"
+                      className="text-white/60 hover:text-white p-1"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -163,7 +165,7 @@ export default function NotificationSidebar({
               </div>
 
               {/* Message */}
-              <p className="text-sm mb-2">{notification.message}</p>
+              <p className="text-sm mb-2 break-words overflow-wrap-anywhere">{notification.message}</p>
 
               {/* Training Start Details */}
               {(notification.type === 'model_training_start' || notification.type === 'rl_optimization_start') && (

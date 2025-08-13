@@ -1601,12 +1601,12 @@ export default function TrainingPage() {
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gray-800">
+      <div className="flex-1 h-full overflow-hidden bg-gray-800">
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-200 px-6 py-4">
-          <div className="flex justify-between items-center">
+        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
             <div>
-              <h1 className="text-2xl font-bold text-white">Training</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-white">Training</h1>
               <div className="flex items-center space-x-2 mt-1">
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
                   Developer Mode
@@ -1674,7 +1674,9 @@ export default function TrainingPage() {
           </div>
         </header>
 
-        {/* Backend Error Notification */}
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Backend Error Notification */}
         {backendError && (
           <div className="mx-6 mt-4 p-4 bg-gray-800 border-l-4 border-gray-600 rounded-md">
             <div className="flex">
@@ -2388,6 +2390,7 @@ export default function TrainingPage() {
           </div>
         </div>
       </div>
+        </div> {/* End Scrollable Content Area */}
       
     </AppLayout>
   );

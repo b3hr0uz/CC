@@ -2273,132 +2273,148 @@ This email is totally legitimate and not suspicious at all.`,
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-auto bg-gray-800">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-800">
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Model Selection Dropdown - Consistent with Training Page */}
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-300">Selected Model:</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {MODEL_DISPLAY_ORDER.map((modelKey) => {
-                    const model = availableModels[modelKey];
-                    if (!model) return null;
-                    return (
-                      <option key={modelKey} value={modelKey} disabled={!model.trained}>
-                        {model.name}
-                        {!model.trained && ' (Not Trained)'}
-                        {model.trained && model.f1_score > 0 && ` - F1: ${(model.f1_score * 100).toFixed(1)}%`}
-                      </option>
-                    );
-                  })}
-                </select>
-                
-                {/* Model Status Indicators */}
-                <div className="flex items-center space-x-2">
-                  {selectedModel === 'xgboost_rl' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300">
-                      Best Model
-                    </span>
-                  )}
-                  {availableModels[selectedModel]?.name.includes('+ RL') && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300">
-                      🧠 RL Active ({getRLOptimizationCount()})
-                    </span>
-                  )}
-                  {availableModels[selectedModel]?.implementation_function && (
-                    <span className="text-xs text-gray-400" title={`Implementation: ${availableModels[selectedModel]?.implementation_function}`}>
-                      📋 {availableModels[selectedModel]?.implementation_function?.split('(')[0]}
-                    </span>
-                  )}
-                </div>
-            </div>
-            
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-                  className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors shadow-sm"
-                  title={`Sync emails from ${session?.user?.email || 'your Google account'}`}
-                >
-                  {/* Google Logo with refresh icon */}
-                  <div className="flex items-center mr-2">
-                    <div className="relative">
-                      {/* Google Logo Background */}
-                      <div className="w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center mr-1">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                      </div>
+        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+          {/* iPad-optimized responsive header with two-line layout */}
+          <div className="flex flex-col space-y-3">
+            {/* Title Row */}
+            <div className="flex justify-between items-center">
+              <h1 className="text-xl md:text-2xl lg:text-2xl font-bold text-white">Dashboard</h1>
+              {/* Sync Button - Always visible on top row for quick access */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center justify-center px-3 py-2 lg:px-4 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800 text-white border border-gray-600 rounded-lg transition-colors shadow-sm"
+                title={`Sync emails from ${session?.user?.email || 'your Google account'}`}
+              >
+                {/* Google Logo with refresh icon */}
+                <div className="flex items-center mr-2 flex-shrink-0">
+                  <div className="relative">
+                    {/* Google Logo Background */}
+                    <div className="w-4 h-4 lg:w-5 lg:h-5 bg-gray-800 rounded-full flex items-center justify-center mr-1">
+                      <svg className="w-2.5 h-2.5 lg:w-3 lg:h-3" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
                     </div>
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </div>
-                  <span className="font-medium">
+                  <RefreshCw className={`h-3 w-3 lg:h-4 lg:w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-xs lg:text-sm whitespace-nowrap">
                     {isRefreshing ? 'Syncing Gmail...' : 'Sync Gmail'}
                   </span>
                   {/* Countdown display for next automatic sync */}
                   {!isRefreshing && nextSyncCountdown > 0 && (
-                    <span className="text-xs text-gray-400 ml-2">
-                      (Next auto-sync: {Math.floor(nextSyncCountdown / 60)}:{(nextSyncCountdown % 60).toString().padStart(2, '0')})
+                    <span className="text-xs text-gray-400 whitespace-nowrap hidden lg:block">
+                      (Next: {Math.floor(nextSyncCountdown / 60)}:{(nextSyncCountdown % 60).toString().padStart(2, '0')})
                     </span>
                   )}
-            </button>
+                </div>
+              </button>
+            </div>
+            
+            {/* Controls Row - Better spacing and alignment */}
+            <div className="flex flex-col space-y-3 lg:flex-row lg:items-start lg:justify-between lg:space-y-0 lg:space-x-6">
+              {/* Model Selection Section */}
+              <div className="flex flex-col space-y-3 lg:flex-row lg:items-start lg:space-y-0 lg:space-x-4">
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm text-gray-300 whitespace-nowrap">Selected Model:</label>
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+                  >
+                    {MODEL_DISPLAY_ORDER.map((modelKey) => {
+                      const model = availableModels[modelKey];
+                      if (!model) return null;
+                      return (
+                        <option key={modelKey} value={modelKey} disabled={!model.trained}>
+                          {model.name}
+                          {!model.trained && ' (Not Trained)'}
+                          {model.trained && model.f1_score > 0 && ` - F1: ${(model.f1_score * 100).toFixed(1)}%`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  
+                </div>
+                
+                {/* Model Status Indicators */}
+                <div className="flex flex-col space-y-2 lg:min-w-0">
+                  <div className="flex flex-col space-y-1">
+                      {selectedModel === 'xgboost_rl' && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 border border-green-700 text-green-300 whitespace-nowrap">
+                          Best Model
+                        </span>
+                      )}
+                      {availableModels[selectedModel]?.name.includes('+ RL') && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-900/30 border border-purple-700 text-purple-300 whitespace-nowrap">
+                          🧠 RL Active ({getRLOptimizationCount()})
+                        </span>
+                      )}
+                    </div>
+                    {/* Implementation function badge separate */}
+                    {availableModels[selectedModel]?.implementation_function && (
+                      <span className="text-xs text-gray-400 whitespace-nowrap" title={`Implementation: ${availableModels[selectedModel]?.implementation_function}`}>
+                        📋 {availableModels[selectedModel]?.implementation_function?.split('(')[0]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
-        {/* Error notification for Gmail access issues */}
-        {emailError && (
-          <div className={`mb-6 p-4 rounded-lg border ${
-            emailError.type === 'auth' 
-              ? 'bg-yellow-900/30 border-yellow-600 text-yellow-200' 
-              : emailError.type === 'info'
-                ? 'bg-blue-900/30 border-blue-600 text-blue-200'
-                : 'bg-red-900/30 border-red-600 text-red-200'
-          }`}>
-            <div className="flex items-center">
-              {emailError.type === 'auth' ? (
-                <Shield className="h-5 w-5 mr-2" />
-              ) : emailError.type === 'info' ? (
-                <Inbox className="h-5 w-5 mr-2" />
-              ) : (
-                <AlertCircle className="h-5 w-5 mr-2" />
-              )}
-              <span className="text-sm">{emailError.message}</span>
-              {session?.isMockUser && (
-                <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                  Demo Mode
-                </span>
-              )}
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto" style={{maxHeight: 'calc(100vh - 80px)'}}>
+          {/* Error notification for Gmail access issues */}
+          {emailError && (
+            <div className={`mx-4 lg:mx-6 mt-4 mb-4 p-4 rounded-lg border ${
+              emailError.type === 'auth' 
+                ? 'bg-yellow-900/30 border-yellow-600 text-yellow-200' 
+                : emailError.type === 'info'
+                  ? 'bg-blue-900/30 border-blue-600 text-blue-200'
+                  : 'bg-red-900/30 border-red-600 text-red-200'
+            }`}>
+              <div className="flex items-center">
+                {emailError.type === 'auth' ? (
+                  <Shield className="h-5 w-5 mr-2" />
+                ) : emailError.type === 'info' ? (
+                  <Inbox className="h-5 w-5 mr-2" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                )}
+                <span className="text-sm">{emailError.message}</span>
+                {session?.isMockUser && (
+                  <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                    Demo Mode
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Mock data indicator */}
-        {usingMockData && (
-          <div className="mx-6 mb-4">
-            <div className="flex items-center px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg">
-              <Tag className="h-4 w-4 text-white mr-2" />
-              <span className="text-sm text-white font-medium">Demo Mode</span>
-              <span className="text-sm text-gray-500 ml-2">- Showing sample emails for demonstration</span>
+          {/* Mock data indicator */}
+          {usingMockData && (
+            <div className="mx-4 lg:mx-6 mb-4">
+              <div className="flex items-center px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg">
+                <Tag className="h-4 w-4 text-white mr-2" />
+                <span className="text-sm text-white font-medium">Demo Mode</span>
+                <span className="text-sm text-gray-500 ml-2">- Showing sample emails for demonstration</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Stats Cards */}
-        <div className="px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="px-4 py-4 lg:px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-gray-800 border border-gray-600 rounded-lg">
@@ -2449,32 +2465,32 @@ This email is totally legitimate and not suspicious at all.`,
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="px-6 pb-4">
-          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search emails..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  />
+          {/* Controls */}
+          <div className="px-4 lg:px-6 pb-4">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search emails..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                  </div>
+                  
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
+                  >
+                    <option value="all">All Emails</option>
+                    <option value="ham">Ham Only</option>
+                    <option value="spam">Spam Only</option>
+                  </select>
                 </div>
-                
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                >
-                  <option value="all">All Emails</option>
-                  <option value="ham">Ham Only</option>
-                  <option value="spam">Spam Only</option>
-                </select>
-              </div>
 
               <div className="text-sm text-white">
                 <div className="flex items-center space-x-3">
@@ -2503,14 +2519,14 @@ This email is totally legitimate and not suspicious at all.`,
           </div>
         </div>
 
-        {/* Email List */}
-        <div className="flex-1 px-6 pb-6">
-          <div className="bg-gray-800 rounded-lg shadow border border-gray-600 h-full flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-600">
-              <h2 className="text-lg font-semibold text-white">Latest Emails</h2>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
+          {/* Email List */}
+          <div className="flex-1 px-4 pb-4 lg:px-6 lg:pb-6 min-h-0">
+            <div className="bg-gray-800 rounded-lg shadow border border-gray-600 h-full flex flex-col min-h-0" style={{minHeight: '400px'}}>
+              <div className="px-4 py-4 lg:px-6 border-b border-gray-600 flex-shrink-0">
+                <h2 className="text-lg font-semibold text-white">Latest Emails</h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto min-h-0" style={{minHeight: '300px'}}>
               {loading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
@@ -2521,28 +2537,30 @@ This email is totally legitimate and not suspicious at all.`,
                   {filteredEmails.map((email) => (
                   <div 
                     key={email.id} 
-                    className={`p-4 hover:bg-gray-700 transition-colors cursor-pointer ${!email.read ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}
+                    className={`p-3 lg:p-4 hover:bg-gray-700 transition-colors cursor-pointer ${!email.read ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}
                     onClick={() => handleEmailClick(email)}
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col space-y-3 lg:flex-row lg:items-start lg:justify-between lg:space-y-0">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className={`flex-shrink-0 w-3 h-3 rounded-full ${
-                            email.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
-                          }`}></div>
-                          <p className={`text-sm font-medium truncate ${!email.read ? 'text-white' : 'text-white'}`}>
-                            {email.from}
-                          </p>
-                          {!email.read && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
-                              New
-                            </span>
-                          )}
-                          <div className="flex items-center space-x-2">
+                        <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3 mb-2">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <div className={`flex-shrink-0 w-3 h-3 rounded-full ${
+                              email.classification === 'spam' ? 'bg-red-500' : 'bg-green-500'
+                            }`}></div>
+                            <p className={`text-sm font-medium truncate ${!email.read ? 'text-white' : 'text-white'}`}>
+                              {email.from}
+                            </p>
+                            {!email.read && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white flex-shrink-0">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2 flex-wrap">
                             {email.tags?.slice(0, 2).map((tag) => (
                               <span
                                 key={tag}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white"
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white whitespace-nowrap"
                               >
                                 <Tag className="h-3 w-3 mr-1" />
                                 {tag}
@@ -2567,7 +2585,7 @@ This email is totally legitimate and not suspicious at all.`,
                         </div>
                       </div>
                       
-                      <div className="flex-shrink-0 ml-6 relative w-32 flex flex-col items-center">
+                      <div className="flex-shrink-0 lg:ml-6 relative w-full lg:w-32 flex flex-col items-start lg:items-center">
                         <div 
                           className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer transition-all ${
                           email.classification === 'spam' 
@@ -2866,8 +2884,7 @@ This email is totally legitimate and not suspicious at all.`,
           </div>
         </div>
       </div>
-      
-
+        </div> {/* End Scrollable Content Area */}
 
       {/* Email Modal */}
       {isEmailModalOpen && selectedEmail && (
