@@ -51,6 +51,7 @@ async def check_spam(
         # Get ML service from app state with fallback
         from app.main import app
         ml_service: MLService = app.state.ml_service
+        logger.info(f"🔍 ML service from app state: {ml_service}, type: {type(ml_service)}")
         
         if ml_service is None:
             # Fallback: try to initialize ML service directly
@@ -73,6 +74,7 @@ async def check_spam(
                 )
         
         if not ml_service.is_ready():
+            logger.error(f"❌ ML service not ready. Ready status: {ml_service.ready}")
             raise HTTPException(status_code=503, detail="ML service not ready")
         
         # Predict spam with error handling
@@ -110,7 +112,10 @@ async def check_spam(
         )
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         logger.error(f"Spam check failed: {e}")
+        logger.error(f"Full error traceback: {error_details}")
         raise HTTPException(status_code=500, detail=f"Spam check failed: {str(e)}")
 
 

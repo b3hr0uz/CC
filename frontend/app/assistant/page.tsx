@@ -7,8 +7,7 @@ import {
   Bot, Send, Loader2, Search, Database, 
   Settings, RefreshCw, Zap, Activity, Download, AlertCircle
 } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
-import NotificationSidebar from '../components/NotificationSidebar';
+import AppLayout from '../components/AppLayout';
 import { useNotifications } from '../contexts/NotificationContext';
 import axios from 'axios';
 
@@ -784,11 +783,9 @@ Please provide a helpful response based on the email context provided.`;
   }
 
   return (
-    <div className="flex h-screen bg-gray-800">
-      <Sidebar />
-      
+    <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-800">
         {/* Header */}
         <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -1138,10 +1135,6 @@ Please provide a helpful response based on the email context provided.`;
         </div>
       </div>
       
-      {/* Events Sidebar */}
-      <NotificationSidebar 
-        title="Events"
-      />
-    </div>
+    </AppLayout>
   );
 }

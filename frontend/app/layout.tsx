@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import SessionProvider from '../components/providers/SessionProvider'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { SidebarProvider } from './contexts/SidebarContext'
 import { Toaster } from 'react-hot-toast'
 import PagePreloader from './components/PagePreloader'
 import ServerWarmup from './components/ServerWarmup'
@@ -30,19 +31,21 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning={true}>
         <NotificationProvider>
           <SessionProvider>
-            <main>{children}</main>
-            <PagePreloader />
-            <ServerWarmup />
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#333',
-                  color: '#fff',
-                },
-              }}
-            />
+            <SidebarProvider>
+              <main>{children}</main>
+              <PagePreloader />
+              <ServerWarmup />
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#333',
+                    color: '#fff',
+                  },
+                }}
+              />
+            </SidebarProvider>
           </SessionProvider>
         </NotificationProvider>
       </body>

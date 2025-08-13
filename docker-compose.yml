@@ -85,17 +85,9 @@ services:
       target: ${BACKEND_BUILD_TARGET:-app}
 
       args:
-        - BUILDKIT_INLINE_CACHE=1
-        - ENVIRONMENT=${ENVIRONMENT:-development}
+        - ENVIRONMENT=${ENVIRONMENT:-deployment}
         - BUILD_DATE=${BUILD_DATE:-}
         - GIT_COMMIT=${GIT_COMMIT:-}
-      x-bake:
-        contexts:
-          - .
-        cache-from:
-          - type=local,src=/tmp/.buildx-cache/backend
-        cache-to:
-          - type=local,dest=/tmp/.buildx-cache/backend,mode=max
     
     image: contextcleanse/backend:latest
     container_name: cc_backend
@@ -106,7 +98,7 @@ services:
     
     # Volume mounts for data and development
     volumes:
-      - ./data:/app/data:ro
+      - ./data:/app/data:rw  # Read-write access for feedback storage
       - backend_logs:/app/logs
     
     # Environment configuration
@@ -114,7 +106,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-contextcleanse}:${POSTGRES_PASSWORD:-contextcleanse_password}@db:5432/${POSTGRES_DB:-contextcleanse}
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - ENVIRONMENT=${ENVIRONMENT:-deployment}
       - REDIS_URL=redis://redis:6379/0
     
     # Resource management for ML operations
@@ -184,22 +176,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: ${FRONTEND_BUILD_TARGET:-development}
+      target: ${FRONTEND_BUILD_TARGET:-production}
 
       args:
-        - BUILDKIT_INLINE_CACHE=1
-        - NODE_ENV=${NODE_ENV:-development}
+        - NODE_ENV=${NODE_ENV:-production}
         - NEXT_TELEMETRY_DISABLED=1
         - DOCKER_BUILD=true
         - BUILD_DATE=${BUILD_DATE:-}
         - GIT_COMMIT=${GIT_COMMIT:-}
-      x-bake:
-        contexts:
-          - .
-        cache-from:
-          - type=local,src=/tmp/.buildx-cache/frontend
-        cache-to:
-          - type=local,dest=/tmp/.buildx-cache/frontend,mode=max
     
     image: contextcleanse/frontend:latest
     container_name: cc_frontend
@@ -208,15 +192,15 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     
-    # Volume mounts for development hot-reloading
-    volumes:
+    # Volume mounts for development hot-reloading (disabled in production)
+    # volumes:
       # - ./frontend:/app:cached  # Temporarily disabled to fix startup issues
-      - frontend_node_modules:/app/node_modules
+      # - frontend_node_modules:/app/node_modules  # Disabled for production standalone builds
     
     # Comprehensive environment configuration
     environment:
       # Next.js Configuration
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=${NODE_ENV:-production}
       - NEXT_TELEMETRY_DISABLED=1
       - NEXT_PRIVATE_DEBUG_CACHE=${NEXT_DEBUG_CACHE:-1}
       - PORT=3000
@@ -271,7 +255,7 @@ services:
     read_only: false
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
-      - /app/.next/server:size=200m
+      # - /app/.next/server:size=200m  # Disabled: wipes out built Next.js server files
     
     # Enable init process for proper signal handling
     init: true
@@ -508,5 +492,5 @@ networks:
       com.docker.network.bridge.enable_ip_masquerade: "true"
       com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
     labels:
-      - "environment=${ENVIRONMENT:-development}"
+      - "environment=${ENVIRONMENT:-deployment}"
       - "project=contextcleanse"

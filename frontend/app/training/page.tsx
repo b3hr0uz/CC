@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import Sidebar from '../components/Sidebar';
-import NotificationSidebar from '../components/NotificationSidebar';
+import AppLayout from '../components/AppLayout';
 import { useNotifications, TrainingNotification } from '../contexts/NotificationContext';
 import { 
   CheckCircle, AlertCircle,
@@ -1600,11 +1599,9 @@ export default function TrainingPage() {
 
 
   return (
-    <div className="flex h-screen bg-gray-800">
-      <Sidebar />
-      
+    <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-gray-800">
         {/* Header */}
         <header className="bg-gray-800 border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -2392,10 +2389,6 @@ export default function TrainingPage() {
         </div>
       </div>
       
-      {/* Events Sidebar */}
-      <NotificationSidebar 
-        title="Events"
-      />
-    </div>
+    </AppLayout>
   );
 }

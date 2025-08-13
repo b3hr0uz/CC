@@ -6,10 +6,8 @@
 # ==========================================
 FROM python:3.11-slim AS deps
 
-# Install system dependencies with BuildKit cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y \
+# Install system dependencies (classic builder compatible)
+RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
@@ -26,9 +24,8 @@ WORKDIR /app
 # Copy requirements first for optimal layer caching
 COPY requirements.txt .
 
-# Install Python dependencies with cache mount
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --upgrade pip && \
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # ==========================================
@@ -37,9 +34,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM python:3.11-slim AS app
 
 # Install only runtime dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean

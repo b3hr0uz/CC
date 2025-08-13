@@ -5,12 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useSidebar } from '../contexts/SidebarContext';
 import { 
   BarChart3, Settings, LogOut,
   Home, Bot
 } from 'lucide-react';
 
 export default function Sidebar() {
+  const { isCollapsed } = useSidebar();
   const pathname = usePathname();
 
   const handleSignOut = async () => {
@@ -46,6 +48,11 @@ export default function Sidebar() {
   ];
 
   const isActive = (href: string) => pathname === href;
+
+  // Don't render anything if collapsed
+  if (isCollapsed) {
+    return null;
+  }
 
   return (
     <div className="h-screen w-64 border-r border-gray-600 flex flex-col" style={{backgroundColor: '#212121'}}>

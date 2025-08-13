@@ -49,7 +49,10 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
-        token.accessTokenExpires = account.expires_at * 1000 // Convert to milliseconds
+        // Guard against undefined expires_at per NextAuth types
+        token.accessTokenExpires = account.expires_at
+          ? account.expires_at * 1000
+          : Date.now() + 60 * 60 * 1000 // fallback 1h
         return token
       }
 
@@ -105,14 +108,27 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || 'contextcleanse-fallback-secret-2024',
 }
 
+interface OAuthToken {
+  accessToken?: string
+  refreshToken?: string
+  accessTokenExpires?: number
+  error?: string
+  // Allow provider-specific extras without using any
+  [key: string]: unknown
+}
+
 /**
  * Takes a token, and returns a new token with updated
  * `accessToken` and `accessTokenExpires`. If an error occurs,
  * returns the old token and an error property
  */
-async function refreshAccessToken(token: any) {
+async function refreshAccessToken(token: OAuthToken): Promise<OAuthToken> {
   try {
     const url = "https://oauth2.googleapis.com/token"
+
+    if (!token.refreshToken) {
+      throw new Error('Missing refresh token')
+    }
 
     const response = await fetch(url, {
       headers: {
@@ -123,7 +139,7 @@ async function refreshAccessToken(token: any) {
         client_id: process.env.AUTH_GOOGLE_ID!,
         client_secret: process.env.AUTH_GOOGLE_SECRET!,
         grant_type: "refresh_token",
-        refresh_token: token.refreshToken,
+        refresh_token: token.refreshToken as string,
       }),
     })
 
@@ -135,9 +151,9 @@ async function refreshAccessToken(token: any) {
 
     return {
       ...token,
-      accessToken: refreshedTokens.access_token,
-      accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
-      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Fall back to old refresh token
+      accessToken: (refreshedTokens as { access_token: string }).access_token,
+      accessTokenExpires: Date.now() + (refreshedTokens as { expires_in: number }).expires_in * 1000,
+      refreshToken: (refreshedTokens as { refresh_token?: string }).refresh_token ?? token.refreshToken,
     }
   } catch (error) {
     console.error("Error refreshing access token:", error)

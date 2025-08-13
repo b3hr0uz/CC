@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7-labs
+# syntax=docker/dockerfile:1.4
 # Frontend Dockerfile for ContextCleanse - Optimized with latest BuildKit features
 # Supports Next.js 15.4.5 with advanced optimizations and precompilation
 
@@ -7,16 +7,13 @@
 # ==========================================
 FROM node:22-alpine AS base
 
-# Install system dependencies with cache mount and optimization
-RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    --mount=type=cache,target=/tmp,sharing=locked \
-    apk add --no-cache \
+# Install system dependencies (classic builder compatible)
+RUN apk add --no-cache \
     libc6-compat \
     curl \
     dumb-init \
     bash \
     ca-certificates && \
-    # Clean up package manager cache
     rm -rf /var/cache/apk/* /tmp/*
 
 # Enable Corepack for pnpm/yarn support
@@ -49,10 +46,8 @@ FROM base AS deps
 # Copy package files for dependency installation with proper ordering
 COPY package.json package-lock.json* ./
 
-# Install production dependencies with advanced caching and optimization
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    --mount=type=cache,target=/app/.next/cache,sharing=locked \
-    npm ci --only=production \
+# Install production dependencies
+RUN npm ci --only=production \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -68,10 +63,8 @@ FROM base AS builder
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install all dependencies with advanced caching and optimization
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    --mount=type=cache,target=/app/.next/cache,sharing=locked \
-    npm ci \
+# Install all dependencies
+RUN npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -82,6 +75,7 @@ COPY next.config.js ./
 COPY tsconfig.json ./
 COPY tailwind.config.js ./
 COPY postcss.config.js ./
+COPY .eslintrc.json ./
 COPY public ./public
 COPY app ./app
 COPY lib ./lib
@@ -98,19 +92,16 @@ ENV NEXT_PRIVATE_DEBUG_CACHE=1
 # Create .next directory with proper permissions for caching
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
-# Run complete precompilation pipeline with caching
-RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
-    --mount=type=cache,target=/root/.npm,sharing=locked \
-    # Type checking for early error detection
-    npm run type-check && \
+# Run complete precompilation pipeline
+RUN npm run type-check && \
     # Linting with auto-fix
     npm run lint:fix && \
-    # Optimized production build with all enhancements
-    npm run build && \
-    # Clean unnecessary files to reduce image size
-    rm -rf .next/cache/.tsbuildinfo \
-           .next/cache/eslint \
-           node_modules/.cache && \
+    # Optimized production build (skip prebuild to avoid cache conflicts)
+    npm run build:docker && \
+    # Clean unnecessary cache files (avoid cache directory itself)
+    find .next/cache -name "*.tsbuildinfo" -delete 2>/dev/null || true && \
+    find .next/cache -name "eslint" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    rm -rf node_modules/.cache && \
     # Verify build output
     ls -la .next/
 
@@ -185,12 +176,9 @@ ENV HOSTNAME="0.0.0.0"
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy the complete standalone build from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone/ ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-
-# Copy essential configuration files
-COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/.next/cache /app/logs && \

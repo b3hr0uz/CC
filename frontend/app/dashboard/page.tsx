@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../components/Sidebar';
-import NotificationSidebar from '../components/NotificationSidebar';
+import AppLayout from '../components/AppLayout';
 import { useNotifications } from '../contexts/NotificationContext';
 import { 
   Mail, Search, RefreshCw, AlertCircle, 
@@ -2272,11 +2271,9 @@ This email is totally legitimate and not suspicious at all.`,
 
 
   return (
-    <div className="flex h-screen bg-gray-800">
-      <Sidebar />
-      
+    <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className="flex-1 flex flex-col overflow-auto bg-gray-800">
         {/* Header */}
         <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -2870,10 +2867,7 @@ This email is totally legitimate and not suspicious at all.`,
         </div>
       </div>
       
-      {/* Events Sidebar */}
-      <NotificationSidebar 
-        title="Events"
-      />
+
 
       {/* Email Modal */}
       {isEmailModalOpen && selectedEmail && (
@@ -3118,6 +3112,6 @@ This email is totally legitimate and not suspicious at all.`,
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 } 

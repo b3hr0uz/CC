@@ -17,6 +17,8 @@ alembic==1.12.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
+PyJWT==2.8.0
+authlib==1.2.1
 
 # HTTP & API
 httpx==0.25.2

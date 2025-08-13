@@ -47,7 +47,7 @@ export interface TrainingNotification extends BaseNotification {
 
 // RL notification interface
 export interface RLNotification extends BaseNotification {
-  type: 'rl_optimization_start' | 'rl_optimization_complete' | 'rl_error' | 'email_fetch_start' | 'email_fetch_complete' | 'model_classification_start' | 'model_classification_complete';
+  type: 'rl_optimization_start' | 'rl_optimization_complete' | 'rl_error' | 'email_fetch_start' | 'email_fetch_complete' | 'email_fetch_error' | 'model_classification_start' | 'model_classification_complete';
   emailId?: string;
   improvements?: {
     accuracyGain: number;

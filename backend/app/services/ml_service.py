@@ -163,6 +163,8 @@ class MLService:
             await self.load_models()
         
         try:
+            logger.info(f"🔍 Starting spam prediction for content length: {len(content)}")
+            
             # Combine email parts
             text_parts = [content]
             if subject:
@@ -171,24 +173,33 @@ class MLService:
                 text_parts.append(f"From: {sender}")
             
             full_text = " ".join(text_parts)
+            logger.info(f"📝 Combined text length: {len(full_text)}")
             
             # Limit text length
             if len(full_text) > settings.MAX_EMAIL_LENGTH:
                 full_text = full_text[:settings.MAX_EMAIL_LENGTH]
+                logger.info(f"✂️ Text truncated to {settings.MAX_EMAIL_LENGTH} characters")
             
             # Vectorize text
+            logger.info("🔢 Vectorizing text...")
             features = self.vectorizer.transform([full_text])
+            logger.info(f"✅ Features created with shape: {features.shape}")
             
             # Predict with model
-            if ort and hasattr(self.spam_model, 'run'):
+            logger.info("🤖 Running model prediction...")
+            if ort and hasattr(self.spam_model, 'get_inputs'):
                 # ONNX model prediction
+                logger.info("📊 Using ONNX model")
                 input_name = self.spam_model.get_inputs()[0].name
                 outputs = self.spam_model.run(None, {input_name: features.astype(np.float32)})
                 probabilities = outputs[0][0]
             else:
                 # Mock model prediction
+                logger.info("🎭 Using mock model")
                 outputs = self.spam_model.run(None, {'input': features})
                 probabilities = outputs[0][0]
+            
+            logger.info(f"🎯 Raw probabilities: {probabilities}")
             
             spam_probability = float(probabilities[1])  # Probability of spam
             is_spam = spam_probability > settings.SPAM_THRESHOLD
@@ -597,7 +608,7 @@ class MLService:
             # Initialize RL components if needed
             if not hasattr(self, 'rl_q_table'):
                 self.rl_q_table = {}
-            if not hasattr(self, 'rl_policy_network'):
+            if self.rl_policy_network is None:
                 self.rl_policy_network = self._initialize_policy_network()
             
             # Q-Learning Update
