@@ -36,7 +36,7 @@ target "backend" {
 target "frontend" {
   context = "./frontend"
   dockerfile = "Dockerfile"
-  target = "production"
+  target = "development"
   
   tags = [
     "${REGISTRY}/frontend:${VERSION}",

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Temporarily disable standalone output for debugging
-  // output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
+  // Enable standalone output for Docker production builds  
+  output: process.env.NODE_ENV === 'production' && process.env.DOCKER_BUILD ? 'standalone' : undefined,
   reactStrictMode: true,
   
   // Image optimization

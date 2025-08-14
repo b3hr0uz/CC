@@ -176,7 +176,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: ${FRONTEND_BUILD_TARGET:-production}
+      target: ${FRONTEND_BUILD_TARGET:-development}
 
       args:
         - NODE_ENV=${NODE_ENV:-production}
