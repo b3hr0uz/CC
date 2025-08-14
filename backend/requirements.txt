@@ -1,58 +1,58 @@
-# FastAPI Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# FastAPI Framework - Updated to latest stable
+fastapi==0.116.1
+uvicorn[standard]==0.32.1
 
-# ML and Data Science
-scikit-learn==1.3.2
-xgboost==1.7.6
-numpy==1.24.4
-pandas==2.0.3
+# ML and Data Science - Updated to latest compatible versions
+scikit-learn==1.7.1
+xgboost==2.1.3
+numpy==2.2.6
+pandas==2.2.3
 
-# Database
-asyncpg==0.29.0
-sqlalchemy[asyncio]==2.0.23
-alembic==1.12.1
+# Database - Updated to latest stable versions
+asyncpg==0.30.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.14.0
 
-# Authentication & Security
+# Authentication & Security - Updated to latest stable versions
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-PyJWT==2.8.0
-authlib==1.2.1
+python-multipart==0.0.20
+PyJWT==2.10.1
+authlib==1.4.0
 
-# HTTP & API
-httpx==0.25.2
-requests==2.31.0
+# HTTP & API - Updated to latest stable versions
+httpx==0.28.1
+requests==2.32.3
 
-# Environment & Configuration
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+# Environment & Configuration - Updated to latest stable versions
+python-dotenv==1.0.1
+pydantic==2.11.7
+pydantic-settings==2.8.1
 
-# Logging
-loguru==0.7.2
+# Logging - Updated to latest stable version
+loguru==0.7.3
 
-# Optional ML Dependencies
-onnxruntime==1.16.3
+# Optional ML Dependencies - Updated to latest stable version
+onnxruntime==1.21.0
 
-# Development & Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
+# Development & Testing - Updated to latest stable versions
+pytest==8.4.1
+pytest-asyncio==0.25.0
 
-# Redis (for caching)
-redis==5.0.1
+# Redis (for caching) - Updated to latest stable version
+redis==5.2.1
 
-# Email processing (if needed)
-email-validator==2.1.0
+# Email processing - Updated to latest stable version
+email-validator==2.2.0
 
-# PostgreSQL adapter
-psycopg2-binary==2.9.9
+# PostgreSQL adapter - Updated to latest stable version
+psycopg2-binary==2.9.10
 
-# Vector Embeddings & Similarity Search
-sentence-transformers==2.2.2
-torch==2.1.1
-torchvision==0.16.1
-transformers==4.35.2
+# Vector Embeddings & Similarity Search - Updated to latest stable versions
+sentence-transformers==3.3.1
+torch==2.5.1
+torchvision==0.20.1
+transformers==4.48.2
 
-# Vector Database (pgvector support)
-pgvector==0.2.4
+# Vector Database (pgvector support) - Updated to latest available version
+pgvector==0.4.1

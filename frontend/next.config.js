@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use standalone output only for Docker builds, not for Vercel
-  ...(process.env.DOCKER_BUILD === 'true' && { output: 'standalone' }),
+  // Temporarily disable standalone output for debugging
+  // output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   reactStrictMode: true,
   
   // Image optimization

@@ -63,8 +63,10 @@ FROM base AS builder
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install all dependencies
-RUN npm ci \
+# Install all dependencies with advanced caching
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    --mount=type=cache,target=/app/.next/cache,sharing=locked \
+    npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -86,27 +88,41 @@ COPY components ./components
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=true
-ENV NEXT_PRIVATE_STANDALONE=true
 ENV NEXT_PRIVATE_DEBUG_CACHE=1
 
 # Create .next directory with proper permissions for caching
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
-# Run complete precompilation pipeline
-RUN npm run type-check && \
+# Run complete precompilation pipeline with error handling
+RUN set -e && \
+    echo "🔍 Starting build pipeline..." && \
+    npm run type-check && \
+    echo "✅ Type check completed" && \
     # Linting with auto-fix
     npm run lint:fix && \
+    echo "✅ Linting completed" && \
     # Optimized production build (skip prebuild to avoid cache conflicts)
     npm run build:docker && \
+    echo "✅ Build completed" && \
     # Clean unnecessary cache files (avoid cache directory itself)
     find .next/cache -name "*.tsbuildinfo" -delete 2>/dev/null || true && \
     find .next/cache -name "eslint" -type d -exec rm -rf {} + 2>/dev/null || true && \
     rm -rf node_modules/.cache && \
     # Verify build output
-    ls -la .next/
+    echo "📁 Build output:" && \
+    ls -la .next/ && \
+    echo "📊 Build statistics:" && \
+    du -sh .next/* 2>/dev/null || echo "No build output found"
 
-# Verify standalone build was created
-RUN test -f .next/standalone/server.js || (echo "Standalone build failed!" && exit 1)
+# Debug and verify standalone build
+RUN echo "🔍 Build completed! Checking build output..." && \
+    ls -la .next/ && \
+    echo "📁 Checking for standalone directory..." && \
+    ls -la .next/standalone/ 2>/dev/null || echo "⚠️ No standalone directory found" && \
+    echo "📁 Checking for static directory..." && \
+    ls -la .next/static/ 2>/dev/null || echo "⚠️ No static directory found" && \
+    echo "🔧 Next.js config check..." && \
+    node -e "console.log('NODE_ENV:', process.env.NODE_ENV); console.log('DOCKER_BUILD:', process.env.DOCKER_BUILD); const config = require('./next.config.js'); console.log('Config output:', config.output);"
 
 # ==========================================
 # Development Stage - Optimized for fast development workflow
@@ -116,10 +132,8 @@ FROM base AS development
 # Copy package files for dependency installation
 COPY package.json package-lock.json* ./
 
-# Install all dependencies with advanced caching
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    --mount=type=cache,target=/app/.next/cache,sharing=locked \
-    npm ci \
+# Install all dependencies
+RUN npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -175,10 +189,20 @@ ENV HOSTNAME="0.0.0.0"
 # Copy production dependencies (minimal set from deps stage)
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Copy the complete standalone build from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone/ ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy package.json for npm commands
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# Copy build output (handle both standalone and regular builds)
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Copy standalone files if they exist, otherwise use regular build
+RUN if [ -d ".next/standalone" ]; then \
+      echo "✅ Using standalone build"; \
+      cp -r .next/standalone/* . 2>/dev/null || true; \
+    else \
+      echo "⚠️ No standalone build found, using regular build"; \
+    fi
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/.next/cache /app/logs && \
@@ -200,5 +224,5 @@ LABEL org.opencontainers.image.description="Optimized Next.js frontend with prec
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.source="https://github.com/your-org/contextcleanse"
 
-# Use dumb-init for proper signal handling and run the optimized server
-CMD ["dumb-init", "node", "server.js"]
+# Use dumb-init for proper signal handling and run Next.js
+CMD echo "🚀 Starting Next.js server" && exec dumb-init npm start

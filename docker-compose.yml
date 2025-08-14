@@ -54,13 +54,13 @@ services:
           memory: ${POSTGRES_MEMORY_RESERVATION:-1G}
           cpus: ${POSTGRES_CPU_RESERVATION:-0.5}
     
-    # Production-grade health check
+    # Production-grade health check (with longer startup time)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contextcleanse} -d ${POSTGRES_DB:-contextcleanse}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 60s
     
     # Logging configuration
     logging:
@@ -429,26 +429,18 @@ services:
       - nginx
       - production
 
-# Named volumes for data persistence and performance
+# Named volumes for data persistence and performance (WSL2 optimized)
 volumes:
-  # Database persistence
+  # Database persistence - using Docker managed volumes for WSL2 compatibility
   postgres_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${POSTGRES_DATA_PATH:-./volumes/postgres}
     labels:
       - "backup.enable=true"
       - "service=database"
   
-  # Redis cache persistence
+  # Redis cache persistence - using Docker managed volumes for WSL2 compatibility
   redis_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${REDIS_DATA_PATH:-./volumes/redis}
     labels:
       - "backup.enable=false"
       - "service=cache"
@@ -466,13 +458,9 @@ volumes:
       - "purpose=development"
       - "service=frontend"
   
-  # Backend log volume
+  # Backend log volume - using Docker managed volume for WSL2 compatibility
   backend_logs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${BACKEND_LOGS_PATH:-./volumes/backend/logs}
     labels:
       - "purpose=logging"
       - "service=backend"

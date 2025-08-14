@@ -814,12 +814,12 @@ export default function TrainingPage() {
 
       console.log(`📡 Sending training request to: ${API_BASE_URL}/models/train`);
       console.log('📋 Training parameters:', {
-        model_names: selectedModelsForTraining,
+        algorithm_names: selectedModelsForTraining,
         k_folds: kFolds
       });
 
       const response = await axios.post(`${API_BASE_URL}/models/train`, {
-        model_names: selectedModelsForTraining,
+        algorithm_names: selectedModelsForTraining,
         k_folds: kFolds
       });
       
@@ -1271,7 +1271,7 @@ export default function TrainingPage() {
     try {
       // Simulate training API call
       const response = await axios.post(`${API_BASE_URL}/models/train`, {
-        model_names: [modelName],
+        algorithm_names: [modelName],
         k_folds: autoTrainingConfig.optimal_k_fold,
         resource_limit: autoTrainingConfig.resource_limit
       });

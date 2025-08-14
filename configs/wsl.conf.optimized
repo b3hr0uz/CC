@@ -1,0 +1,59 @@
+# Optimized WSL Configuration for Docker Builds
+# This configuration prevents EOF errors, improves build performance, and increases stability
+# Replace /etc/wsl.conf in your WSL distribution with this content
+
+[boot]
+# Enable systemd for better Docker integration
+systemd=true
+
+# Custom kernel parameters for better performance
+kernelCommandLine = "cgroup_no_v1=all systemd.unified_cgroup_hierarchy=1"
+
+[user]
+default=b3h
+
+[network]
+# Generate unique host ID to prevent network conflicts
+generateHosts = true
+generateResolvConf = true
+
+# Improve network performance for Docker
+hostname = wsl-docker-host
+
+[wsl2]
+# Memory allocation (adjust based on your system - recommend 6-8GB for Docker builds)
+memory=8GB
+
+# Processor count (adjust based on your CPU cores - use 75% of available)
+processors=4
+
+# Swap allocation for large builds
+swap=4GB
+
+# Localhostforwarding for better Docker networking
+localhostforwarding=true
+
+# Disable nested virtualization overhead
+nestedVirtualization=false
+
+[automount]
+# Optimize file system performance for Docker volumes
+enabled = true
+root = /mnt/
+options = "metadata,umask=22,fmask=11"
+
+# Enable case sensitivity for better Docker compatibility
+mountFsTab = true
+
+[interop]
+# Enable Windows interop for better integration
+enabled = true
+appendWindowsPath = true
+
+# Custom section for performance tuning
+[experimental]
+# Enable memory reclaim for better resource management
+autoMemoryReclaim=gradual
+
+# Sparse VHD for disk space efficiency
+sparseVhd=true

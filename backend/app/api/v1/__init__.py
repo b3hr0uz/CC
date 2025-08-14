@@ -31,3 +31,16 @@ api_router.include_router(
     prefix="/ollama", 
     tags=["ollama"]
 )
+
+# Add root-level convenience routes that frontend expects
+@api_router.get("/compare")
+async def compare_models_root():
+    """Root-level compare endpoint that redirects to feedback/models/compare"""
+    from .endpoints.feedback import compare_models
+    return await compare_models()
+
+@api_router.get("/statistics") 
+async def get_statistics_root():
+    """Root-level statistics endpoint"""
+    from .endpoints.feedback import get_dataset_statistics
+    return await get_dataset_statistics()
