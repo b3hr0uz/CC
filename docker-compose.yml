@@ -56,7 +56,7 @@ services:
     
     # Production-grade health check (with longer startup time)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contextcleanse} -d ${POSTGRES_DB:-contextcleanse} || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
