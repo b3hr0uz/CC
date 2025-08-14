@@ -210,6 +210,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 RUN if [ -d ".next/standalone" ]; then \
       echo "✅ Using standalone build"; \
       cp -r .next/standalone/* . 2>/dev/null || true; \
+      # Copy static files to standalone directory
+      mkdir -p .next/static && cp -r .next/static .next/standalone/.next/ 2>/dev/null || true; \
     else \
       echo "⚠️ No standalone build found, using regular build"; \
     fi
@@ -234,5 +236,12 @@ LABEL org.opencontainers.image.description="Optimized Next.js frontend with prec
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.source="https://github.com/your-org/contextcleanse"
 
-# Use dumb-init for proper signal handling and run Next.js
-CMD echo "🚀 Starting Next.js server" && exec dumb-init npm start
+# Use dumb-init for proper signal handling and run Next.js (standalone or regular)
+CMD echo "🚀 Starting Next.js server" && \
+    if [ -f "server.js" ]; then \
+      echo "✅ Running standalone server"; \
+      exec dumb-init node server.js; \
+    else \
+      echo "⚠️ Running with npm start"; \
+      exec dumb-init npm start; \
+    fi

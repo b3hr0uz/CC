@@ -21,9 +21,9 @@ export default function DashboardPage() {
   const { addNotification } = useNotifications();
 
   // State management
-  const [emails] = useState<ExtendedEmailData[]>([]);
+  const [emails, setEmails] = useState<ExtendedEmailData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [emailError] = useState<{type: string; message: string} | null>(null);
+  const [emailError, setEmailError] = useState<{type: string; message: string} | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
 
   const handleSyncEmails = async () => {
