@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Temporary: Basic CSS without Tailwind to resolve startup issues */
+/* @tailwind base;
+@tailwind components; 
+@tailwind utilities; */
 
 :root {
   --foreground-rgb: 255, 255, 255;     /* White text */

@@ -46,8 +46,8 @@ FROM base AS deps
 # Copy package files for dependency installation with proper ordering
 COPY package.json package-lock.json* ./
 
-# Install production dependencies
-RUN npm ci --only=production \
+# Install production dependencies (include devDependencies for CSS/build tools)
+RUN npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -101,8 +101,8 @@ RUN set -e && \
     # Linting with auto-fix
     npm run lint:fix && \
     echo "✅ Linting completed" && \
-    # Optimized production build (skip prebuild to avoid cache conflicts)
-    npm run build:docker && \
+    # Build without prebuild script to avoid cleaning .next directory
+    npx next build && \
     echo "✅ Build completed" && \
     # Clean unnecessary cache files (avoid cache directory itself)
     find .next/cache -name "*.tsbuildinfo" -delete 2>/dev/null || true && \
@@ -195,6 +195,16 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 # Copy build output (handle both standalone and regular builds)
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Copy source directories needed for Next.js runtime (fallback for non-standalone builds)
+COPY --from=builder --chown=nextjs:nodejs /app/app ./app
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+COPY --from=builder --chown=nextjs:nodejs /app/components ./components
+COPY --from=builder --chown=nextjs:nodejs /app/types ./types
+
+# Copy configuration files needed for Next.js runtime
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./next.config.js
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 
 # Copy standalone files if they exist, otherwise use regular build
 RUN if [ -d ".next/standalone" ]; then \

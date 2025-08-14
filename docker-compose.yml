@@ -179,11 +179,12 @@ services:
       target: ${FRONTEND_BUILD_TARGET:-development}
 
       args:
-        - NODE_ENV=${NODE_ENV:-production}
+        - NODE_ENV=${NODE_ENV:-development}
         - NEXT_TELEMETRY_DISABLED=1
         - DOCKER_BUILD=true
-        - BUILD_DATE=${BUILD_DATE:-}
-        - GIT_COMMIT=${GIT_COMMIT:-}
+    
+    # Temporary: Force development mode until production build is fixed
+    command: ["npm", "run", "dev"]
     
     image: contextcleanse/frontend:latest
     container_name: cc_frontend
