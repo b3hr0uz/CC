@@ -32,7 +32,6 @@ Before setting up ContextCleanse, ensure you have:
 - **Python 3.11+** - For backend development
 - **Ollama** - For hosting LLMs
 
-
 ---
 
 ## 📁 **Project Architecture**
