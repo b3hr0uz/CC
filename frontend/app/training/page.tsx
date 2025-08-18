@@ -1416,65 +1416,73 @@ export default function TrainingPage() {
       const endTime = new Date();
       const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
 
-      // CRITICAL: Only update metrics if they come from legitimate backend model runs
+      // Check if the backend training started successfully
+      let trainingStarted = false;
       let newMetrics: ModelMetrics | null = null;
-      let isLegitimateBackendRun = false;
       
-      // Validate backend response has real metrics data
+      // Check for successful training start response
+      if (response.data && (response.data.status === 'training_started' || response.data.message?.includes('Training started'))) {
+        trainingStarted = true;
+        console.log(`✅ Backend training started successfully for ${modelName}`);
+      }
+      
+      // Check for immediate metrics (if available)
       if (response.data && response.data.metrics && response.data.metrics[modelName]) {
-        // Verify the response contains actual training results (not mock data)
         const backendMetrics = response.data.metrics[modelName];
         if (backendMetrics.accuracy && backendMetrics.precision && backendMetrics.recall && backendMetrics.f1_score) {
           newMetrics = backendMetrics;
-          isLegitimateBackendRun = true;
-          console.log(`✅ Received legitimate backend metrics for ${modelName}:`, newMetrics);
+          console.log(`✅ Received immediate metrics for ${modelName}:`, newMetrics);
         }
       }
 
-      // If backend didn't return legitimate metrics, skip this training update
-      if (!isLegitimateBackendRun || !newMetrics) {
-        console.warn(`⚠️ Backend did not return legitimate metrics for ${modelName}. Skipping parameter update.`);
+      // If training didn't start at all, then there's a real backend issue
+      if (!trainingStarted) {
+        console.warn(`⚠️ Backend failed to start training for ${modelName}`);
         
-        // Add notification about skipped update
+        // Add notification about actual backend failure
         addNotification({
-          id: generateNotificationId('training_skipped', modelName),
+          id: generateNotificationId('training_error', modelName),
           type: 'training_error',
           model_name: modelName,
-          message: `Training skipped for ${modelName.replace('_', ' ').toUpperCase()}: Backend temporarily unavailable. Using local model training and cached results. All models remain functional.`,
+          message: `Training failed for ${modelName.replace('_', ' ').toUpperCase()}: Backend service error. Please check backend status.`,
           timestamp: new Date()
         });
-        return; // Exit early without updating any parameters
+        return;
       }
 
-      // Calculate metric changes (only for legitimate backend runs)
-      const metricChanges = previousMetrics ? {
+      // Calculate metric changes (only if we have new metrics)
+      const metricChanges = previousMetrics && newMetrics ? {
         accuracy_change: newMetrics.accuracy - previousMetrics.accuracy,
         precision_change: newMetrics.precision - previousMetrics.precision,
         recall_change: newMetrics.recall - previousMetrics.recall,
         f1_score_change: newMetrics.f1_score - previousMetrics.f1_score
       } : undefined;
 
-      // Store updated metrics (only for legitimate backend runs)
-      setPreviousModelMetrics(prev => ({
-        ...prev,
-        [modelName]: newMetrics!
-      }));
+      // Store updated metrics (only if available)
+      if (newMetrics) {
+        setPreviousModelMetrics(prev => ({
+          ...prev,
+          [modelName]: newMetrics
+        }));
+      }
 
       // Training complete notification
       addNotification({
         id: generateNotificationId('model_training_complete', modelName),
         type: 'model_training_complete',
         model_name: modelName,
-        message: `Training completed for ${modelName.replace('_', ' ').toUpperCase()}`,
+        message: newMetrics 
+          ? `Training completed for ${modelName.replace('_', ' ').toUpperCase()}`
+          : `Training started for ${modelName.replace('_', ' ').toUpperCase()} (results will be available shortly)`,
         timestamp: endTime,
         start_time: startTime,
         end_time: endTime,
         duration: actualDuration,
-        metrics: {
+        metrics: newMetrics ? {
           ...newMetrics,
           previous_metrics: previousMetrics,
           metric_changes: metricChanges
-        }
+        } : undefined
       });
 
       // After individual model training, update the analysis sections by comparing models

@@ -21,7 +21,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:35:38.970167",
+    "timestamp": "2025-08-18T20:45:43.582092",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -47,31 +47,33 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:36:20.489189",
+    "timestamp": "2025-08-18T20:44:10.306386",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
   "neural_network": {
     "model_name": "neural_network",
     "metrics": {
-      "accuracy": 0.9308845903064551,
-      "precision": 0.9012345679012346,
-      "recall": 0.9260893546607832,
-      "f1_score": 0.9134929270946681,
+      "accuracy": 0.9283387622149837,
+      "precision": 0.9046321525885559,
+      "recall": 0.9146005509641874,
+      "f1_score": 0.9095890410958904,
       "cv_scores": [
-        0.8951612903225806,
-        0.9164345403899722,
-        0.9146005509641874,
-        0.9213483146067416,
-        0.9090909090909091
+        0.9036544850498339,
+        0.919104991394148,
+        0.9045045045045045,
+        0.9033391915641477,
+        0.9157894736842105
       ],
-      "mean_cv_score": 0.9113271210748781,
-      "std_cv_score": 0.008983987122126296
+      "mean_cv_score": 0.9092785292393689,
+      "std_cv_score": 0.006762376405944317,
+      "test_samples": 921,
+      "train_samples": 3680
     },
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:23:50.618404",
+    "timestamp": "2025-08-18T20:44:07.707914",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
