@@ -477,8 +477,25 @@ class MLService:
                 "legitimate_training": True  # Flag to indicate this came from real training
             }
             
-            data_dir = Path("data/ml_training")
-            data_dir.mkdir(parents=True, exist_ok=True)
+            # Try multiple paths for Docker compatibility
+            possible_data_dirs = [
+                Path("/app/data/ml_training"),  # Docker mounted path
+                Path("data/ml_training"),       # Local development path
+                Path("../data/ml_training"),    # Alternative path
+            ]
+            
+            data_dir = None
+            for path in possible_data_dirs:
+                try:
+                    path.mkdir(parents=True, exist_ok=True)
+                    data_dir = path
+                    break
+                except:
+                    continue
+                    
+            if data_dir is None:
+                data_dir = Path("data/ml_training")  # Fallback
+                data_dir.mkdir(parents=True, exist_ok=True)
             
             # Load existing results
             results_file = data_dir / "training_results.json"
@@ -502,13 +519,20 @@ class MLService:
     def _load_training_results(self) -> Dict[str, Any]:
         """Load actual training results from disk."""
         try:
-            results_file = Path("data/ml_training/training_results.json")
-            if results_file.exists():
-                with open(results_file, "r") as f:
-                    training_results = json.load(f)
-                
-                logger.info(f"📊 Loaded real training results for {len(training_results)} models")
-                return training_results
+            # Try multiple paths for Docker compatibility
+            possible_files = [
+                Path("/app/data/ml_training/training_results.json"),  # Docker mounted path
+                Path("data/ml_training/training_results.json"),       # Local development path
+                Path("../data/ml_training/training_results.json"),    # Alternative path
+            ]
+            
+            for results_file in possible_files:
+                if results_file.exists():
+                    with open(results_file, "r") as f:
+                        training_results = json.load(f)
+                    
+                    logger.info(f"📊 Loaded real training results for {len(training_results)} models from {results_file}")
+                    return training_results
                 
         except Exception as e:
             logger.error(f"❌ Error loading training results: {e}")
@@ -909,10 +933,23 @@ class MLService:
                 # Return fallback metrics when sklearn unavailable
                 return await self._get_fallback_metrics(model_name, k_folds, use_rl_enhancement)
             
-            # Load spambase dataset (UCI dataset)
-            data_path = Path("data/spambase/spambase.data")
-            if not data_path.exists():
-                logger.warning("Spambase dataset not found, using fallback metrics")
+            # Load spambase dataset (UCI dataset) - check multiple possible paths
+            possible_paths = [
+                Path("/app/data/spambase/spambase.data"),  # Docker mounted path
+                Path("data/spambase/spambase.data"),       # Local development path
+                Path("../data/spambase/spambase.data"),    # Alternative path
+                Path("../../data/spambase/spambase.data")  # Alternative path
+            ]
+            
+            data_path = None
+            for path in possible_paths:
+                if path.exists():
+                    data_path = path
+                    logger.info(f"📁 Found spambase dataset at: {path}")
+                    break
+            
+            if data_path is None:
+                logger.warning(f"⚠️ Spambase dataset not found in any of these paths: {[str(p) for p in possible_paths]}")
                 return await self._get_fallback_metrics(model_name, k_folds, use_rl_enhancement)
             
             # Load and prepare data
@@ -937,28 +974,36 @@ class MLService:
             else:
                 model = model_info["class"](random_state=42)
             
-            # Cross-validation training
-            cv = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
-            cv_scores = cross_val_score(model, X, y, cv=cv, scoring='f1')
+            # Proper train/test split to avoid overfitting
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y
+            )
             
-            # Train final model on full dataset
-            model.fit(X, y)
+            # Cross-validation on training data only
+            cv = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
+            cv_scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='f1')
+            
+            # Train final model on training set only
+            model.fit(X_train, y_train)
             
             # Store trained model
             self.models[model_name] = model
             
-            # Calculate metrics
-            y_pred = model.predict(X)
-            y_pred_proba = model.predict_proba(X)[:, 1] if hasattr(model, 'predict_proba') else y_pred
+            # Calculate metrics on TEST SET to prevent overfitting
+            y_pred = model.predict(X_test)
+            y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else y_pred
             
             metrics = {
-                "accuracy": accuracy_score(y, y_pred),
-                "precision": precision_score(y, y_pred),
-                "recall": recall_score(y, y_pred),
-                "f1_score": f1_score(y, y_pred),
+                "accuracy": accuracy_score(y_test, y_pred),
+                "precision": precision_score(y_test, y_pred),
+                "recall": recall_score(y_test, y_pred),
+                "f1_score": f1_score(y_test, y_pred),
                 "cv_scores": cv_scores.tolist(),
                 "mean_cv_score": cv_scores.mean(),
-                "std_cv_score": cv_scores.std()
+                "std_cv_score": cv_scores.std(),
+                "test_samples": len(y_test),
+                "train_samples": len(y_train)
             }
             
             # Training time will be updated by the API endpoint

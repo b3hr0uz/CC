@@ -1,0 +1,104 @@
+{
+  "logistic_regression": {
+    "model_name": "logistic_regression",
+    "metrics": {
+      "accuracy": 0.9272529858849077,
+      "precision": 0.9021739130434783,
+      "recall": 0.9146005509641874,
+      "f1_score": 0.908344733242134,
+      "cv_scores": [
+        0.903448275862069,
+        0.8885017421602788,
+        0.9081272084805654,
+        0.888135593220339,
+        0.9020979020979021
+      ],
+      "mean_cv_score": 0.8980621443642309,
+      "std_cv_score": 0.00820415719713426,
+      "test_samples": 921,
+      "train_samples": 3680
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-18T20:35:38.970167",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  },
+  "xgboost": {
+    "model_name": "xgboost",
+    "metrics": {
+      "accuracy": 0.9478827361563518,
+      "precision": 0.9315068493150684,
+      "recall": 0.9366391184573003,
+      "f1_score": 0.9340659340659341,
+      "cv_scores": [
+        0.9572649572649573,
+        0.9395509499136442,
+        0.9533678756476683,
+        0.9424083769633508,
+        0.9340277777777778
+      ],
+      "mean_cv_score": 0.9453239875134797,
+      "std_cv_score": 0.008680138216908164,
+      "test_samples": 921,
+      "train_samples": 3680
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-18T20:36:20.489189",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  },
+  "neural_network": {
+    "model_name": "neural_network",
+    "metrics": {
+      "accuracy": 0.9308845903064551,
+      "precision": 0.9012345679012346,
+      "recall": 0.9260893546607832,
+      "f1_score": 0.9134929270946681,
+      "cv_scores": [
+        0.8951612903225806,
+        0.9164345403899722,
+        0.9146005509641874,
+        0.9213483146067416,
+        0.9090909090909091
+      ],
+      "mean_cv_score": 0.9113271210748781,
+      "std_cv_score": 0.008983987122126296
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-18T20:23:50.618404",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  },
+  "random_forest": {
+    "model_name": "random_forest",
+    "metrics": {
+      "accuracy": 0.9446254071661238,
+      "precision": 0.9482758620689655,
+      "recall": 0.9090909090909091,
+      "f1_score": 0.9282700421940928,
+      "cv_scores": [
+        0.9480968858131488,
+        0.9424083769633508,
+        0.9407665505226481,
+        0.9312169312169312,
+        0.9295774647887324
+      ],
+      "mean_cv_score": 0.9384132418609623,
+      "std_cv_score": 0.007001856463706745,
+      "test_samples": 921,
+      "train_samples": 3680
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-18T20:35:46.567081",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  }
+}
