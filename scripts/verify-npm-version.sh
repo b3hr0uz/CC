@@ -33,24 +33,12 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if BuildKit is enabled
-if [ "$DOCKER_BUILDKIT" != "1" ]; then
-    echo -e "${YELLOW}⚠️  Enabling BuildKit...${NC}"
-    export DOCKER_BUILDKIT=1
-fi
-
 # Test npm version in Docker container
 echo -e "${YELLOW}🐳 Checking npm version in Docker container...${NC}"
 
-# Build a minimal test container
-docker buildx build \
-    --platform linux/amd64 \
-    --target base \
-    --load \
-    -t contextcleanse/npm-test:latest \
-    -f - . <<EOF
-# syntax=docker/dockerfile:1.7
-FROM node:22-alpine AS base
+# Create a temporary Dockerfile for testing
+cat > Dockerfile.npm-test <<EOF
+FROM node:22-alpine
 
 # Install system dependencies
 RUN apk add --no-cache curl
@@ -65,6 +53,12 @@ RUN npm install -g npm@11.5.2
 RUN echo "npm version in container: \$(npm --version)"
 EOF
 
+# Build a minimal test container
+docker build \
+    -t contextcleanse/npm-test:latest \
+    -f Dockerfile.npm-test \
+    .
+
 # Get npm version from container
 DOCKER_NPM_VERSION=$(docker run --rm contextcleanse/npm-test:latest npm --version 2>/dev/null || echo "ERROR")
 
@@ -76,8 +70,9 @@ else
     echo -e "${RED}❌ Docker npm version mismatch. Expected: 11.5.2, Got: $DOCKER_NPM_VERSION${NC}"
 fi
 
-# Clean up test image
+# Clean up test image and temporary Dockerfile
 docker rmi contextcleanse/npm-test:latest &>/dev/null || true
+rm -f Dockerfile.npm-test
 
 # Check package.json engines field
 echo -e "${YELLOW}📄 Checking package.json engines field...${NC}"

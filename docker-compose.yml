@@ -77,17 +77,13 @@ services:
     # Restart policy
     restart: unless-stopped
 
-  # FastAPI Backend - Enhanced with ML optimizations
+  # FastAPI Backend - Standard Docker build
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: ${BACKEND_BUILD_TARGET:-app}
-
       args:
         - ENVIRONMENT=${ENVIRONMENT:-deployment}
-        - BUILD_DATE=${BUILD_DATE:-}
-        - GIT_COMMIT=${GIT_COMMIT:-}
     
     image: contextcleanse/backend:latest
     container_name: cc_backend
@@ -171,19 +167,16 @@ services:
         - action: rebuild
           path: ./backend/requirements.txt
 
-  # Next.js Frontend - Fully optimized with precompilation
+  # Next.js Frontend - Standard Docker build
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: ${FRONTEND_BUILD_TARGET:-production}
-
+      target: ${FRONTEND_BUILD_TARGET:-development}
       args:
-        - NODE_ENV=${NODE_ENV:-production}
+        - NODE_ENV=${NODE_ENV:-development}
         - NEXT_TELEMETRY_DISABLED=1
         - DOCKER_BUILD=true
-        - BUILD_DATE=${BUILD_DATE:-}
-        - GIT_COMMIT=${GIT_COMMIT:-}
     
     image: contextcleanse/frontend:latest
     container_name: cc_frontend
@@ -192,17 +185,20 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     
-    # Volume mounts for development hot-reloading (disabled in production)
-    # volumes:
-      # - ./frontend:/app:cached  # Temporarily disabled to fix startup issues
-      # - frontend_node_modules:/app/node_modules  # Disabled for production standalone builds
+    # Volume mounts for development hot-reloading
+    volumes:
+      - ./frontend:/app:cached
+      - frontend_node_modules:/app/node_modules
+    
+    # Development command override
+    command: ["npm", "run", "dev"]
     
     # Comprehensive environment configuration
     environment:
       # Next.js Configuration
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=${NODE_ENV:-development}
       - NEXT_TELEMETRY_DISABLED=1
-      - NEXT_PRIVATE_DEBUG_CACHE=${NEXT_DEBUG_CACHE:-1}
+      - NEXT_PRIVATE_DEBUG_CACHE=0
       - PORT=3000
       - HOSTNAME=0.0.0.0
       

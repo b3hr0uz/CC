@@ -167,16 +167,8 @@ start_development() {
     export FRONTEND_READ_ONLY=false
     export BACKEND_READ_ONLY=false
     
-    # Prefer BuildKit + Bake, fallback to classic compose build
-    export DOCKER_BUILDKIT=1
-    export COMPOSE_BAKE=true
-
-    if ! docker compose up -d --build; then
-        print_warning "Bake build failed. Falling back to classic docker compose build..."
-        export DOCKER_BUILDKIT=0
-        export COMPOSE_BAKE=false
-        docker compose up -d --build
-    fi
+    # Use standard Docker Compose v2 build
+    docker compose up -d --build
     
     print_success "Development environment started!"
     print_status "Services available at:"
@@ -211,16 +203,8 @@ start_production() {
     export FRONTEND_READ_ONLY=true
     export BACKEND_READ_ONLY=true
     
-    # Start with nginx proxy (prefer Bake, fallback to classic)
-    export DOCKER_BUILDKIT=1
-    export COMPOSE_BAKE=true
-
-    if ! docker compose --profile production up -d --build; then
-        print_warning "Bake build failed. Falling back to classic docker compose build..."
-        export DOCKER_BUILDKIT=0
-        export COMPOSE_BAKE=false
-        docker compose --profile production up -d --build
-    fi
+    # Start with nginx proxy using standard Docker Compose
+    docker compose --profile production up -d --build
     
     print_success "Production environment started!"
     print_status "Services available at:"
@@ -242,14 +226,8 @@ start_staging() {
     export FRONTEND_READ_ONLY=false
     export BACKEND_READ_ONLY=false
     
-    export DOCKER_BUILDKIT=1
-    export COMPOSE_BAKE=true
-    if ! docker compose up -d --build; then
-        print_warning "Bake build failed. Falling back to classic docker compose build..."
-        export DOCKER_BUILDKIT=0
-        export COMPOSE_BAKE=false
-        docker compose up -d --build
-    fi
+    # Use standard Docker Compose v2 build
+    docker compose up -d --build
     
     print_success "Staging environment started!"
 }
@@ -257,35 +235,11 @@ start_staging() {
 build_services() {
     print_status "Building all services..."
 
-    local builder_mode=${BUILDER_MODE:-bake}
-
-    if [ "$builder_mode" = "classic" ]; then
-        export DOCKER_BUILDKIT=0
-        export COMPOSE_BAKE=false
-        if [ "$VERBOSE" = "true" ]; then
-            docker compose build --progress=plain
-        else
-            docker compose build
-        fi
+    # Use standard Docker Compose v2 build
+    if [ "$VERBOSE" = "true" ]; then
+        docker compose build --progress=plain
     else
-        # Default: BuildKit + Bake
-        export DOCKER_BUILDKIT=1
-        export COMPOSE_BAKE=true
-        if [ "$VERBOSE" = "true" ]; then
-            if ! docker compose build --progress=plain; then
-                print_warning "Bake build failed. Falling back to classic docker compose build..."
-                export DOCKER_BUILDKIT=0
-                export COMPOSE_BAKE=false
-                docker compose build --progress=plain
-            fi
-        else
-            if ! docker compose build; then
-                print_warning "Bake build failed. Falling back to classic docker compose build..."
-                export DOCKER_BUILDKIT=0
-                export COMPOSE_BAKE=false
-                docker compose build
-            fi
-        fi
+        docker compose build
     fi
 
     print_success "All services built successfully!"

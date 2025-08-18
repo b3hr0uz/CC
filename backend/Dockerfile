@@ -1,18 +1,18 @@
-# syntax=docker/dockerfile:1.7
-# Backend Dockerfile for ContextCleanse - Optimized with latest BuildKit features
+# Backend Dockerfile for ContextCleanse - Standard Docker Build
 
 # ==========================================
-# Dependencies Stage - For better caching
+# Single Stage Build - Simplified for standard Docker
 # ==========================================
-FROM python:3.11-slim AS deps
+FROM python:3.11-slim
 
-# Install system dependencies (classic builder compatible)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Create app user for security
 RUN groupadd --gid 1000 appuser \
@@ -28,33 +28,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# ==========================================
-# Application Stage - Final optimized image
-# ==========================================
-FROM python:3.11-slim AS app
-
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Create app user (same as deps stage)
-RUN groupadd --gid 1000 appuser \
-    && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
-
-# Set working directory
-WORKDIR /app
-
-# Copy Python packages from deps stage
-COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=deps /usr/local/bin /usr/local/bin
-
 # Create directory for data with proper permissions
-RUN mkdir -p /app/data/spambase && \
+RUN mkdir -p /app/data/spambase /app/logs && \
     chown -R appuser:appuser /app
 
-# Copy application code (exclude unnecessary files via .dockerignore)
+# Copy application code
 COPY --chown=appuser:appuser app/ ./app/
 
 # Switch to non-root user for security

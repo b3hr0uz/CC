@@ -10,6 +10,9 @@ import {
   BarChart3, Target
 } from 'lucide-react';
 import axios from 'axios';
+
+// Enhanced logging
+import { useLogger, loggedAPICall } from '@/lib/logger';
 import { 
   AVAILABLE_MODELS, 
   getTrainingConfigModels, 
@@ -147,6 +150,7 @@ interface AutoTrainingConfig {
 
 export default function TrainingPage() {
   const { data: session, status } = useSession();
+  const logger = useLogger('TrainingPage');
   
   // Core states
   const [availableModels, setAvailableModels] = useState<Record<string, ModelInfo>>({});
@@ -298,7 +302,7 @@ export default function TrainingPage() {
     console.log('🔄 Loading real cross-validation results...');
     try {
       // Try to load from backend endpoint
-      const response = await axios.get(`${API_BASE_URL}/feedback/models/cross-validation`);
+      const response = await axios.get(`${API_BASE_URL}/api/v1/feedback/models/cross-validation`);
       setCvResults(response.data);
       console.log('✅ Successfully loaded real cross-validation results from backend');
     } catch (_error) {
@@ -366,7 +370,7 @@ export default function TrainingPage() {
     console.log('🔄 Loading real dataset statistics...');
     try {
       // Try to load from backend endpoint
-      const response = await axios.get(`${API_BASE_URL}/feedback/dataset/statistics`);
+      const response = await axios.get(`${API_BASE_URL}/api/v1/feedback/dataset/statistics`);
       setStatistics(response.data);
       console.log('✅ Successfully loaded real dataset statistics from backend');
     } catch (error) {
@@ -932,7 +936,7 @@ export default function TrainingPage() {
       });
 
       try {
-        const response = await axios.post(`${API_BASE_URL}/feedback/models/train`, {
+        const response = await axios.post(`${API_BASE_URL}/api/v1/feedback/models/train`, {
           model_name: modelName,
           k_folds: kFolds,
           use_rl_enhancement: modelName === 'xgboost_rl'
@@ -999,13 +1003,17 @@ export default function TrainingPage() {
       
       console.log('📊 Received comparison data from backend:', comparisonData);
       
-      // Safely determine the best model with null checks
-      let bestModelKey = comparisonData.best_model?.key;
+      // Handle both old format (results) and new format (model_metrics)
+      const modelResults = comparisonData.model_metrics || comparisonData.results || {};
+      const bestModelInfo = comparisonData.best_model;
       
-      if (!bestModelKey && comparisonData.results && Object.keys(comparisonData.results).length > 0) {
-        const resultEntries = Object.entries(comparisonData.results);
+      // Safely determine the best model with null checks
+      let bestModelKey = bestModelInfo?.key;
+      
+      if (!bestModelKey && modelResults && Object.keys(modelResults).length > 0) {
+        const resultEntries = Object.entries(modelResults);
         bestModelKey = resultEntries.reduce((best, [key, metrics]) => {
-          const bestMetrics = comparisonData.results[best] as ModelMetrics;
+          const bestMetrics = modelResults[best] as ModelMetrics;
           const currentMetrics = metrics as ModelMetrics;
           
           if (!bestMetrics || !currentMetrics) return best;
@@ -1014,18 +1022,30 @@ export default function TrainingPage() {
         }, resultEntries[0][0]);
       }
       
-      if (bestModelKey) {
+      if (bestModelKey && Object.keys(modelResults).length > 0) {
         console.log(`🏆 Setting bestModel to: ${bestModelKey}`);
         setBestModel(bestModelKey);
         
-        console.log(`📊 Setting modelResults with ${Object.keys(comparisonData.results).length} models`);
-        const correctedResults = updateModelResultsWithActualTimes(comparisonData);
+        console.log(`📊 Setting modelResults with ${Object.keys(modelResults).length} models`);
+        
+        // Convert the backend format to the expected frontend format
+        const formattedComparisonData = {
+          results: modelResults,
+          best_model: bestModelInfo,
+          ranking: comparisonData.ranking || []
+        };
+        
+        const correctedResults = updateModelResultsWithActualTimes(formattedComparisonData);
         setModelResults(correctedResults);
         
         // Mark that we now have real training data from the backend
         setHasRealTrainingData(true);
         
-        const bestF1Score = (comparisonData.results[bestModelKey] as ModelMetrics)?.f1_score;
+        // Reset backend availability state since we got successful data
+        setIsBackendAvailable(true);
+        setBackendError(null);
+        
+        const bestF1Score = (modelResults[bestModelKey] as ModelMetrics)?.f1_score;
         if (bestF1Score) {
           console.log(`🏆 Best model identified: ${bestModelKey} (F1-Score: ${bestF1Score.toFixed(4)})`);
         }
@@ -1045,13 +1065,14 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('❌ Error comparing models from backend:', error);
       
-      // Only use fallback if backend is completely unavailable
-      // Set error state to indicate backend is not available
-      setBackendError(`Backend unavailable: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setIsBackendAvailable(false);
-      
-              // Don't clear existing results - they might be valid from previous training
-        console.warn('⚠️ Backend ML service unavailable. Using cached results or local training.');
+      // More specific error handling - don't mark backend as unavailable for data format issues
+      if (error instanceof Error && error.message.includes('JSON')) {
+        console.warn('⚠️ Backend response format issue, but service is available');
+        // Don't mark backend as unavailable for JSON parsing issues
+      } else {
+        // Only mark unavailable for actual connection issues
+        setBackendError(`Backend connection error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setIsBackendAvailable(false);
         
         // Add informational notification about backend status
         addNotification({
@@ -1061,6 +1082,7 @@ export default function TrainingPage() {
           message: 'Backend temporarily unavailable. Using local model training and cached results. All models remain functional.',
           timestamp: new Date()
         });
+      }
     }
   };
 
@@ -2141,7 +2163,7 @@ export default function TrainingPage() {
                     <div className="p-3 bg-blue-600 rounded-full w-fit mx-auto mb-3">
                       <Database className="h-6 w-6 text-white" />
                     </div>
-                    <p className="text-2xl font-bold text-white">{statistics.total_samples.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-white">{statistics?.total_samples?.toLocaleString() || '0'}</p>
                     <p className="text-sm text-gray-400">Total Samples</p>
                   </div>
                   
@@ -2149,7 +2171,7 @@ export default function TrainingPage() {
                     <div className="p-3 bg-red-600 rounded-full w-fit mx-auto mb-3">
                       <AlertCircle className="h-6 w-6 text-white" />
                     </div>
-                    <p className="text-2xl font-bold text-white">{statistics.spam_percentage.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-white">{statistics?.spam_percentage?.toFixed(1) || '0'}%</p>
                     <p className="text-sm text-gray-400">Spam Rate</p>
                   </div>
                   
@@ -2157,7 +2179,7 @@ export default function TrainingPage() {
                     <div className="p-3 bg-green-600 rounded-full w-fit mx-auto mb-3">
                       <Target className="h-6 w-6 text-white" />
                     </div>
-                    <p className="text-2xl font-bold text-white">{statistics.feature_count}</p>
+                    <p className="text-2xl font-bold text-white">{statistics?.feature_count || '0'}</p>
                     <p className="text-sm text-gray-400">Features</p>
                   </div>
                   
@@ -2165,7 +2187,7 @@ export default function TrainingPage() {
                     <div className="p-3 bg-purple-600 rounded-full w-fit mx-auto mb-3">
                       <BarChart3 className="h-6 w-6 text-white" />
                     </div>
-                    <p className="text-2xl font-bold text-white">{((statistics.class_distribution.not_spam / statistics.total_samples) * 100).toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-white">{statistics?.class_distribution?.not_spam && statistics?.total_samples ? ((statistics.class_distribution.not_spam / statistics.total_samples) * 100).toFixed(1) : '0'}%</p>
                     <p className="text-sm text-gray-400">Ham Rate</p>
                   </div>
                 </div>
@@ -2177,11 +2199,11 @@ export default function TrainingPage() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Ham (Non-Spam):</span>
-                        <span className="text-white font-medium">{statistics.class_distribution.not_spam.toLocaleString()} emails</span>
+                        <span className="text-white font-medium">{statistics?.class_distribution?.not_spam?.toLocaleString() || '0'} emails</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Spam:</span>
-                        <span className="text-white font-medium">{statistics.class_distribution.spam.toLocaleString()} emails</span>
+                        <span className="text-white font-medium">{statistics?.class_distribution?.spam?.toLocaleString() || '0'} emails</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Class Balance:</span>
