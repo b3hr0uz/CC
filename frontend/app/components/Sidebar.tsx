@@ -6,14 +6,29 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useSidebar } from '../contexts/SidebarContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { 
   BarChart3, Settings, LogOut,
-  Home, Bot, Menu
+  Home, Bot, Menu, Loader
 } from 'lucide-react';
 
 export default function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
   const pathname = usePathname();
+  const { notifications } = useNotifications();
+
+  // Check if training is currently active
+  const isTrainingActive = notifications.some(notification => 
+    (notification.type === 'model_training_start' || 
+     notification.type === 'auto_training_init' ||
+     notification.type === 'training_start') &&
+    notification.model_name !== 'Background Training' // Exclude background processes
+  );
+
+  // Loading spinner component
+  const LoadingSpinner = ({ size = 'h-4 w-4' }: { size?: string }) => (
+    <Loader className={`${size} animate-spin`} />
+  );
 
   const handleSignOut = async () => {
     try {
@@ -68,18 +83,25 @@ export default function Sidebar() {
         <nav className="flex-1 flex flex-col space-y-3">
           {mainNavigation.map((item) => {
             const Icon = item.icon;
+            const isTraining = item.name === 'Training';
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 title={item.name}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-colors relative ${
                   isActive(item.href)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
                     : 'text-gray-400 hover:text-white hover:bg-gray-700'
                 }`}
               >
                 <Icon className="h-5 w-5" />
+                {/* Loading spinner overlay for Training icon */}
+                {isTraining && isTrainingActive && (
+                  <div className="absolute -top-1 -right-1">
+                    <LoadingSpinner size="h-3 w-3" />
+                  </div>
+                )}
               </Link>
             );
           })}
@@ -150,18 +172,25 @@ export default function Sidebar() {
         <div className="space-y-2">
           {mainNavigation.map((item) => {
             const Icon = item.icon;
+            const isTraining = item.name === 'Training';
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive(item.href)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
                     : 'text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white'
                 }`}
               >
-                <Icon className="h-5 w-5 mr-3" />
-                {item.name}
+                <div className="flex items-center">
+                  <Icon className="h-5 w-5 mr-3" />
+                  {item.name}
+                </div>
+                {/* Loading spinner in rightmost area for Training */}
+                {isTraining && isTrainingActive && (
+                  <LoadingSpinner size="h-4 w-4" />
+                )}
               </Link>
             );
           })}

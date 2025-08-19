@@ -2,26 +2,26 @@
   "logistic_regression": {
     "model_name": "logistic_regression",
     "metrics": {
-      "accuracy": 0.9272529858849077,
-      "precision": 0.9021739130434783,
-      "recall": 0.9146005509641874,
-      "f1_score": 0.908344733242134,
+      "accuracy": 0.9283387622149837,
+      "precision": 0.9183098591549296,
+      "recall": 0.8980716253443526,
+      "f1_score": 0.9080779944289693,
       "cv_scores": [
-        0.903448275862069,
-        0.8885017421602788,
-        0.9081272084805654,
-        0.888135593220339,
-        0.9020979020979021
+        0.928695652173913,
+        0.8987993138936535,
+        0.9051878354203936,
+        0.8881118881118881,
+        0.9036777583187391
       ],
-      "mean_cv_score": 0.8980621443642309,
-      "std_cv_score": 0.00820415719713426,
+      "mean_cv_score": 0.9048944895837175,
+      "std_cv_score": 0.013318173345102479,
       "test_samples": 921,
       "train_samples": 3680
     },
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T23:56:41.385085",
+    "timestamp": "2025-08-19T01:46:17.137647",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -47,7 +47,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T22:48:55.455959",
+    "timestamp": "2025-08-19T01:24:33.752333",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -73,7 +73,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T23:56:48.008392",
+    "timestamp": "2025-08-19T01:39:40.736800",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -99,7 +99,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T22:48:52.290977",
+    "timestamp": "2025-08-19T01:08:12.863986",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -125,7 +125,33 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T23:56:54.029474",
+    "timestamp": "2025-08-19T01:39:46.060486",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  },
+  "naive_bayes": {
+    "model_name": "naive_bayes",
+    "metrics": {
+      "accuracy": 0.7763300760043431,
+      "precision": 0.7198879551820728,
+      "recall": 0.7079889807162535,
+      "f1_score": 0.7138888888888889,
+      "cv_scores": [
+        0.6989247311827957,
+        0.7066895368782161,
+        0.7705479452054794,
+        0.7407407407407407,
+        0.708185053380783
+      ],
+      "mean_cv_score": 0.7250176014776029,
+      "std_cv_score": 0.026908436654251362,
+      "test_samples": 921,
+      "train_samples": 3680
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-19T01:39:34.021272",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   }

@@ -91,16 +91,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           start_time: notification.start_time ? new Date(notification.start_time) : undefined,
           end_time: notification.end_time ? new Date(notification.end_time) : undefined,
         }));
-        setNotifications(notificationsWithDates);
+        
+        // 🧹 CLEANUP: Remove stale error notifications (older than 1 hour)
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+        const cleanedNotifications = notificationsWithDates.filter((notification: NotificationItem) => {
+          const age = now - notification.timestamp.getTime();
+          
+          // Remove old training errors and backend service errors
+          if ((notification.type === 'training_error' || notification.message.includes('Backend service error')) && age > ONE_HOUR) {
+            console.log(`🧹 Removed stale error notification: ${notification.type} for ${notification.model_name} (${Math.round(age / 1000 / 60)} minutes old)`);
+            return false;
+          }
+          
+          // Keep all recent notifications and non-error notifications
+          return true;
+        });
+        
+        // Log cleanup summary
+        const removedCount = notificationsWithDates.length - cleanedNotifications.length;
+        if (removedCount > 0) {
+          console.log(`🧹 Cleaned up ${removedCount} stale error notifications`);
+        }
+        
+        setNotifications(cleanedNotifications);
         
         // Set counter to highest existing ID + 1
-        const maxId = Math.max(...notificationsWithDates.map((n: NotificationItem) => {
+        const maxId = Math.max(...cleanedNotifications.map((n: NotificationItem) => {
           const match = n.id.match(/\d+$/);
           return match ? parseInt(match[0]) : 0;
         }), 0);
         setNotificationCounter(maxId + 1);
         
-        console.log(`✅ Successfully loaded ${notificationsWithDates.length} persistent notifications`);
+        console.log(`✅ Successfully loaded ${cleanedNotifications.length} persistent notifications (${removedCount} stale errors removed)`);
         console.log(`🔢 Notification counter set to: ${maxId + 1}`);
       } else {
         console.log('📭 No stored notifications found - starting fresh');
@@ -170,6 +193,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [notifications]);
+
+  // 🧹 Periodic cleanup of stale error notifications (every 30 minutes)
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      setNotifications(prev => {
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+        
+        const cleaned = prev.filter((notification: NotificationItem) => {
+          const age = now - notification.timestamp.getTime();
+          
+          // Remove old training errors and backend service errors
+          if ((notification.type === 'training_error' || notification.message.includes('Backend service error')) && age > ONE_HOUR) {
+            console.log(`🧹 Periodic cleanup: Removed stale error notification: ${notification.type} for ${notification.model_name} (${Math.round(age / 1000 / 60)} minutes old)`);
+            return false;
+          }
+          
+          return true;
+        });
+        
+        if (cleaned.length !== prev.length) {
+          const removedCount = prev.length - cleaned.length;
+          console.log(`🧹 Periodic cleanup: Removed ${removedCount} stale error notifications`);
+        }
+        
+        return cleaned;
+      });
+    }, 30 * 60 * 1000); // Every 30 minutes
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   const addNotification = (notification: NotificationItem) => {
     console.log(`➕ Adding notification: ${notification.type} for ${notification.model_name}`);

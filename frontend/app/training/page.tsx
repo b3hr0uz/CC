@@ -197,6 +197,9 @@ export default function TrainingPage() {
   });
   const [isAutoTraining, setIsAutoTraining] = useState(false);
   const [bestModel, setBestModel] = useState<string>('xgboost_rl');
+  
+  // ✅ RACE CONDITION PREVENTION: Track models currently being trained
+  const [modelsCurrentlyTraining, setModelsCurrentlyTraining] = useState<Set<string>>(new Set());
   const [previousModelMetrics, setPreviousModelMetrics] = useState<{[key: string]: ModelMetrics}>({});
   const [hasTriggeredAutoTraining, setHasTriggeredAutoTraining] = useState(false);
   const [autoTrainingInterval, setAutoTrainingInterval] = useState<NodeJS.Timeout | null>(null);
@@ -1294,6 +1297,12 @@ export default function TrainingPage() {
       return;
     }
 
+    // ✅ ADDITIONAL PROTECTION: Check if any models are currently being trained
+    if (modelsCurrentlyTraining.size > 0) {
+      console.log(`⚠️ ${modelsCurrentlyTraining.size} models are already being trained, skipping auto-training`);
+      return;
+    }
+
     console.log('🚀 Starting enhanced sequential training with resource management');
     setIsAutoTraining(true);
 
@@ -1425,11 +1434,23 @@ export default function TrainingPage() {
       });
     } finally {
       setIsAutoTraining(false);
+      // ✅ SAFETY CLEANUP: Clear any remaining models from training set
+      setModelsCurrentlyTraining(new Set());
+      console.log('🧹 Auto-training completed, cleared all models from training set');
     }
   };
 
   // Train a single model with enhanced notifications
   const trainSingleModelWithNotifications = async (modelName: string) => {
+    // ✅ RACE CONDITION PREVENTION: Check if model is already being trained
+    if (modelsCurrentlyTraining.has(modelName)) {
+      console.log(`⚠️ Model ${modelName} is already being trained, skipping duplicate request`);
+      return;
+    }
+
+    // Mark model as currently training
+    setModelsCurrentlyTraining(prev => new Set(prev).add(modelName));
+
     const startTime = new Date();
     const estimatedDuration = getEstimatedTrainingTime(modelName);
 
@@ -1631,6 +1652,14 @@ export default function TrainingPage() {
       // Do not update analysis sections or call compareModels when training fails
       // This prevents propagation of invalid data through the system
       console.log(`⚠️ Training failed for ${modelName}. Skipping analysis updates to prevent invalid data propagation.`);
+    } finally {
+      // ✅ RACE CONDITION CLEANUP: Always remove model from training set
+      setModelsCurrentlyTraining(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(modelName);
+        return newSet;
+      });
+      console.log(`🧹 Removed ${modelName} from currently training set`);
     }
   };
 

@@ -964,13 +964,21 @@ class MLService:
             if not model_info or not model_info["class"]:
                 raise ValueError(f"Model {model_name} not available")
             
-            # Initialize model
+            # Initialize model with appropriate parameters
             if model_name == "xgboost":
                 model = model_info["class"](random_state=42, eval_metric='logloss')
             elif model_name == "neural_network":
                 model = model_info["class"](random_state=42, max_iter=300)
             elif model_name == "svm":
                 model = model_info["class"](probability=True, random_state=42)
+            elif model_name == "logistic_regression":
+                # Fix convergence issues by increasing max_iter and using liblinear solver
+                model = model_info["class"](random_state=42, max_iter=1000, solver='liblinear')
+            elif model_name == "naive_bayes":
+                # MultinomialNB doesn't accept random_state parameter
+                model = model_info["class"]()
+            elif model_name == "random_forest":
+                model = model_info["class"](random_state=42, n_estimators=100)
             else:
                 model = model_info["class"](random_state=42)
             
