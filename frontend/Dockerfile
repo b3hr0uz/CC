@@ -133,6 +133,9 @@ COPY types ./types
 COPY components ./components
 COPY public ./public
 
+# Copy pre-compilation script
+COPY scripts ./scripts
+
 # Set development environment
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -142,6 +145,25 @@ ENV NEXT_PRIVATE_DEBUG_CACHE=1
 RUN mkdir -p .next/cache .next/server .next/server/pages .next/server/app && \
     chown -R nextjs:nodejs /app && \
     chmod -R 777 /app/.next
+
+# Pre-build and pre-compile pages for zero first-visit delay
+RUN set -e && \
+    echo "🏗️  Starting Next.js build..." && \
+    npm run build && \
+    echo "✅ Build completed, starting page pre-compilation..." && \
+    timeout 300s bash -c ' \
+        echo "🚀 Starting server for pre-compilation..." && \
+        npm start & \
+        SERVER_PID=$! && \
+        echo "📍 Server PID: $SERVER_PID" && \
+        sleep 15 && \
+        echo "🏗️  Running page pre-compilation..." && \
+        node scripts/prebuild-pages.js && \
+        echo "⏹️  Stopping server..." && \
+        kill $SERVER_PID || true && \
+        wait $SERVER_PID 2>/dev/null || true && \
+        echo "✅ Pre-compilation completed successfully" \
+    ' || echo "⚠️  Pre-compilation failed but continuing..."
 
 # Switch to non-root user
 USER nextjs

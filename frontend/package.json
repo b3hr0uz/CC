@@ -16,6 +16,7 @@
     "build:profile": "next build --profile",
     "build:debug": "next build --debug",
     "precompile": "npm run type-check && npm run lint && npm run build",
+    "prebuild-pages": "node scripts/prebuild-pages.js",
     "start": "next start",
     "start:production": "NODE_ENV=production next start",
     "lint": "next lint --dir app --dir lib --dir components --dir types",

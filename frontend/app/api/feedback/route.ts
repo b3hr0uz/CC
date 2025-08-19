@@ -4,10 +4,12 @@ import { authOptions } from '@/lib/auth'
 
 interface FeedbackRequest {
   emailId: string;
-  userFeedback: 'correct' | 'incorrect';
-  currentClassification: 'spam' | 'ham';
+  userFeedback: 'spam' | 'ham'; // Direct feedback about what the email should be classified as
+  currentClassification: 'spam' | 'ham'; // Current model prediction
   correctedClassification?: 'spam' | 'ham'; // The classification after user correction
   confidence: number;
+  previousFeedback?: 'spam' | 'ham' | null; // Previous user feedback for change tracking
+  modelUsed?: string; // Which model was used for classification
   emailContent: {
     subject: string;
     from: string;
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: FeedbackRequest = await request.json()
-    const { emailId, userFeedback, currentClassification, correctedClassification, confidence, emailContent } = body
+    const { emailId, userFeedback, currentClassification, correctedClassification, confidence, previousFeedback, modelUsed, emailContent } = body
 
     // Validate required fields
     if (!emailId || !userFeedback || !currentClassification || !emailContent) {
@@ -37,24 +39,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine if this is a feedback change
+    const isChangingFeedback = previousFeedback && previousFeedback !== userFeedback;
+    const isNewFeedback = !previousFeedback;
+
     // Log feedback for debugging
     console.log('📝 User Feedback Received:', {
       emailId,
       userFeedback,
+      previousFeedback,
       currentClassification,
       correctedClassification,
       confidence,
+      modelUsed,
       subject: emailContent.subject,
       user: session.user.email,
-      demoMode: session.isMockUser ? 'Yes' : 'No'
+      demoMode: session.isMockUser ? 'Yes' : 'No',
+      feedbackType: isChangingFeedback ? 'FEEDBACK_CHANGE' : isNewFeedback ? 'NEW_FEEDBACK' : 'FEEDBACK_CONFIRMATION'
     })
 
     // Check if this is a demo user session
     if (session.isMockUser) {
       console.log('Demo mode detected - using mock feedback processing');
+      const feedbackMessage = isChangingFeedback 
+        ? `Feedback changed from ${previousFeedback?.toUpperCase()} to ${userFeedback.toUpperCase()} in demo mode`
+        : 'Feedback received and processed in demo mode';
+      
       return NextResponse.json({
         success: true,
-        message: 'Feedback received and processed in demo mode',
+        message: feedbackMessage,
         backend_status: 'demo_mode',
         mock_reason: 'Demo mode active'
       });
@@ -74,8 +87,11 @@ export async function POST(request: NextRequest) {
           email_id: emailId,
           feedback_type: userFeedback,
           predicted_class: currentClassification,
-          corrected_class: correctedClassification || currentClassification,
+          corrected_class: correctedClassification || userFeedback, // Use userFeedback if no corrected classification
           confidence_score: confidence,
+          previous_feedback: previousFeedback, // Track feedback changes
+          model_used: modelUsed || 'unknown', // Track which model was used
+          is_feedback_change: isChangingFeedback, // Flag for feedback changes
           email_features: {
             subject: emailContent.subject,
             sender: emailContent.from,

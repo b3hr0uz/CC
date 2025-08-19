@@ -4,6 +4,9 @@ const nextConfig = {
   output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   reactStrictMode: true,
   
+  // Disable dev indicators (dev tools UI)
+  devIndicators: false,
+  
   // Image optimization
   images: {
     domains: ['lh3.googleusercontent.com', 'graph.microsoft.com', 'appleid.apple.com'],

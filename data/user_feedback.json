@@ -1,0 +1,152 @@
+[
+  {
+    "id": "fb_test@example.com_test-123_1755551263",
+    "user_id": "test@example.com",
+    "email_id": "test-123",
+    "feedback_type": "correct",
+    "predicted_class": "spam",
+    "confidence_score": 0.85,
+    "email_features": {
+      "subject": "Test Subject",
+      "sender": "test@sender.com",
+      "preview": "Test content"
+    },
+    "timestamp": "2025-08-18T21:10:00Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a73df7791b158_1755551917",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a73df7791b158",
+    "feedback_type": "ham",
+    "predicted_class": "spam",
+    "confidence_score": 0.7696032078648146,
+    "email_features": {
+      "subject": "You've received a payout",
+      "sender": "service@paypal.com",
+      "preview": "BEHROUZ BARATI BAGHERABAD, here are the details. Hello, BEHROUZ BARATI BAGHERABAD Google Opinion Rewards sent you $2.13 USD Get instant access today i..."
+    },
+    "timestamp": "2025-08-18T21:18:37.951Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a1d5aef09d904_1755555068",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a1d5aef09d904",
+    "feedback_type": "spam",
+    "predicted_class": "spam",
+    "confidence_score": 0.8743074089842546,
+    "email_features": {
+      "subject": "Security alert",
+      "sender": "no-reply@accounts.google.com",
+      "preview": "You allowed Microsoft apps &amp; services access to some of your Google Account data behianoa@gmail.com If you didn&#39;t allow Microsoft apps &amp; s..."
+    },
+    "timestamp": "2025-08-18T22:11:08.349Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198ae0d09a16f555_1755555200",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198ae0d09a16f555",
+    "feedback_type": "ham",
+    "predicted_class": "ham",
+    "confidence_score": 0.8281724682829359,
+    "email_features": {
+      "subject": "3 new Granola features \u2728",
+      "sender": "invite@mail.granola.so",
+      "preview": "Teams, automations and more \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b \u034f\u200b..."
+    },
+    "timestamp": "2025-08-18T22:13:20.150Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a96284d75e06d_1755555201",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a96284d75e06d",
+    "feedback_type": "spam",
+    "predicted_class": "spam",
+    "confidence_score": 0.945650365339798,
+    "email_features": {
+      "subject": "Accepted: Entelligent Meeting",
+      "sender": "arashk@stanford.edu",
+      "preview": "No preview available"
+    },
+    "timestamp": "2025-08-18T22:13:21.631Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a8f94a4a06fd6_1755555207",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a8f94a4a06fd6",
+    "feedback_type": "ham",
+    "predicted_class": "ham",
+    "confidence_score": 0.7987746985439726,
+    "email_features": {
+      "subject": "3 years of FREE mining",
+      "sender": "noreply@cryptobrowser.network",
+      "preview": "15000 Doubloons Earned? 3 years of FREE mining: fortune smiled upon you Yo Ho Ho, crew! Another mysterious chest has washed ashore \u2014 and it&#39;s heav..."
+    },
+    "timestamp": "2025-08-18T22:13:27.060Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a73df7791b158_1755555208",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a73df7791b158",
+    "feedback_type": "ham",
+    "predicted_class": "spam",
+    "confidence_score": 0.9078674602427379,
+    "email_features": {
+      "subject": "You've received a payout",
+      "sender": "service@paypal.com",
+      "preview": "BEHROUZ BARATI BAGHERABAD, here are the details. Hello, BEHROUZ BARATI BAGHERABAD Google Opinion Rewards sent you $2.13 USD Get instant access today i..."
+    },
+    "timestamp": "2025-08-18T22:13:28.425Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a48982890e788_1755555220",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a48982890e788",
+    "feedback_type": "ham",
+    "predicted_class": "spam",
+    "confidence_score": 0.804737018240282,
+    "email_features": {
+      "subject": "New voicemail from (774) 541-1587",
+      "sender": "voice-noreply@google.com",
+      "preview": "Google Voice Going to authorize the payment of 99 for the recent order of Apple iPhone 16 Pro on your account If you do not authorize this payment ple..."
+    },
+    "timestamp": "2025-08-18T22:13:40.580Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a3d1d80fc8eb3_1755555225",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a3d1d80fc8eb3",
+    "feedback_type": "ham",
+    "predicted_class": "ham",
+    "confidence_score": 0.7586853645642566,
+    "email_features": {
+      "subject": "Crypto is growing \ud83d\ude80",
+      "sender": "noreply@cryptobrowser.network",
+      "preview": "Crypto is growing Ride the crypto growth wave Bitcoin has reached past $120000. Ethereum has smashed its all-time high of $4400. The market is explodi..."
+    },
+    "timestamp": "2025-08-18T22:13:45.837Z",
+    "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_19899e3122a52b7f_1755559906",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "19899e3122a52b7f",
+    "feedback_type": "ham",
+    "predicted_class": "spam",
+    "confidence_score": 0.753146208922813,
+    "email_features": {
+      "subject": "\ud83c\udfac Can you guess the summer movie from the emoji?",
+      "sender": "newsletter@newsletter.quizlet.com",
+      "preview": "Take a study break and play our monthly match game. \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f \u200c \ufeff \u034f ..."
+    },
+    "timestamp": "2025-08-18T23:31:46.046Z",
+    "processed": true
+  }
+]

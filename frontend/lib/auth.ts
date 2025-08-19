@@ -42,6 +42,27 @@ export const authOptions: NextAuthOptions = {
         },
       })
     ] : []),
+
+    // Demo Mode Provider - For testing without real OAuth providers
+    CredentialsProvider({
+      id: "demo",
+      name: "Demo Mode",
+      credentials: {
+        demoUser: { label: "Demo User", type: "text", placeholder: "demo" }
+      },
+      async authorize(credentials) {
+        // Demo mode authentication
+        if (credentials?.demoUser === "demo") {
+          return {
+            id: "demo-user",
+            email: "demo@contextcleanse.com",
+            name: "Demo User",
+            image: "/ContextCleanse-no-padding-transparent-dark-mode.png"
+          }
+        }
+        return null
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, account, user }) {
@@ -68,6 +89,10 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken
       session.refreshToken = token.refreshToken
       session.error = token.error
+      
+      // Set demo mode flag for demo users
+      session.isMockUser = session.user?.email === 'demo@contextcleanse.com'
+      
       return session
     },
   },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AppLayout from '../components/AppLayout';
@@ -26,7 +26,14 @@ interface ExtendedEmailData extends EmailData {
 }
 
 export default function DashboardPage() {
-  const { addNotification } = useNotifications();
+  const { data: session, status } = useSession();
+  const { addNotification, notificationCounter } = useNotifications();
+
+  // Generate unique notification ID
+  const generateNotificationId = (type: string, modelName: string) => {
+    const timestamp = Date.now();
+    return `${type}-${modelName}-${timestamp}-${notificationCounter}`;
+  };
 
   // State management
   const [emails, setEmails] = useState<ExtendedEmailData[]>([]);
@@ -42,6 +49,14 @@ export default function DashboardPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState<string | null>(null);
   const [view, setView] = useState<'all' | 'spam' | 'ham'>('all');
+  const [fullContentLoading, setFullContentLoading] = useState(false);
+  const [fullContentLoaded, setFullContentLoaded] = useState(false);
+  const [fullEmailContent, setFullEmailContent] = useState<string | null>(null);
+
+  // Auto-sync management
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const autoSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Classify emails using the backend ML service
   const classifyEmails = async (emailsData: EmailData[]): Promise<ExtendedEmailData[]> => {
@@ -109,27 +124,32 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle RL feedback submission
+  // Handle RL feedback submission (supports both new feedback and changes)
   const handleFeedback = async (emailId: string, feedback: 'spam' | 'ham') => {
     setFeedbackSubmitting(emailId);
     try {
       const email = emails.find(e => e.id === emailId);
       if (!email) return;
 
+      // Check if this is a feedback change
+      const isChangingFeedback = email.userFeedback && email.userFeedback !== feedback;
+      const isNewFeedback = !email.userFeedback;
+
       // Submit feedback to backend for RL training
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email_id: emailId,
-          user_feedback: feedback,
-          model_prediction: email.classification,
+          emailId: emailId,
+          userFeedback: feedback,
+          currentClassification: email.classification,
           confidence: email.confidence,
-          model_used: email.modelUsed || selectedModel,
-          email_content: {
+          modelUsed: email.modelUsed || selectedModel,
+          previousFeedback: email.userFeedback, // Include previous feedback for change tracking
+          emailContent: {
             subject: email.subject,
             from: email.from,
-            body: email.snippet || email.preview
+            preview: email.snippet || email.preview
           }
         })
       });
@@ -144,19 +164,48 @@ export default function DashboardPage() {
           )
         );
 
-        addNotification({
-          id: `feedback-${emailId}`,
-          type: 'feedback_success',
-          message: `Feedback submitted: ${feedback.toUpperCase()}. This helps improve the model!`,
-          timestamp: new Date(),
-          model_name: selectedModel
-        });
+        // Update selected email if it's the one being modified
+        if (selectedEmail?.id === emailId) {
+          setSelectedEmail(prev => prev ? {
+            ...prev,
+            userFeedback: feedback,
+            feedbackTimestamp: new Date()
+          } : null);
+        }
+
+        // Different notifications based on action type
+        if (isChangingFeedback) {
+          addNotification({
+            id: generateNotificationId('feedback_changed', `EmailFeedback-${emailId}`),
+            type: 'feedback_success',
+            message: `Feedback changed from ${email.userFeedback?.toUpperCase()} to ${feedback.toUpperCase()}. Model will be updated!`,
+            timestamp: new Date(),
+            model_name: selectedModel
+          });
+        } else if (isNewFeedback) {
+          addNotification({
+            id: generateNotificationId('feedback_success', `EmailFeedback-${emailId}`),
+            type: 'feedback_success',
+            message: `Feedback submitted: ${feedback.toUpperCase()}. This helps improve the model!`,
+            timestamp: new Date(),
+            model_name: selectedModel
+          });
+        } else {
+          // Same feedback selected again - acknowledge but don't change
+          addNotification({
+            id: generateNotificationId('feedback_confirmed', `EmailFeedback-${emailId}`),
+            type: 'feedback_success',
+            message: `Feedback confirmed as ${feedback.toUpperCase()}`,
+            timestamp: new Date(),
+            model_name: selectedModel
+          });
+        }
       } else {
         throw new Error('Failed to submit feedback');
       }
     } catch (error) {
       addNotification({
-        id: `feedback-error-${emailId}`,
+        id: generateNotificationId('feedback_error', `EmailFeedback-${emailId}`),
         type: 'feedback_error',
         message: `Failed to submit feedback: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date(),
@@ -171,12 +220,67 @@ export default function DashboardPage() {
   const handleViewEmail = (email: ExtendedEmailData) => {
     setSelectedEmail(email);
     setShowEmailModal(true);
+    // Reset full content state for new email
+    setFullContentLoaded(false);
+    setFullContentLoading(false);
+    setFullEmailContent(null);
   };
 
   // Close email modal
   const handleCloseModal = () => {
     setShowEmailModal(false);
     setSelectedEmail(null);
+    // Reset full content state
+    setFullContentLoaded(false);
+    setFullContentLoading(false);
+    setFullEmailContent(null);
+  };
+
+  // Fetch full email content
+  const fetchFullEmailContent = async (messageId: string) => {
+    if (fullContentLoading || fullContentLoaded) return;
+    
+    setFullContentLoading(true);
+    
+    try {
+      const response = await fetch('/api/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messageId: messageId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFullEmailContent(data.content);
+        setFullContentLoaded(true);
+        
+        addNotification({
+          id: generateNotificationId('full_content_loaded', 'EmailContent'),
+          type: 'email_fetch_complete',
+          message: 'Full email content loaded successfully',
+          timestamp: new Date(),
+          model_name: 'EmailContent'
+        });
+      } else {
+        throw new Error('Failed to fetch full email content');
+      }
+    } catch (error) {
+      console.error('Error fetching full email content:', error);
+      
+      addNotification({
+        id: generateNotificationId('full_content_error', 'EmailContent'),
+        type: 'email_fetch_error',
+        message: 'Failed to load full email content',
+        timestamp: new Date(),
+        model_name: 'EmailContent'
+      });
+    } finally {
+      setFullContentLoading(false);
+    }
   };
 
   // Filter emails based on current view
@@ -190,7 +294,7 @@ export default function DashboardPage() {
     try {
       // Show start notification
           addNotification({
-        id: 'sync-start',
+        id: generateNotificationId('sync_start', 'EmailSync'),
       type: 'email_fetch_start',
         message: 'Fetching latest emails...',
       timestamp: new Date(),
@@ -210,19 +314,34 @@ export default function DashboardPage() {
         throw new Error(errorData.error || 'Failed to sync emails');
       }
 
-      const { emails: emailsData } = await response.json();
+      const responseData = await response.json();
+      const { emails: emailsData, message: responseMessage, isDemoMode } = responseData;
       
-      // Classify emails using the backend
+      // Handle demo mode response
+      if (isDemoMode) {
+        setEmails([]);
+        setEmailError({ type: 'info', message: responseMessage });
+        addNotification({
+          id: generateNotificationId('demo_mode', 'EmailSync'),
+          type: 'email_fetch_complete',
+          message: 'Demo mode: Use real OAuth providers to access emails',
+          timestamp: new Date(),
+          model_name: selectedModel
+        });
+        return;
+      }
+      
+      // Classify emails using the backend (only for real users)
       const classifiedEmails = await classifyEmails(emailsData);
       
       // Update the emails state
       setEmails(classifiedEmails);
       
-        addNotification({
-        id: 'sync-complete',
-          type: 'email_fetch_complete',
-        message: `Successfully synced ${emails.length} emails`,
-          timestamp: new Date(),
+      addNotification({
+        id: generateNotificationId('sync_complete', 'EmailSync'),
+        type: 'email_fetch_complete',
+        message: `Successfully synced ${emailsData.length} emails`,
+        timestamp: new Date(),
         model_name: selectedModel
       });
     } catch (error) {
@@ -230,7 +349,7 @@ export default function DashboardPage() {
       
       // Show error notification
       addNotification({
-        id: 'sync-error',
+        id: generateNotificationId('sync_error', 'EmailSync'),
         type: 'email_fetch_error',
         message: error instanceof Error ? error.message : 'Failed to sync emails',
         timestamp: new Date(),
@@ -248,7 +367,7 @@ export default function DashboardPage() {
       
       // Show loading notification
       addNotification({
-        id: 'load-more-start',
+        id: generateNotificationId('load_more_start', 'EmailSync'),
         type: 'email_fetch_start',
         message: 'Loading more emails...',
         timestamp: new Date(),
@@ -269,7 +388,7 @@ export default function DashboardPage() {
         const processedEmails = await classifyEmails(emailsData);
 
         addNotification({
-          id: 'load-more-success',
+          id: generateNotificationId('load_more_success', 'EmailSync'),
           type: 'email_fetch_success', 
           message: `Loaded ${emailsData.length - emails.length} more emails`,
           timestamp: new Date(),
@@ -286,7 +405,7 @@ export default function DashboardPage() {
       console.error('Load more failed:', error);
       
       addNotification({
-        id: 'load-more-error',
+        id: generateNotificationId('load_more_error', 'EmailSync'),
         type: 'email_fetch_error',
         message: error instanceof Error ? error.message : 'Failed to load more emails',
         timestamp: new Date(),
@@ -297,20 +416,134 @@ export default function DashboardPage() {
     }
   };
 
+  // Auto-sync function with proper notifications
+  const performAutoSync = async () => {
+    // Only auto-sync for authenticated, non-demo users
+    if (status !== 'authenticated' || !session?.user || session.isMockUser) {
+      return;
+    }
+
+    console.log('🔄 Performing auto-sync...');
+    
+    try {
+      await handleSyncEmails();
+      setLastSyncTime(new Date());
+      
+      // Add auto-sync notification
+      addNotification({
+        id: generateNotificationId('auto_sync_complete', 'AutoSync'),
+        type: 'email_fetch_complete',
+        message: `Auto-sync completed at ${new Date().toLocaleTimeString()}`,
+        timestamp: new Date(),
+        model_name: 'AutoSync'
+      });
+    } catch (error) {
+      console.error('Auto-sync failed:', error);
+      
+      addNotification({
+        id: generateNotificationId('auto_sync_error', 'AutoSync'),
+        type: 'email_fetch_error',
+        message: `Auto-sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date(),
+        model_name: 'AutoSync'
+      });
+    }
+  };
+
+  // Auto-sync on login
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user && !session.isMockUser && !autoSyncEnabled) {
+      console.log('✅ User authenticated - enabling auto-sync');
+      
+      // Perform initial sync on login
+      setTimeout(() => {
+        performAutoSync();
+      }, 2000); // 2 second delay to allow UI to settle
+      
+      setAutoSyncEnabled(true);
+      
+      addNotification({
+        id: generateNotificationId('auto_sync_enabled', 'AutoSync'),
+        type: 'email_fetch_start',
+        message: 'Auto-sync enabled: Emails will sync every 5 minutes',
+        timestamp: new Date(),
+        model_name: 'AutoSync'
+      });
+    }
+  }, [status, session, autoSyncEnabled]);
+
+  // Set up 5-minute interval auto-sync
+  useEffect(() => {
+    if (autoSyncEnabled && status === 'authenticated' && session?.user && !session.isMockUser) {
+      console.log('⏰ Setting up 5-minute auto-sync interval');
+      
+      // Clear any existing interval
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+      }
+      
+      // Set up new interval (5 minutes = 300,000 ms)
+      autoSyncIntervalRef.current = setInterval(() => {
+        performAutoSync();
+      }, 5 * 60 * 1000);
+      
+      return () => {
+        if (autoSyncIntervalRef.current) {
+          clearInterval(autoSyncIntervalRef.current);
+          autoSyncIntervalRef.current = null;
+        }
+      };
+    }
+  }, [autoSyncEnabled, status, session]);
+
+  // Cleanup auto-sync on component unmount or logout
+  useEffect(() => {
+    return () => {
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+        console.log('🧹 Auto-sync interval cleaned up');
+      }
+    };
+  }, []);
+
   return (
     <AppLayout showNotificationSidebar={true}>
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-800">
         {/* Simplified Header */}
         <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl md:text-2xl lg:text-2xl font-bold text-white">Dashboard</h1>
+            <div className="flex flex-col">
+              <h1 className="text-xl md:text-2xl lg:text-2xl font-bold text-white">Dashboard</h1>
+              {autoSyncEnabled && !session?.isMockUser && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-400 font-medium">Auto-sync active</span>
+                  </div>
+                  {lastSyncTime && (
+                    <span className="text-xs text-gray-400">
+                      Last: {lastSyncTime.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleSyncEmails}
               disabled={loading}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg flex items-center space-x-2 transition-all duration-200"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Sync</span>
+              {loading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+              )}
+              <span>Sync from Google</span>
             </button>
           </div>
         </header>
@@ -500,36 +733,37 @@ export default function DashboardPage() {
                     </button>
                     
                     <div className="flex items-center space-x-2">
-                      {!email.userFeedback && (
-                        <>
-                          <button
-                            onClick={() => handleFeedback(email.id, 'ham')}
-                            disabled={feedbackSubmitting === email.id}
-                            className="flex items-center space-x-1 px-2 py-1 bg-green-900/20 hover:bg-green-900/40 border border-green-700 text-green-300 rounded transition-all duration-200 disabled:opacity-50"
-                          >
-                            <ThumbsUp className="w-3 h-3" />
-                            <span className="text-xs">Ham</span>
-                          </button>
-                          <button
-                            onClick={() => handleFeedback(email.id, 'spam')}
-                            disabled={feedbackSubmitting === email.id}
-                            className="flex items-center space-x-1 px-2 py-1 bg-red-900/20 hover:bg-red-900/40 border border-red-700 text-red-300 rounded transition-all duration-200 disabled:opacity-50"
-                          >
-                            <ThumbsDown className="w-3 h-3" />
-                            <span className="text-xs">Spam</span>
-                          </button>
-                        </>
-                      )}
-                      
-                      {email.userFeedback && (
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          email.userFeedback === 'spam' 
-                            ? 'bg-red-900/30 border border-red-700 text-red-300' 
-                            : 'bg-green-900/30 border border-green-700 text-green-300'
-                        }`}>
-                          ✓ Marked as {email.userFeedback.toUpperCase()}
+                      {/* Always show changeable feedback buttons */}
+                      <button
+                        onClick={() => handleFeedback(email.id, 'ham')}
+                        disabled={feedbackSubmitting === email.id}
+                        className={`flex items-center space-x-1 px-2 py-1 border rounded transition-all duration-200 disabled:opacity-50 ${
+                          email.userFeedback === 'ham'
+                            ? 'bg-green-600 border-green-500 text-white shadow-md'
+                            : 'bg-green-900/20 hover:bg-green-900/40 border-green-700 text-green-300'
+                        }`}
+                        title={email.userFeedback === 'ham' ? 'Current feedback - click to confirm or change' : 'Mark as Ham (safe email)'}
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                        <span className="text-xs">
+                          Ham{email.userFeedback === 'ham' && ' ✓'}
                         </span>
-                      )}
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(email.id, 'spam')}
+                        disabled={feedbackSubmitting === email.id}
+                        className={`flex items-center space-x-1 px-2 py-1 border rounded transition-all duration-200 disabled:opacity-50 ${
+                          email.userFeedback === 'spam'
+                            ? 'bg-red-600 border-red-500 text-white shadow-md'
+                            : 'bg-red-900/20 hover:bg-red-900/40 border-red-700 text-red-300'
+                        }`}
+                        title={email.userFeedback === 'spam' ? 'Current feedback - click to confirm or change' : 'Mark as Spam'}
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                        <span className="text-xs">
+                          Spam{email.userFeedback === 'spam' && ' ✓'}
+                        </span>
+                      </button>
                     </div>
                   </div>
                             </div>
@@ -632,59 +866,128 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* User Feedback Section */}
-                  {selectedEmail.userFeedback ? (
-                    <div className="mb-6 p-4 rounded-lg bg-purple-900/20 border border-purple-700">
+                  {/* User Feedback Section - Always shown, allows changes */}
+                  <div className="mb-6 p-4 rounded-lg bg-gray-700 border border-gray-600">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
-                        <MessageSquare className="w-5 h-5 text-purple-400 mr-2" />
-                        <span className="text-sm text-purple-300 font-medium">User Feedback Provided</span>
-                      </div>
-                      <p className="text-sm text-gray-300 mt-2">
-                        Marked as <strong>{selectedEmail.userFeedback.toUpperCase()}</strong>
-                        {selectedEmail.feedbackTimestamp && (
-                          <> on {selectedEmail.feedbackTimestamp.toLocaleDateString()}</>
-                        )}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-6 p-4 rounded-lg bg-gray-700 border border-gray-600">
-                      <div className="flex items-center justify-between">
+                        <MessageSquare className="w-5 h-5 text-blue-400 mr-2" />
                         <div>
-                          <p className="text-sm text-gray-300 font-medium mb-2">Help improve the model</p>
-                          <p className="text-xs text-gray-400">
-                            Was this classification correct? Your feedback helps train the reinforcement learning model.
+                          <p className="text-sm text-gray-300 font-medium">
+                            {selectedEmail.userFeedback ? 'Your Feedback' : 'Help improve the model'}
                           </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleFeedback(selectedEmail.id, 'ham')}
-                            disabled={feedbackSubmitting === selectedEmail.id}
-                            className="flex items-center space-x-1 px-3 py-2 bg-green-900/20 hover:bg-green-900/40 border border-green-700 text-green-300 rounded transition-all duration-200 disabled:opacity-50"
-                          >
-                            <ThumbsUp className="w-4 h-4" />
-                            <span className="text-sm">Ham (Safe)</span>
-                          </button>
-                          <button
-                            onClick={() => handleFeedback(selectedEmail.id, 'spam')}
-                            disabled={feedbackSubmitting === selectedEmail.id}
-                            className="flex items-center space-x-1 px-3 py-2 bg-red-900/20 hover:bg-red-900/40 border border-red-700 text-red-300 rounded transition-all duration-200 disabled:opacity-50"
-                          >
-                            <ThumbsDown className="w-4 h-4" />
-                            <span className="text-sm">Spam</span>
-                          </button>
+                          {selectedEmail.userFeedback && selectedEmail.feedbackTimestamp && (
+                            <p className="text-xs text-gray-400">
+                              Last updated: {selectedEmail.feedbackTimestamp.toLocaleDateString()} at {selectedEmail.feedbackTimestamp.toLocaleTimeString()}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
-                  )}
+                    
+                    {!selectedEmail.userFeedback && (
+                      <p className="text-xs text-gray-400 mb-3">
+                        Was this classification correct? Your feedback helps train the reinforcement learning model.
+                      </p>
+                    )}
+                    
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleFeedback(selectedEmail.id, 'ham')}
+                        disabled={feedbackSubmitting === selectedEmail.id}
+                        className={`flex items-center space-x-1 px-3 py-2 border rounded transition-all duration-200 disabled:opacity-50 ${
+                          selectedEmail.userFeedback === 'ham'
+                            ? 'bg-green-600 border-green-500 text-white shadow-lg transform scale-105'
+                            : 'bg-green-900/20 hover:bg-green-900/40 border-green-700 text-green-300 hover:scale-105'
+                        }`}
+                      >
+                        <ThumbsUp className={`w-4 h-4 ${selectedEmail.userFeedback === 'ham' ? 'text-white' : ''}`} />
+                        <span className="text-sm">
+                          Ham (Safe) {selectedEmail.userFeedback === 'ham' && '✓'}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(selectedEmail.id, 'spam')}
+                        disabled={feedbackSubmitting === selectedEmail.id}
+                        className={`flex items-center space-x-1 px-3 py-2 border rounded transition-all duration-200 disabled:opacity-50 ${
+                          selectedEmail.userFeedback === 'spam'
+                            ? 'bg-red-600 border-red-500 text-white shadow-lg transform scale-105'
+                            : 'bg-red-900/20 hover:bg-red-900/40 border-red-700 text-red-300 hover:scale-105'
+                        }`}
+                      >
+                        <ThumbsDown className={`w-4 h-4 ${selectedEmail.userFeedback === 'spam' ? 'text-white' : ''}`} />
+                        <span className="text-sm">
+                          Spam {selectedEmail.userFeedback === 'spam' && '✓'}
+                        </span>
+                      </button>
+                    </div>
+                    
+                    {selectedEmail.userFeedback && (
+                      <div className="mt-3 p-2 bg-blue-900/20 border border-blue-700 rounded text-xs text-blue-300">
+                        <div className="flex items-center">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          <span>
+                            Currently marked as <strong>{selectedEmail.userFeedback.toUpperCase()}</strong>
+                            {selectedEmail.userFeedback !== selectedEmail.classification && 
+                              ` (differs from model's ${selectedEmail.classification?.toUpperCase()} prediction)`
+                            }
+                          </span>
+                        </div>
+                        <p className="mt-1 text-gray-400">
+                          Click either button above to change your feedback
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Email Content */}
                   <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-white mb-3">Email Content</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-white">Email Content</h3>
+                      {!fullContentLoaded && selectedEmail && (
+                        <button
+                          onClick={() => fetchFullEmailContent(selectedEmail.id)}
+                          disabled={fullContentLoading}
+                          className="flex items-center space-x-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-all duration-200"
+                        >
+                          {fullContentLoading ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <span>Loading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3 h-3" />
+                              <span>Show Full Content</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="bg-gray-900 p-4 rounded-lg border border-gray-600">
                       <div className="prose prose-gray max-w-none">
-                        {selectedEmail.fullBody || selectedEmail.body || selectedEmail.snippet ? (
-                          <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed">
-                            {selectedEmail.fullBody || selectedEmail.body || selectedEmail.snippet}
+                        {fullContentLoaded && fullEmailContent ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between pb-2 border-b border-gray-700">
+                              <span className="text-xs text-green-400 font-medium">✓ Full Content Loaded</span>
+                              <span className="text-xs text-gray-400">
+                                {Math.round(fullEmailContent.length / 1024 * 100) / 100} KB
+                              </span>
+                            </div>
+                            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed max-h-96 overflow-y-auto custom-scrollbar">
+                              {fullEmailContent}
+                            </div>
+                          </div>
+                        ) : selectedEmail?.fullBody || selectedEmail?.body || selectedEmail?.snippet ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between pb-2 border-b border-gray-700">
+                              <span className="text-xs text-yellow-400 font-medium">Preview Content</span>
+                              <span className="text-xs text-gray-400">
+                                Click "Show Full Content" for complete email
+                              </span>
+                            </div>
+                            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed">
+                              {selectedEmail.fullBody || selectedEmail.body || selectedEmail.snippet}
+                            </div>
                           </div>
                         ) : (
                           <div className="text-gray-500 text-center py-8">

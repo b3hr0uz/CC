@@ -47,6 +47,30 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    // Handle demo mode - return empty email list with message
+    if (session.isMockUser) {
+      console.log('📧 Demo mode detected - returning empty email list')
+      return NextResponse.json({
+        emails: [],
+        message: 'Demo mode: No emails available. Use real OAuth providers (Google, Apple, Microsoft) to access real emails.',
+        isDemoMode: true
+      }, {
+        headers: {
+          'Cache-Control': 'private, max-age=60',
+          'X-Response-Time': `${Date.now() - startTime}ms`,
+          'X-Demo-Mode': 'true'
+        }
+      })
+    }
+
+    // Real OAuth users require access token
     if (!session?.accessToken) {
       return NextResponse.json(
         { error: 'Not authenticated or no access token' },

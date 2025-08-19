@@ -21,7 +21,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:45:43.582092",
+    "timestamp": "2025-08-18T23:56:41.385085",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -47,7 +47,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:44:10.306386",
+    "timestamp": "2025-08-18T22:48:55.455959",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -73,7 +73,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:44:07.707914",
+    "timestamp": "2025-08-18T23:56:48.008392",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -99,7 +99,33 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-18T20:35:46.567081",
+    "timestamp": "2025-08-18T22:48:52.290977",
+    "model_version": "1.0.0-mock",
+    "legitimate_training": true
+  },
+  "svm": {
+    "model_name": "svm",
+    "metrics": {
+      "accuracy": 0.7057546145494028,
+      "precision": 0.6869918699186992,
+      "recall": 0.465564738292011,
+      "f1_score": 0.555008210180624,
+      "cv_scores": [
+        0.6209850107066381,
+        0.5619834710743802,
+        0.5196850393700787,
+        0.5389221556886228,
+        0.5792811839323467
+      ],
+      "mean_cv_score": 0.5641713721544133,
+      "std_cv_score": 0.034863848282650454,
+      "test_samples": 921,
+      "train_samples": 3680
+    },
+    "training_time": 0.0,
+    "k_folds": 5,
+    "dataset_source": "UCI_Spambase",
+    "timestamp": "2025-08-18T23:56:54.029474",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   }

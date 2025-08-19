@@ -72,6 +72,7 @@ interface ModelMetrics {
   description?: string;
   training_time?: number;
   cv_score?: number;
+  cv_scores?: number[]; // Array of individual cross-validation scores
   std_score?: number;
 }
 
@@ -1081,7 +1082,7 @@ export default function TrainingPage() {
     setIsAutoTraining(false);
   };
 
-  const compareModels = async () => {
+  const compareModels = async (): Promise<{ bestModel: string; bestMetrics: ModelMetrics; results: ComparisonResults } | null> => {
     console.log('🔍 compareModels started - current modelResults:', modelResults);
     
     try {
@@ -1145,8 +1146,16 @@ export default function TrainingPage() {
         console.log('🔄 Triggering Training Analysis refresh...');
         setAnalysisRefreshTrigger(prev => prev + 1);
         
+        // Return the actual data for immediate use (don't wait for state updates)
+        return {
+          bestModel: bestModelKey,
+          bestMetrics: modelResults[bestModelKey] as ModelMetrics,
+          results: correctedResults
+        };
+        
       } else {
         console.warn('⚠️ No valid model results found in comparison data');
+        return null;
       }
       
     } catch (error) {
@@ -1198,6 +1207,8 @@ export default function TrainingPage() {
           console.warn('Could not generate fallback results:', fallbackError);
         }
       }
+      
+      return null; // Return null on error
     }
   };
 
@@ -1300,12 +1311,37 @@ export default function TrainingPage() {
     });
 
     try {
-      for (const modelName of autoTrainingConfig.selected_models) {
+      // Ensure we're training ALL 7 models (get fresh list to avoid stale state)
+      const allModelKeys = getAllModelKeys();
+      console.log(`🎯 Auto-training will train ALL ${allModelKeys.length} models:`, allModelKeys);
+      
+      // Update config to ensure we have all models
+      setAutoTrainingConfig(prev => ({
+        ...prev,
+        selected_models: allModelKeys
+      }));
+      
+      for (const modelName of allModelKeys) {
+        console.log(`🚀 Starting training for model ${allModelKeys.indexOf(modelName) + 1}/${allModelKeys.length}: ${modelName}`);
         await trainSingleModelWithNotifications(modelName);
         
-        // Small delay between models to simulate resource management
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Delay between models for better resource management and user experience
+        if (allModelKeys.indexOf(modelName) < allModelKeys.length - 1) {
+          console.log(`⏸️ Waiting 3 seconds before training next model...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
       }
+      
+      console.log(`✅ Completed training all ${allModelKeys.length} models successfully`);
+      
+      // Add verification notification
+      addNotification({
+        id: generateNotificationId('training_verification', 'Auto-Training System'),
+        type: 'training_complete',
+        model_name: 'Auto-Training System',
+        message: `Training verification: ${allModelKeys.length} models processed. Models: ${allModelKeys.map(m => getModelDisplayName(m)).join(', ')}`,
+        timestamp: new Date()
+      });
 
       // Refresh available models to show updated training status
       console.log('🔄 Refreshing models after training...');
@@ -1313,31 +1349,41 @@ export default function TrainingPage() {
 
       // After all models are trained, compare and select best
       console.log('📊 Comparing trained models...');
-      await compareModels();
-      
-      // Wait longer for state updates to be processed (compareModels triggers refresh)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Get the updated best model after comparison
-      const currentBestModel = bestModel || 'Unknown';
-      console.log(`🏆 Current best model after comparison: ${currentBestModel}`);
+      const comparisonResult = await compareModels();
       
       // Calculate total training time from all models
-      const totalTrainingTime = autoTrainingConfig.selected_models.reduce((total, modelName) => {
+      const totalTrainingTime = allModelKeys.reduce((total, modelName) => {
         return total + calculateActualTrainingTime(modelName);
       }, 0);
       
-      // Get best model metrics for display
-      const bestModelMetrics = modelResults?.results[currentBestModel];
-      const f1Score = bestModelMetrics?.f1_score ? (bestModelMetrics.f1_score * 100).toFixed(1) : 'N/A';
-      const accuracy = bestModelMetrics?.accuracy ? (bestModelMetrics.accuracy * 100).toFixed(1) : 'N/A';
+      // Use the actual comparison data from the backend (not state which may not be updated yet)
+      let currentBestModel = 'Unknown';
+      let bestModelMetrics = null;
+      let f1Score = 'N/A';
+      let accuracy = 'N/A';
       
-      // Final enhanced notification with more parameters and performance numbers
+      if (comparisonResult) {
+        currentBestModel = comparisonResult.bestModel;
+        bestModelMetrics = comparisonResult.bestMetrics;
+        f1Score = bestModelMetrics?.f1_score ? (bestModelMetrics.f1_score * 100).toFixed(1) : 'N/A';
+        accuracy = bestModelMetrics?.accuracy ? (bestModelMetrics.accuracy * 100).toFixed(1) : 'N/A';
+        
+        console.log(`🏆 Best model from comparison: ${currentBestModel} (F1: ${f1Score}%, Acc: ${accuracy}%)`);
+      } else {
+        console.warn('⚠️ No comparison result available, using fallback values');
+        // Fallback to state values if comparison failed
+        currentBestModel = bestModel || 'Unknown';
+        bestModelMetrics = modelResults?.results[currentBestModel] || null;
+        f1Score = bestModelMetrics?.f1_score ? (bestModelMetrics.f1_score * 100).toFixed(1) : 'N/A';
+        accuracy = bestModelMetrics?.accuracy ? (bestModelMetrics.accuracy * 100).toFixed(1) : 'N/A';
+      }
+      
+      // Final enhanced notification with actual performance numbers
       addNotification({
         id: generateNotificationId('training_complete', 'Auto-Training System'),
         type: 'training_complete',
         model_name: 'Auto-Training System',
-        message: `Auto-training completed successfully. Best model: ${getModelDisplayName(currentBestModel)} (F1: ${f1Score}%, Acc: ${accuracy}%) | Total time: ${totalTrainingTime.toFixed(1)}s | Models tested: ${autoTrainingConfig.selected_models.length}`,
+        message: `Auto-training completed successfully. Best model: ${getModelDisplayName(currentBestModel)} (F1: ${f1Score}%, Acc: ${accuracy}%) | Total time: ${totalTrainingTime.toFixed(1)}s | Models tested: ${allModelKeys.length}`,
         timestamp: new Date(),
         end_time: new Date(),
         duration: totalTrainingTime,
@@ -1487,49 +1533,100 @@ export default function TrainingPage() {
 
       // After individual model training, update the analysis sections by comparing models
       console.log(`🔄 Individual training completed for ${modelName}, updating Training Analysis...`);
-      await compareModels();
+      try {
+        await compareModels();
+      } catch (compareError) {
+        console.warn(`⚠️ Error in compareModels for ${modelName}, but training was successful:`, compareError);
+      }
       
       // Update available models to refresh TopBar dropdown with latest training status
       console.log(`🔄 Refreshing TopBar dropdown for ${modelName}...`);
-      await fetchAvailableModels();
+      try {
+        await fetchAvailableModels();
+      } catch (fetchError) {
+        console.warn(`⚠️ Error fetching available models for ${modelName}, but training was successful:`, fetchError);
+      }
       
       // GLOBAL SYNC: Update model metrics across all pages (Dashboard, Assistant, Training)
       console.log(`🌐 Syncing global model metrics for ${modelName}...`);
-      const globalModelUpdate = {
-        [modelName]: {
-          ...newMetrics,
-          lastUpdated: new Date().toISOString(),
-          trainingSource: 'legitimate_backend'
-        }
-      };
-      localStorage.setItem('globalModelMetrics', JSON.stringify({
-        ...JSON.parse(localStorage.getItem('globalModelMetrics') || '{}'),
-        ...globalModelUpdate
-      }));
+      try {
+        const globalModelUpdate = {
+          [modelName]: {
+            ...newMetrics,
+            lastUpdated: new Date().toISOString(),
+            trainingSource: 'legitimate_backend'
+          }
+        };
+        localStorage.setItem('globalModelMetrics', JSON.stringify({
+          ...JSON.parse(localStorage.getItem('globalModelMetrics') || '{}'),
+          ...globalModelUpdate
+        }));
+      } catch (storageError) {
+        console.warn(`⚠️ Error updating localStorage for ${modelName}, but training was successful:`, storageError);
+      }
       
       // Trigger Training Analysis refresh after individual model training
       console.log(`🔄 Triggering Training Analysis refresh after ${modelName} training...`);
-      setAnalysisRefreshTrigger(prev => prev + 1);
+      try {
+        setAnalysisRefreshTrigger(prev => prev + 1);
+      } catch (analysisError) {
+        console.warn(`⚠️ Error triggering analysis refresh for ${modelName}, but training was successful:`, analysisError);
+      }
 
     } catch (error) {
       console.error(`❌ Error training ${modelName}:`, error);
       
+      // Enhanced error logging to understand the root cause
+      let errorMessage = 'Unknown error';
+      let isActualTrainingFailure = true;
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response) {
+          errorMessage = `HTTP ${axiosError.response.status}: ${axiosError.response.statusText}`;
+          console.error(`❌ API Response Error for ${modelName}:`, axiosError.response.data);
+        } else if (axiosError.request) {
+          errorMessage = 'Network connectivity issue - no response from backend';
+          console.error(`❌ Network Error for ${modelName}:`, axiosError.request);
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        // If error happened after a successful API call, it's a post-processing error
+        if (error.message.includes('compareModels') || error.message.includes('fetchAvailableModels')) {
+          isActualTrainingFailure = false;
+          console.warn(`⚠️ Post-training processing error for ${modelName}, but training may have succeeded`);
+        }
+      }
+      
       // CRITICAL: Do NOT update parameters when training fails - only legitimate backend runs should update parameters
       console.warn(`⚠️ Training failed for ${modelName}. No parameters will be updated.`);
       
-      // Do not store any metrics or update parameters on error
-
-      addNotification({
-        id: generateNotificationId('training_failed', modelName),
-        type: 'training_error',
-        model_name: modelName,
-        message: `Training failed for ${modelName.replace('_', ' ').toUpperCase()}: Backend connection error. No parameters updated.`,
-        timestamp: new Date(),
-        start_time: startTime,
-        end_time: new Date(),
-        duration: (Date.now() - startTime.getTime()) / 1000
-        // No metrics provided for failed training
-      });
+      // Only show training failure notification for actual training API failures
+      if (isActualTrainingFailure) {
+        addNotification({
+          id: generateNotificationId('training_failed', modelName),
+          type: 'training_error',
+          model_name: modelName,
+          message: `Training failed for ${modelName.replace('_', ' ').toUpperCase()}: ${errorMessage}. No parameters updated.`,
+          timestamp: new Date(),
+          start_time: startTime,
+          end_time: new Date(),
+          duration: (Date.now() - startTime.getTime()) / 1000
+          // No metrics provided for failed training
+        });
+      } else {
+        // For post-processing errors, show a different message
+        addNotification({
+          id: generateNotificationId('training_post_error', modelName),
+          type: 'training_error',
+          model_name: modelName,
+          message: `Training succeeded for ${modelName.replace('_', ' ').toUpperCase()}, but post-processing had issues: ${errorMessage}`,
+          timestamp: new Date(),
+          start_time: startTime,
+          end_time: new Date(),
+          duration: (Date.now() - startTime.getTime()) / 1000
+        });
+      }
       
       // Do not update analysis sections or call compareModels when training fails
       // This prevents propagation of invalid data through the system
