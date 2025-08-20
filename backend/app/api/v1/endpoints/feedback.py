@@ -719,9 +719,9 @@ async def get_cross_validation_info():
         if not ml_service or not ml_service.is_ready():
             # Return mock cross-validation data when ML service unavailable
             return {
-                "cv_strategy": "StratifiedKFold",
-                "n_splits": 5,
-                "shuffle": True,
+                "cv_strategy": "LOOCV (Leave-One-Out)",
+                "total_iterations": 4601,  # n iterations for UCI Spambase dataset
+                "shuffle": False,  # LOOCV doesn't use shuffling
                 "random_state": 42,
                 "models": {
                     "xgboost_rl": {

@@ -148,5 +148,20 @@
     },
     "timestamp": "2025-08-18T23:31:46.046Z",
     "processed": true
+  },
+  {
+    "id": "fb_behianoa@gmail.com_198a73df7791b158_1755687364",
+    "user_id": "behianoa@gmail.com",
+    "email_id": "198a73df7791b158",
+    "feedback_type": "ham",
+    "predicted_class": "spam",
+    "confidence_score": 0.7555976550930543,
+    "email_features": {
+      "subject": "You've received a payout",
+      "sender": "service@paypal.com",
+      "preview": "BEHROUZ BARATI BAGHERABAD, here are the details. Hello, BEHROUZ BARATI BAGHERABAD Google Opinion Rewards sent you $2.13 USD Get instant access today i..."
+    },
+    "timestamp": "2025-08-20T10:56:04.259Z",
+    "processed": true
   }
 ]

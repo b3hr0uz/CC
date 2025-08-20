@@ -1,0 +1,195 @@
+﻿Spam Email Detection + Context Aware Assistant: ContextCleanse
+
+COMP442 Machine Learning
+Summer 2025 Session 3
+Group 1
+08/19/25
+
+Behrouz Barati B 
+Daniel Barlam 
+Sebastian Borner 
+Eitan Abrishami 
+Mohammed Hussain 
+Austin Engstrom
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Table of Contents
+
+p.3-Objective
+
+p.3-Background Information
+
+
+p.4-Design Principle
+
+
+p.X-Data Exploration and Preprocessing
+
+
+p.X-Modeling
+
+
+p.X-Analysis
+
+
+p.X-Summary
+
+
+p.X-References
+
+
+p.X-Appendix
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3-Objective
+
+
+Our goal for this project was to replicate an already existing business case, a spam detection software. Since this project was a purely educational idea, the fact that several other programs of this nature already exist was not a factor. Some specs/restrictions that we decided on: the app should live entirely in the client’s desktop environment, which is to say that the app should not have to connect to any server or send data anywhere, it should be compact, portable, and self contained.  A context aware assistant would be present in the app to assist with email classification, to learn from your personal emails and be able to adapt to said emails.
+Targeting an accuracy rate of greater than 90 percent and a response time faster than 300 milliseconds, our program should not impede a client’s regular workflow.
+Our business success criteria can be considered a success, we were able to hit each goal we set out for at the beginning of the semester. Our program worked in detecting spam at better than a desired rate, both in accuracy and response time. We consider this a success in both our business criteria and our learning objectives.
+
+
+4-Background Information
+
+
+        Some important terminology relating to our project is the difference between ham and spam and the actual definition of spam. Spam is defined as unsolicited mail or messages, usually in the forms of advertisements or scam attempts. Conversely ham emails are emails who are not spam, wanted communications and services that you have signed up for. Historically these spam emails have been an infuriating deluge, an unstoppable flooding of your inbox. Wading through messages that you didn’t ask for.
+        Originally we had selected a dataset that upon further scrutiny we realized would not work for our needs. Selected at a whim really, the original dataset was taken from an federal investigation of Enron, a now defunct energy company based in America. This dataset was over 500,000 emails which we immediately deemed too large to work with, but to further prove our decision to change correct, the data was entirely unstructured. We decided that at our skill level and with our time constraints we would not have the time nor the skill to categorize and prepare a dataset of that size, feature extraction would be extremely difficult.
+        So we went looking for an alternative dataset which we found in Kaggle. UCI’s “spambase” dataset was exactly what we were looking for, this dataset was a much more manageable 4601 entries, completely structured, and more importantly all of the features were already extracted. This new dataset would save us precious time so we unanimously decided to adopt it over the Enron dataset.
+
+
+
+
+
+
+
+
+5-design principle of your ML system/ scope of the study (data sources, ML technology that is being used for the group project)
+
+
+
+
+
+
+6-data exploration and data preprocessing (feature engineering) issues and solutions/survey results/diagrams/tables
+
+
+
+
+
+
+7-modeling and implementation
+
+
+ issues and solutions/ survey results/ diagrams/ tables
+
+
+
+
+
+
+8-analysis/ assessment of results
+
+
+
+
+
+
+9-summary of learning experiences such as experiments and readings
+
+
+
+
+
+
+10-references (authors, title, publishing source data, date of publication, URL) and you should quote each reference in your report text
+
+
+
+
+
+
+11-Appendix
+
+
+Github link
+https://github.com/b3hr0uz/CC
+
+
+UCI Machine Learning Repository, UCI Spambase
+https://archive.ics.uci.edu/dataset/94/spambase

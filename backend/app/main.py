@@ -279,11 +279,11 @@ class PredictionRequest(BaseModel):
     
 class ModelTrainRequest(BaseModel):
     algorithm_names: Optional[List[str]] = None  # Train specific models or all if None (renamed from model_names)
-    k_folds: Optional[int] = 5  # K-fold cross validation
+    use_loocv: Optional[bool] = True  # Use LOOCV (Leave-One-Out Cross Validation) instead of K-Fold
 
 class CrossValidationRequest(BaseModel):
     algorithm_name: str  # Renamed from model_name to avoid Pydantic conflict
-    k_folds: Optional[int] = 5
+    use_loocv: Optional[bool] = True  # Use LOOCV instead of K-Fold
 
 class SpamDetectionResponse(BaseModel):
     is_spam: bool
@@ -302,11 +302,12 @@ class StatisticsResponse(BaseModel):
     top_correlated_features: List[Dict[str, float]]
 
 class CrossValidationResponse(BaseModel):
-    algorithm_name: str  # Renamed from model_name to avoid Pydantic conflict
+    model_name: str
     cv_scores: List[float]
     mean_score: float
     std_score: float
-    k_folds: int
+    cv_method: str  # "LOOCV" or "K-Fold" 
+    total_iterations: int  # Number of CV iterations (n for LOOCV)
 
 @app.on_event("startup")
 async def startup_event():
@@ -377,7 +378,7 @@ async def root():
         "version": "2.0.0",
         "features": [
             "Multiple ML models with selection",
-            "K-fold cross validation",
+            "LOOCV (Leave-One-Out Cross Validation)",
             "Model comparison and statistics",
             "Real-time spam prediction"
         ],
@@ -385,7 +386,7 @@ async def root():
             "/statistics": "Get dataset statistics",
             "/models/available": "Get available models",
             "/models/train": "Train selected models",
-            "/models/cross-validate": "Perform k-fold cross validation",
+            "/models/cross-validate": "Perform LOOCV (Leave-One-Out Cross Validation)",
             "/predict": "Predict spam with model selection",
             "/compare": "Compare all model performances"
         }
@@ -459,7 +460,7 @@ async def get_available_models():
 
 @app.post("/models/train")
 async def train_models(request: ModelTrainRequest):
-    """Train selected ML models with optional k-fold cross validation (non-blocking using threading)"""
+    """Train selected ML models with LOOCV (Leave-One-Out Cross Validation) - non-blocking using threading"""
     global data_loaded, training_status
     
     if not data_loaded:
@@ -627,7 +628,7 @@ async def get_training_status():
 
 @app.post("/models/cross-validate", response_model=CrossValidationResponse)
 async def cross_validate_model(request: CrossValidationRequest):
-    """Perform k-fold cross validation for a specific model"""
+    """Perform LOOCV (Leave-One-Out Cross Validation) for a specific model"""
     if not data_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded")
     
@@ -650,19 +651,32 @@ async def cross_validate_model(request: CrossValidationRequest):
         else:
             X_cv_data = X_full.values
         
-        # Perform cross validation
-        cv_scores = cross_val_score(
-            model, X_cv_data, y_full, 
-            cv=StratifiedKFold(n_splits=request.k_folds, shuffle=True, random_state=42),
-            scoring='f1'
-        )
+        # ✅ LOOCV: Use LeaveOneOut instead of StratifiedKFold
+        from sklearn.model_selection import LeaveOneOut
+        
+        if request.use_loocv:
+            # LOOCV: Leave-One-Out Cross Validation (n iterations where n = dataset size)
+            loocv = LeaveOneOut()
+            cv_scores = cross_val_score(model, X_cv_data, y_full, cv=loocv, scoring='f1')
+            cv_method = "LOOCV"
+            total_iterations = len(X_cv_data)  # n iterations for LOOCV
+        else:
+            # Fallback to 5-fold for comparison
+            cv_scores = cross_val_score(
+                model, X_cv_data, y_full, 
+                cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+                scoring='f1'
+            )
+            cv_method = "5-Fold"
+            total_iterations = 5
         
         return CrossValidationResponse(
             model_name=model_config['name'],
             cv_scores=cv_scores.tolist(),
             mean_score=float(cv_scores.mean()),
             std_score=float(cv_scores.std()),
-            k_folds=request.k_folds
+            cv_method=cv_method,
+            total_iterations=total_iterations
         )
         
     except Exception as e:

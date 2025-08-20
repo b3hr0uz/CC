@@ -761,47 +761,130 @@ Instructions:
 
 Please provide a helpful response based on the email context provided.`;
       
-      // Step 4: Query Ollama (if available) or provide fallback response
-      let assistantResponse = '';
-      
-      if (ollamaStatus.available) {
-        try {
-          const ollamaResponse = await axios.post(`${ollamaConfig.apiUrl}/api/generate`, {
-            model: ollamaStatus.model,
-            prompt: `${systemPrompt}\n\n${userPrompt}`,
-            stream: false,
-            options: {
-              temperature: 0.7,
-              top_p: 0.9,
-              num_predict: 500
-            }
-          }, { timeout: ollamaConfig.timeout * 4 }); // Use 4x the base timeout for generation
-          
-          assistantResponse = ollamaResponse.data.response || 'Sorry, I could not generate a response.';
-        } catch (error) {
-          console.error('Ollama request failed:', error);
-          assistantResponse = '⚠️ Ollama is not responding. Using fallback response based on email analysis.';
-        }
-      } else {
-        assistantResponse = '⚠️ Ollama is not available. Please ensure Ollama is running with `ollama serve` and the llama3.1:8b model is installed.';
-      }
-      
-      // Fallback analysis if Ollama failed
-      if (assistantResponse.includes('⚠️') && relevantEmails.length > 0) {
-        assistantResponse += `\n\n📊 **Based on your email data:**\n\nI found ${relevantEmails.length} relevant emails:\n${relevantEmails.map(email => 
-          `• From ${email.from || 'Unknown sender'}: "${email.subject || '[No subject]'}" (${email.timestamp?.toLocaleDateString() || 'Unknown date'})`
-        ).join('\n')}`;
-      }
-      
+      // Step 4: Create streaming assistant message
+      const assistantMessageId = `assistant-${Date.now()}`;
       const botMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
+        id: assistantMessageId,
         type: 'assistant',
-        content: assistantResponse,
+        content: '',
         timestamp: new Date(),
-        sources: relevantEmails.length > 0 ? relevantEmails : undefined
+        sources: relevantEmails.length > 0 ? relevantEmails : undefined,
+        processing: true
       };
       
       setMessages(prev => [...prev, botMessage]);
+      
+      // Step 5: Stream response from Ollama via our API
+      try {
+        const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+        
+        const response = await fetch('/api/assistant/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: query,
+            context: emailContext || undefined,
+            model: 'llama3:8b'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response stream available');
+        }
+
+        const decoder = new TextDecoder();
+        let accumulatedContent = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  
+                  if (data.type === 'content' && data.content) {
+                    accumulatedContent += data.content;
+                    
+                    // Update the message with streaming content
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: accumulatedContent, processing: true }
+                        : msg
+                    ));
+                  } else if (data.type === 'done' || data.done) {
+                    // Mark as completed
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, processing: false }
+                        : msg
+                    ));
+                    break;
+                  } else if (data.type === 'error') {
+                    // Handle error response
+                    const errorContent = data.content || 'Failed to get response from Ollama';
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: errorContent, processing: false }
+                        : msg
+                    ));
+                    break;
+                  }
+                } catch (parseError) {
+                  console.warn('Failed to parse streaming data:', parseError);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        // If no content was received, show fallback
+        if (accumulatedContent.trim() === '') {
+          const fallbackContent = relevantEmails.length > 0 
+            ? `📊 **Based on your email data:**\n\nI found ${relevantEmails.length} relevant emails:\n${relevantEmails.map(email => 
+                `• From ${email.from || 'Unknown sender'}: "${email.subject || '[No subject]'}" (${email.timestamp?.toLocaleDateString() || 'Unknown date'})`
+              ).join('\n')}`
+            : 'I apologize, but I couldn\'t generate a response. Please ensure Ollama is running with the llama3:8b model.';
+            
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: fallbackContent, processing: false }
+              : msg
+          ));
+        }
+
+      } catch (streamError) {
+        console.error('Streaming failed:', streamError);
+        
+        // Fallback to non-streaming response
+        let fallbackResponse = '⚠️ Could not connect to Ollama streaming service. Please ensure:\n\n1. Ollama is running in WSL: `ollama serve`\n2. Model is installed: `ollama pull llama3:8b`\n3. Try refreshing the page';
+        
+        if (relevantEmails.length > 0) {
+          fallbackResponse += `\n\n📊 **Based on your email data:**\n\nI found ${relevantEmails.length} relevant emails:\n${relevantEmails.map(email => 
+            `• From ${email.from || 'Unknown sender'}: "${email.subject || '[No subject]'}" (${email.timestamp?.toLocaleDateString() || 'Unknown date'})`
+          ).join('\n')}`;
+        }
+        
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessageId 
+            ? { ...msg, content: fallbackResponse, processing: false }
+            : msg
+        ));
+      }
       
     } catch (error) {
       console.error('Message processing failed:', error);

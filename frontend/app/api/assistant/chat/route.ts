@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ChatRequest = await request.json();
-    const { message, context, model = 'llama3.1:8b' } = body;
+    const { message, context, model = 'llama3:8b' } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -46,9 +46,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // WSL Ollama configuration
+    const getOllamaUrl = () => {
+      if (process.env.NEXT_PUBLIC_OLLAMA_HOST) {
+        return `http://${process.env.NEXT_PUBLIC_OLLAMA_HOST}`;
+      }
+      // Use localhost for Linux, host.docker.internal for Windows Docker
+      return process.env.OLLAMA_HOST || 'http://localhost:11434';
+    };
+
+    const ollamaUrl = getOllamaUrl();
+    console.log(`🤖 Using Ollama at: ${ollamaUrl}`);
+
     // Check if Ollama is available
     try {
-      const healthCheck = await fetch('http://localhost:11434/api/tags', {
+      const healthCheck = await fetch(`${ollamaUrl}/api/tags`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(5000)
@@ -64,14 +76,14 @@ export async function POST(request: NextRequest) {
         prompt = `Context: ${context}\n\nUser Question: ${message}\n\nPlease provide a helpful response based on the context provided above.`;
       }
 
-      // Query Ollama
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      // Query Ollama with streaming support
+      const ollamaResponse = await fetch(`${ollamaUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           prompt,
-          stream: false,
+          stream: false, // Set to false for now, will enable streaming in next step
           options: {
             temperature: 0.7,
             top_p: 0.9,
@@ -103,11 +115,13 @@ export async function POST(request: NextRequest) {
         success: false,
         response: `⚠️ **Ollama Service Unavailable**
 
-I'm unable to connect to the local Ollama service. To use the Assistant, please:
+I'm unable to connect to the Ollama service in WSL. To use the Assistant, please:
 
-1. **Install Ollama**: Download from https://ollama.com/library/llama3.1:8b
-2. **Start the service**: Run \`ollama serve\` in your terminal
-3. **Pull the model**: Run \`ollama pull llama3.1:8b\`
+1. **In WSL Terminal**: Run \`ollama serve\` to start the service
+2. **Pull the model**: Run \`ollama pull llama3:8b\`
+3. **Verify**: Run \`ollama list\` to see installed models
+
+Current Ollama URL: ${ollamaUrl}
 
 **Fallback Analysis**: ${context ? `Based on the provided context, I can see information about your emails, but I need Ollama to provide intelligent responses.` : 'Please provide your question and I\'ll try to help when Ollama is available.'}`,
         model,
@@ -136,9 +150,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // WSL Ollama configuration
+    const getOllamaUrl = () => {
+      if (process.env.NEXT_PUBLIC_OLLAMA_HOST) {
+        return `http://${process.env.NEXT_PUBLIC_OLLAMA_HOST}`;
+      }
+      return process.env.OLLAMA_HOST || 'http://localhost:11434';
+    };
+
+    const ollamaUrl = getOllamaUrl();
+
     // Check Ollama status
     try {
-      const response = await fetch('http://localhost:11434/api/tags', {
+      const response = await fetch(`${ollamaUrl}/api/tags`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(5000)
@@ -148,12 +172,12 @@ export async function GET(request: NextRequest) {
         const data: OllamaModelsResponse = await response.json();
         const models = data.models || [];
         const llamaModel = models.find((model: OllamaModel) => 
-          model.name.includes('llama3.1') && model.name.includes('8b')
+          model.name.includes('llama3') && model.name.includes('8b')
         );
 
         return NextResponse.json({
           available: true,
-          model: llamaModel?.name || 'llama3.1:8b',
+          model: llamaModel?.name || 'llama3:8b',
           status: llamaModel ? 'Ready' : 'Model not found',
           models: models.map((m: OllamaModel) => ({ name: m.name, size: m.size }))
         });
@@ -163,7 +187,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return NextResponse.json({
         available: false,
-        model: 'llama3.1:8b',
+        model: 'llama3:8b',
         status: 'Ollama service not running',
         error: error instanceof Error ? error.message : 'Unknown error'
       });

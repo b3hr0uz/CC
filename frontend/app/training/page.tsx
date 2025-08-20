@@ -114,7 +114,7 @@ interface ComparisonResults {
     metrics: ModelMetrics;
   };
   ranking: Array<[string, number, string]>;
-  optimal_k_fold?: number;
+  use_loocv?: boolean;  // Use LOOCV instead of K-Fold
 }
 
 interface CrossValidationResult {
@@ -122,7 +122,8 @@ interface CrossValidationResult {
   cv_scores: number[];
   mean_score: number;
   std_score: number;
-  k_folds: number;
+  cv_method: string;  // "LOOCV" or "K-Fold"
+  total_iterations: number;  // Number of CV iterations
 }
 
 interface RLOptimizationData {
@@ -141,7 +142,7 @@ interface RLOptimizationData {
 
 interface AutoTrainingConfig {
   enabled: boolean;
-  optimal_k_fold: number;
+  use_loocv: boolean;  // Use LOOCV instead of K-Fold
   resource_limit: number; // Percentage of system resources
   selected_models: string[];
   auto_start_on_login: boolean;
@@ -168,7 +169,7 @@ export default function TrainingPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [isBackendAvailable, setIsBackendAvailable] = useState(true);
-  const [kFolds, setKFolds] = useState(5);
+  const [useLOOCV, setUseLOOCV] = useState(true);  // Use LOOCV instead of K-Fold
   
   // Track whether real training has been completed (not fallback/mock data)
   const [hasRealTrainingData, setHasRealTrainingData] = useState(false);
@@ -190,7 +191,7 @@ export default function TrainingPage() {
   // Enhanced state for new features - use centralized model configuration
   const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
     enabled: true, // ✅ ENABLED: Auto-training ready with background system
-    optimal_k_fold: 5,
+    use_loocv: true,  // ✅ USE LOOCV: Leave-One-Out Cross Validation for optimal results
     resource_limit: 85, // 85% of system resources for better UX
     selected_models: getAllModelKeys(), // ✅ TRAIN ALL MODELS: All 7 models for comprehensive training
     auto_start_on_login: true, // ✅ ENABLED: Start training when user logs in
@@ -225,11 +226,16 @@ export default function TrainingPage() {
     const lockTimestamp = localStorage.getItem('training_global_lock');
     if (!lockTimestamp) return false;
     
-    // Auto-expire lock after 10 minutes to prevent permanent locks
+    // ✅ AGGRESSIVE AUTO-EXPIRE: Reduce lock timeout to prevent session conflicts
     const lockTime = parseInt(lockTimestamp);
     const now = Date.now();
-    if (now - lockTime > 10 * 60 * 1000) {
+    const lockAge = (now - lockTime) / 1000 / 60; // minutes
+    
+    // ✅ SHORTER TIMEOUT: Auto-expire after 3 minutes instead of 10
+    if (lockAge > 3) {
+      console.log(`🔓 Auto-expiring stale training lock (${lockAge.toFixed(1)} minutes old) - Preventing session conflicts`);
       localStorage.removeItem('training_global_lock');
+      setGlobalTrainingLock(false);
       return false;
     }
     
@@ -286,7 +292,7 @@ export default function TrainingPage() {
             }
           },
           ranking: [],
-          optimal_k_fold: 5
+          use_loocv: true
         };
         
         setModelResults(placeholderResults);
@@ -595,6 +601,37 @@ export default function TrainingPage() {
 
 
 
+  // ✅ GENERIC PROGRESS SIMULATOR: Used for various loading states
+  const simulateProgress = (progressType: keyof typeof loadingProgress, estimatedDuration: number = 3000) => {
+    const startTime = Date.now();
+    setLoadingStates(prev => ({ ...prev, [progressType]: true }));
+    setLoadingProgress(prev => ({ ...prev, [progressType]: 0 }));
+    
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progressPercent = Math.min((elapsed / estimatedDuration) * 100, 90); // Cap at 90% for general use
+      
+      setLoadingProgress(prev => ({
+        ...prev,
+        [progressType]: progressPercent
+      }));
+      
+      // Auto-complete at 90% for non-training operations
+      if (progressPercent >= 90) {
+        clearInterval(interval);
+        setTimeout(() => {
+          setLoadingProgress(prev => ({ ...prev, [progressType]: 100 }));
+          setTimeout(() => {
+            setLoadingStates(prev => ({ ...prev, [progressType]: false }));
+            setLoadingProgress(prev => ({ ...prev, [progressType]: 0 }));
+          }, 500);
+        }, 200);
+      }
+    }, 150); // Update every 150ms for smooth animation
+    
+    return interval;
+  };
+
   // Enhanced progress simulation that spans the entire training process
   const simulateTrainingProgress = (estimatedDuration: number = 30000) => {
     const startTime = Date.now();
@@ -621,8 +658,10 @@ export default function TrainingPage() {
 
   // Manual completion of training progress
   const completeTrainingProgress = () => {
+    console.log('🔄 Completing training progress...');
     setLoadingProgress(prev => ({ ...prev, training: 100 }));
     setTimeout(() => {
+      console.log('🔄 Clearing training loading states...');
       setLoadingStates(prev => ({ ...prev, training: false }));
       setLoadingProgress(prev => ({ ...prev, training: 0 }));
     }, 1000); // Show 100% for 1 second before clearing
@@ -767,10 +806,10 @@ export default function TrainingPage() {
     });
 
     try {
-      // Determine optimal K-Fold CV rate
-      const optimalKFold = await determineOptimalKFold();
-      setAutoTrainingConfig(prev => ({ ...prev, optimal_k_fold: optimalKFold }));
-      setKFolds(optimalKFold);
+      // LOOCV is configured by default - no need for separate setup
+      console.log('🎯 Using LOOCV (Leave-One-Out Cross Validation) as default');
+      setAutoTrainingConfig(prev => ({ ...prev, use_loocv: true }));
+      setUseLOOCV(true);
 
       // Start sequential training
       setTimeout(() => {
@@ -958,12 +997,12 @@ export default function TrainingPage() {
       console.log(`📡 Sending training request to: ${API_BASE_URL}/models/train`);
       console.log('📋 Training parameters:', {
         algorithm_names: selectedModelsForTraining,
-        k_folds: kFolds
+        use_loocv: useLOOCV
       });
 
       const response = await axios.post(`${API_BASE_URL}/models/train`, {
         algorithm_names: selectedModelsForTraining,
-        k_folds: kFolds
+        use_loocv: useLOOCV
       });
       
       console.log('✅ Training API response received:', response.data);
@@ -1085,14 +1124,14 @@ export default function TrainingPage() {
         id: generateNotificationId('model_training_start', modelName),
         type: 'model_training_start',
         model_name: modelName,
-        message: `Training ${modelName} with ${kFolds}-Fold CV...`,
+        message: `Training ${modelName} with ${useLOOCV ? 'LOOCV' : '5-Fold'} validation...`,
         timestamp: new Date()
       });
 
       try {
         const response = await axios.post(`${API_BASE_URL}/api/v1/feedback/models/train`, {
           model_name: modelName,
-          k_folds: kFolds,
+          use_loocv: useLOOCV,
           use_rl_enhancement: modelName === 'xgboost_rl'
         });
         
@@ -1293,8 +1332,8 @@ export default function TrainingPage() {
       simulateProgress('crossValidation', 5000); // 5 seconds for CV
       
       const response = await axios.post(`${API_BASE_URL}/models/cross-validate`, {
-        model_name: modelName,
-        k_folds: kFolds
+        algorithm_name: modelName,
+        use_loocv: useLOOCV
       });
       
       // Complete progress on success
@@ -1310,12 +1349,14 @@ export default function TrainingPage() {
       console.error('Error performing cross validation:', error);
       
       // Use mock CV results as fallback
+      const numScores = useLOOCV ? 100 : 5;  // LOOCV has many more scores
       const mockCVResult = {
         model_name: availableModels[modelName]?.name || modelName,
         mean_score: 0.85 + Math.random() * 0.1, // Random between 0.85-0.95
         std_score: 0.01 + Math.random() * 0.03, // Random between 0.01-0.04
-        cv_scores: Array(kFolds).fill(0).map(() => 0.82 + Math.random() * 0.15), // Random scores
-        k_folds: kFolds
+        cv_scores: Array(numScores).fill(0).map(() => 0.82 + Math.random() * 0.15), // Random scores
+        cv_method: useLOOCV ? "LOOCV" : "5-Fold",
+        total_iterations: numScores
       };
       
       setCvResults((prev: Record<string, CrossValidationResult> | null) => ({
@@ -1408,6 +1449,7 @@ export default function TrainingPage() {
     setIsAutoTraining(true);
 
     // ✅ START ENHANCED PROGRESS TRACKING: Estimate 6 models * 5s each = 30s
+    const allModelKeys = getAllModelKeys();
     const trainableModels = allModelKeys.filter(model => model !== 'xgboost_rl');
     const estimatedDuration = trainableModels.length * 5000; // 5 seconds per model
     
@@ -1507,6 +1549,7 @@ export default function TrainingPage() {
       }
       
       // Enhanced training completion summary with individual model results
+      const allModelKeys = getAllModelKeys();
       const completedModels = allModelKeys.filter(model => 
         comparisonResult && comparisonResult.results && comparisonResult.results[model]
       );
@@ -1585,15 +1628,6 @@ export default function TrainingPage() {
       console.log('🔄 Final model status refresh completed after auto-training');
 
     } catch (error) {
-      console.error('❌ Error in sequential training:', error);
-      addNotification({
-        id: generateNotificationId('training_error', 'Auto-Training System'),
-        type: 'training_error',
-        model_name: 'Auto-Training System',
-        message: `Auto-training failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date()
-      });
-    } catch (error) {
       console.error('❌ Auto-training failed:', error);
       addNotification({
         id: generateNotificationId('training_error', 'Auto-Training System'),
@@ -1610,16 +1644,33 @@ export default function TrainingPage() {
       }
       
       // ✅ ENSURE PROGRESS IS COMPLETED: Handle any remaining loading states
+      console.log('🧹 Finally block: Completing training progress and resetting states');
       completeTrainingProgress();
       
       // ✅ CRITICAL: Reset all training states to clear loading indicators
       setIsAutoTraining(false);
       setModelsTraining(false);
       
+      // ✅ ADDITIONAL SAFETY: Force clear loading states after a delay
+      setTimeout(() => {
+        console.log('🧹 Safety: Force clearing any remaining loading states');
+        setLoadingStates(prev => ({ ...prev, training: false }));
+        setLoadingProgress(prev => ({ ...prev, training: 0 }));
+      }, 2000);
+      
       // ✅ RELEASE GLOBAL LOCK: Allow other training operations (cross-tab)
       setGlobalLock(false);
       // ✅ SAFETY CLEANUP: Clear any remaining models from training set
       setModelsCurrentlyTraining(new Set());
+      
+      // ✅ FORCE CLEAR LOCK: Ensure no persistent locks remain
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('training_global_lock');
+        }
+        console.log('🔓 Force cleared any remaining training locks to prevent session conflicts');
+      }, 1000);
+      
       console.log('🧹 Auto-training completed, all progress cleared, released global lock');
     }
   };
@@ -1670,7 +1721,7 @@ export default function TrainingPage() {
       // Simulate training API call
       const response = await axios.post(`${API_BASE_URL}/models/train`, {
         algorithm_names: [modelName],
-        k_folds: autoTrainingConfig.optimal_k_fold,
+        use_loocv: autoTrainingConfig.use_loocv,
         resource_limit: autoTrainingConfig.resource_limit
       });
 
@@ -2152,7 +2203,7 @@ export default function TrainingPage() {
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
+      <div className="flex-1 h-full overflow-y-auto custom-scrollbar" style={{backgroundColor: '#212121'}}>
         {/* Header */}
         <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
@@ -2215,7 +2266,7 @@ export default function TrainingPage() {
                       🔄 Auto-Training
                     </span>
                     <div className="text-xs text-gray-400 text-center">
-                      <div>K-Fold: {autoTrainingConfig.optimal_k_fold}</div>
+                      <div>CV: {autoTrainingConfig.use_loocv ? 'LOOCV' : '5-Fold'}</div>
                       <div>Resources: {autoTrainingConfig.resource_limit}%</div>
                     </div>
                   </div>
@@ -2351,7 +2402,11 @@ export default function TrainingPage() {
                               )}
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-400">F1 Score:</span>
+                              <div className="font-medium text-green-300">{(metrics.f1_score * 100).toFixed(1)}%</div>
+                            </div>
                             <div>
                               <span className="text-gray-400">Accuracy:</span>
                               <div className="font-medium text-white">{(metrics.accuracy * 100).toFixed(1)}%</div>
@@ -2400,9 +2455,9 @@ export default function TrainingPage() {
                           </div>
                         </div>
                         <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
-                          <div className="text-sm text-gray-400">Current K-Fold</div>
+                          <div className="text-sm text-gray-400">Cross Validation</div>
                           <div className="text-lg font-bold text-purple-300">
-                            {kFolds}-Fold
+                            {useLOOCV ? 'LOOCV' : '5-Fold'}
                           </div>
                         </div>
                       </>
@@ -2461,7 +2516,7 @@ export default function TrainingPage() {
           </div>
 
           {/* Model Training Configuration */}
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+          <div className="rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6" style={{backgroundColor: '#212121'}}>
             <h3 className="text-xl font-semibold mb-4 flex items-center text-white">
               <Settings className="mr-2 h-5 w-5" />
               Training Configuration
@@ -2562,18 +2617,35 @@ export default function TrainingPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
-                  K-Fold Cross Validation:
+                  Cross Validation Method:
                 </label>
-                <select 
-                  value={kFolds} 
-                  onChange={(e) => setKFolds(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={loadingStates.availableModels}
-                >
-                  <option value={3}>3-Fold</option>
-                  <option value={5}>5-Fold</option>
-                  <option value={10}>10-Fold</option>
-                </select>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="cv_method"
+                      checked={useLOOCV}
+                      onChange={() => setUseLOOCV(true)}
+                      className="mr-2 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500"
+                      disabled={loadingStates.availableModels}
+                    />
+                    <span className="text-white">LOOCV (Recommended)</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="cv_method"
+                      checked={!useLOOCV}
+                      onChange={() => setUseLOOCV(false)}
+                      className="mr-2 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500"
+                      disabled={loadingStates.availableModels}
+                    />
+                    <span className="text-white">5-Fold CV</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  LOOCV uses n-1 samples for training, 1 for testing (n iterations). More rigorous but computationally intensive.
+                </p>
               </div>
 
               {/* Training Progress */}
@@ -2590,7 +2662,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div className="text-xs text-gray-400">
-                    Training {selectedModelsForTraining.length} model(s) with {kFolds}-fold cross-validation
+                    Training {selectedModelsForTraining.length} model(s) with {useLOOCV ? 'LOOCV' : '5-Fold'} cross-validation
                   </div>
                 </div>
               )}
@@ -2624,7 +2696,7 @@ export default function TrainingPage() {
         </div>
           
           {/* Dataset Statistics Overview */}
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+          <div className="rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6" style={{backgroundColor: '#212121'}}>
             <h3 className="text-xl font-semibold mb-6 text-white flex items-center">
               <Database className="mr-2 h-5 w-5" />
               Dataset Statistics Overview
@@ -2769,17 +2841,17 @@ export default function TrainingPage() {
             )}
           </div>
 
-          {/* K-Fold Cross Validation Analysis */}
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6">
+          {/* LOOCV Cross Validation Analysis */}
+          <div className="rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6" style={{backgroundColor: '#212121'}}>
             <h3 className="text-xl font-semibold mb-6 text-white flex items-center">
               <Award className="mr-2 h-5 w-5 text-yellow-500" />
-              K-Fold Cross Validation Analysis
+              {useLOOCV ? 'LOOCV' : 'Cross Validation'} Analysis
             </h3>
             
             {loadingStates.crossValidation ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Running K-Fold analysis...</span>
+                  <span className="text-sm text-gray-400">Running {useLOOCV ? 'LOOCV' : 'Cross Validation'} analysis...</span>
                   <span className="text-sm text-blue-400">{loadingProgress.crossValidation.toFixed(0)}%</span>
                 </div>
                 <div className="progress-bar-bg h-2 w-full mb-6">
@@ -2818,9 +2890,9 @@ export default function TrainingPage() {
                   
                   <div className="bg-gray-700 rounded-lg p-4 text-center border border-gray-600">
                     <div className="text-2xl font-bold text-purple-300 mb-1">
-                      {kFolds}
+                      {useLOOCV ? 'LOOCV' : '5-Fold'}
                     </div>
-                    <div className="text-sm text-gray-400">Fold Configuration</div>
+                    <div className="text-sm text-gray-400">CV Configuration</div>
                   </div>
                 </div>
 
