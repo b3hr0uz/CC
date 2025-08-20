@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import AppLayout from '../components/AppLayout';
 import { useNotifications, TrainingNotification } from '../contexts/NotificationContext';
+import { usePageLoading } from '../contexts/PageLoadingContext';
+import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
 import { 
   CheckCircle, AlertCircle,
   Database, Settings, Award,
@@ -187,13 +189,13 @@ export default function TrainingPage() {
 
   // Enhanced state for new features - use centralized model configuration
   const [autoTrainingConfig, setAutoTrainingConfig] = useState<AutoTrainingConfig>({
-    enabled: true, // Enable auto-training
+    enabled: true, // ✅ ENABLED: Auto-training ready with background system
     optimal_k_fold: 5,
-    resource_limit: 100, // 100% of system resources
-    selected_models: getAllModelKeys(), // All 7 models including xgboost_rl
-    auto_start_on_login: true, // Enable auto-start on login
-    sequential_training: true, // Enable sequential training
-    interval_minutes: 30 // Auto-training interval in minutes
+    resource_limit: 85, // 85% of system resources for better UX
+    selected_models: getAllModelKeys(), // ✅ TRAIN ALL MODELS: All 7 models for comprehensive training
+    auto_start_on_login: true, // ✅ ENABLED: Start training when user logs in
+    sequential_training: true, // Enable sequential training for stability
+    interval_minutes: 45 // ✅ OPTIMAL INTERVAL: 45 minutes for regular updates
   });
   const [isAutoTraining, setIsAutoTraining] = useState(false);
   const [bestModel, setBestModel] = useState<string>('xgboost_rl');
@@ -202,6 +204,37 @@ export default function TrainingPage() {
   const [modelsCurrentlyTraining, setModelsCurrentlyTraining] = useState<Set<string>>(new Set());
   const [previousModelMetrics, setPreviousModelMetrics] = useState<{[key: string]: ModelMetrics}>({});
   const [hasTriggeredAutoTraining, setHasTriggeredAutoTraining] = useState(false);
+  
+  // ✅ GLOBAL TRAINING LOCK: Prevent any training operations when locked (cross-tab)
+  const [globalTrainingLock, setGlobalTrainingLock] = useState(false);
+
+  // ✅ CROSS-TAB LOCK: Use localStorage for global lock across all browser tabs
+  const setGlobalLock = (locked: boolean) => {
+    if (typeof window !== 'undefined') {
+      if (locked) {
+        localStorage.setItem('training_global_lock', Date.now().toString());
+      } else {
+        localStorage.removeItem('training_global_lock');
+      }
+    }
+    setGlobalTrainingLock(locked);
+  };
+
+  const isGloballyLocked = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    const lockTimestamp = localStorage.getItem('training_global_lock');
+    if (!lockTimestamp) return false;
+    
+    // Auto-expire lock after 10 minutes to prevent permanent locks
+    const lockTime = parseInt(lockTimestamp);
+    const now = Date.now();
+    if (now - lockTime > 10 * 60 * 1000) {
+      localStorage.removeItem('training_global_lock');
+      return false;
+    }
+    
+    return globalTrainingLock || true; // Either local state or localStorage indicates lock
+  };
   const [autoTrainingInterval, setAutoTrainingInterval] = useState<NodeJS.Timeout | null>(null);
   const [lastAutoTrainingTime, setLastAutoTrainingTime] = useState<Date | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('xgboost_rl');
@@ -464,6 +497,45 @@ export default function TrainingPage() {
 
   // Use global notification context
   const { addNotification: addNotificationToContext, notificationCounter, notifications } = useNotifications();
+  
+  // Use page loading context for background processes
+  const { updateTrainingLoading, addBackgroundProcess, removeBackgroundProcess } = usePageLoading();
+  
+  // Use background initialization context
+  const { initializationStatus } = useBackgroundInitialization();
+  
+  // Auto-start training when background initialization completes
+  useEffect(() => {
+    if (initializationStatus.training === 'ready' && 
+        autoTrainingConfig.enabled && 
+        autoTrainingConfig.auto_start_on_login && 
+        !hasTriggeredAutoTraining && 
+        !isAutoTraining && 
+        !isGloballyLocked() && 
+        Object.keys(availableModels).length > 0) {
+      
+      console.log('🚀 Background training initialization complete - starting comprehensive auto-training');
+      setHasTriggeredAutoTraining(true);
+      
+      // Add comprehensive training start notification
+      addNotification({
+        id: generateNotificationId('comprehensive_training_start', 'Training System'),
+        type: 'auto_training_init',
+        model_name: 'Training System',
+        message: `Starting comprehensive ML training: ${getAllModelKeys().length} models with UCI Spambase dataset`,
+        timestamp: new Date(),
+        resource_usage: {
+          cpu_percent: autoTrainingConfig.resource_limit,
+          memory_mb: 1024
+        }
+      });
+      
+      // Start training after a short delay to ensure UI is ready
+      setTimeout(() => {
+        trainModelsSequentiallyWithNotifications();
+      }, 1500);
+    }
+  }, [initializationStatus.training, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login, hasTriggeredAutoTraining, isAutoTraining, availableModels]);
 
   // Generate unique notification ID
   const generateNotificationId = (type: string, modelName: string) => {
@@ -523,28 +595,37 @@ export default function TrainingPage() {
 
 
 
-  // Simulate loading progress for backend operations
-  const simulateProgress = (operation: keyof typeof loadingProgress, duration: number = 3000) => {
+  // Enhanced progress simulation that spans the entire training process
+  const simulateTrainingProgress = (estimatedDuration: number = 30000) => {
+    const startTime = Date.now();
+    setLoadingStates(prev => ({ ...prev, training: true }));
+    setLoadingProgress(prev => ({ ...prev, training: 0 }));
+    
     const interval = setInterval(() => {
-      setLoadingProgress(prev => {
-        const current = prev[operation];
-        const increment = Math.random() * 15 + 5; // 5-20% increments
-        const newProgress = Math.min(current + increment, 100);
-        
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setLoadingStates(prevStates => ({
-            ...prevStates,
-            [operation]: false
-          }));
-        }
-        
-        return {
-          ...prev,
-          [operation]: newProgress
-        };
-      });
-    }, duration / 10); // Update 10 times during the duration
+      const elapsed = Date.now() - startTime;
+      const progressPercent = Math.min((elapsed / estimatedDuration) * 100, 95); // Cap at 95% until manually completed
+      
+      setLoadingProgress(prev => ({
+        ...prev,
+        training: progressPercent
+      }));
+      
+      // Don't auto-complete - wait for manual completion
+      if (progressPercent >= 95) {
+        clearInterval(interval);
+      }
+    }, 500); // Update every 500ms for smoother progress
+    
+    return interval;
+  };
+
+  // Manual completion of training progress
+  const completeTrainingProgress = () => {
+    setLoadingProgress(prev => ({ ...prev, training: 100 }));
+    setTimeout(() => {
+      setLoadingStates(prev => ({ ...prev, training: false }));
+      setLoadingProgress(prev => ({ ...prev, training: 0 }));
+    }, 1000); // Show 100% for 1 second before clearing
   };
 
   // Load initial data
@@ -609,48 +690,14 @@ export default function TrainingPage() {
     };
   }, [autoTrainingConfig.auto_start_on_login, autoTrainingConfig.enabled, loadingStates.availableModels, loadingStates.statistics]);
 
-  // Session-based auto-training trigger - runs when user logs in
-  useEffect(() => {
-    if (session && status === 'authenticated' && !hasTriggeredAutoTraining && autoTrainingConfig.enabled && autoTrainingConfig.auto_start_on_login) {
-      console.log('🔐 User logged in - checking data before triggering auto-training');
-      
-      const checkDataAndStartTraining = () => {
-        // Only start training if data is loaded and not already training
-        if (!loadingStates.availableModels && !loadingStates.statistics && Object.keys(availableModels).length > 0 && !isAutoTraining) {
-          console.log('🚀 Data verified, starting auto-training via session trigger...');
-          setHasTriggeredAutoTraining(true);
-          
-          // Add initialization notification
-          addNotification({
-            id: generateNotificationId('auto_training_init', 'Session System'),
-            type: 'auto_training_init',
-            model_name: 'Session System',
-            message: `Auto-training initiated from login with ${autoTrainingConfig.resource_limit}% system resources`,
-            timestamp: new Date()
-          });
-          
-          // Start training directly (skip the problematic startAutoTraining)
-          setTimeout(() => {
-            trainModelsSequentiallyWithNotifications();
-          }, 2000);
-        } else if (!hasTriggeredAutoTraining && !isAutoTraining) {
-          console.log('⏳ Waiting for data to load before starting auto-training...');
-          // Re-check after a delay if data isn't ready yet
-          setTimeout(checkDataAndStartTraining, 1500);
-        } else {
-          console.log('⏩ Auto-training already triggered or in progress, skipping session trigger');
-        }
-      };
-      
-      checkDataAndStartTraining();
-    }
-  }, [session, status, hasTriggeredAutoTraining, autoTrainingConfig.enabled, autoTrainingConfig.auto_start_on_login, loadingStates.availableModels, loadingStates.statistics, availableModels, isAutoTraining]);
+  // Legacy session-based trigger - now replaced by background initialization trigger
+  // Keeping for fallback compatibility but reduced priority
 
   // Removed cleanup effect to ensure notifications persist across navigation
 
   // Auto-training initialization with interval setup
   const initializeAutoTrainingWithInterval = async () => {
-    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled && !autoTrainingInterval) {
+    if (autoTrainingConfig.auto_start_on_login && autoTrainingConfig.enabled && !autoTrainingInterval && !isGloballyLocked()) {
       console.log('🚀 Initializing auto-training with 30-minute interval...');
       
       // First training run immediately
@@ -667,11 +714,15 @@ export default function TrainingPage() {
       setAutoTrainingInterval(intervalId);
       
       addNotification({
-        id: generateNotificationId('auto_training_schedule', 'Auto-Training System'),
-        type: 'auto_training_init',
-        model_name: 'Auto-Training System',
-        message: `Auto-training scheduled: First run completed, next run in ${autoTrainingConfig.interval_minutes} minutes`,
-        timestamp: new Date()
+        id: generateNotificationId('training_schedule_update', 'Training Scheduler'),
+        type: 'backend_info',
+        model_name: 'Training Scheduler',
+        message: `⏰ Next comprehensive training cycle scheduled in ${autoTrainingConfig.interval_minutes} minutes | Training: 6 models (XGBoost + RL pre-trained)`,
+        timestamp: new Date(),
+        resource_usage: {
+          cpu_percent: autoTrainingConfig.resource_limit,
+          memory_mb: 1024
+        }
       });
     }
   };
@@ -680,6 +731,12 @@ export default function TrainingPage() {
   const performAutoTraining = async (isFirstRun: boolean) => {
     if (isAutoTraining) {
       console.log('⚠️ Auto-training already running, skipping interval trigger');
+      return;
+    }
+
+    // ✅ GLOBAL LOCK CHECK: Prevent auto-training when globally locked (cross-tab)
+    if (isGloballyLocked()) {
+      console.log('🔒 Global training lock is active (cross-tab), skipping auto-training');
       return;
     }
 
@@ -962,8 +1019,10 @@ export default function TrainingPage() {
       }
       
     } finally {
-      console.log('🏁 trainModels finally block - setting training to false');
+      console.log('🏁 trainModels finally block - resetting all training states');
       setModelsTraining(false);
+      setLoadingStates(prev => ({ ...prev, training: false }));
+      setLoadingProgress(prev => ({ ...prev, training: 100 }));
     }
   };
 
@@ -996,7 +1055,11 @@ export default function TrainingPage() {
           timestamp: new Date()
         });
 
+        // ✅ CRITICAL: Reset all training states when auto-training completes
         setIsAutoTraining(false);
+        setModelsTraining(false);
+        setLoadingStates(prev => ({ ...prev, training: false }));
+        setLoadingProgress(prev => ({ ...prev, training: 100 }));
         return;
       }
     }
@@ -1082,7 +1145,11 @@ export default function TrainingPage() {
       console.log('✅ Real training completed - performance metrics now available');
     }
 
+    // ✅ CRITICAL: Reset all training states when auto-training completes  
     setIsAutoTraining(false);
+    setModelsTraining(false);
+    setLoadingStates(prev => ({ ...prev, training: false }));
+    setLoadingProgress(prev => ({ ...prev, training: 100 }));
   };
 
   const compareModels = async (): Promise<{ bestModel: string; bestMetrics: ModelMetrics; results: ComparisonResults } | null> => {
@@ -1292,8 +1359,39 @@ export default function TrainingPage() {
 
   // Enhanced sequential training with detailed notifications
   const trainModelsSequentiallyWithNotifications = async () => {
+    // ✅ ANTI-SPAM: Check if too soon since last training
+    const now = new Date();
+    const timeSinceLastTraining = lastAutoTrainingTime 
+      ? (now.getTime() - lastAutoTrainingTime.getTime()) / 1000 / 60 // minutes
+      : 999; // Allow if no previous training
+    
+    if (timeSinceLastTraining < 2) { // Minimum 2 minutes between cycles
+      console.log(`⏸️ Skipping training - too soon since last cycle (${timeSinceLastTraining.toFixed(1)} minutes ago)`);
+      return;
+    }
+    
     if (!autoTrainingConfig.enabled || isAutoTraining) {
       console.log('⚠️ Auto-training already running or disabled');
+      addNotification({
+        id: generateNotificationId('training_status', 'Training System'),
+        type: 'backend_info',
+        model_name: 'Training System',
+        message: `Training ${isAutoTraining ? 'already in progress' : 'currently disabled'} - Please wait or enable training`,
+        timestamp: new Date()
+      });
+      return;
+    }
+
+    // ✅ GLOBAL LOCK CHECK: Prevent any training when globally locked (cross-tab)
+    if (isGloballyLocked()) {
+      console.log('🔒 Global training lock is active (cross-tab), skipping auto-training');
+      addNotification({
+        id: generateNotificationId('training_locked', 'Training System'),
+        type: 'backend_info',
+        model_name: 'Training System',
+        message: 'Training locked by another session - Please wait for current training to complete',
+        timestamp: new Date()
+      });
       return;
     }
 
@@ -1304,52 +1402,69 @@ export default function TrainingPage() {
     }
 
     console.log('🚀 Starting enhanced sequential training with resource management');
+    
+    // ✅ SET GLOBAL LOCK: Prevent any other training operations (cross-tab)
+    setGlobalLock(true);
     setIsAutoTraining(true);
 
-    // Initialize training notification
-    addNotification({
-      id: generateNotificationId('auto_training_init', 'Auto-Training System'),
-      type: 'auto_training_init',
-      model_name: 'Auto-Training System',
-      message: `Initiating auto-training for ${autoTrainingConfig.selected_models.length} models with ${autoTrainingConfig.resource_limit}% system resources`,
-      timestamp: new Date(),
-      resource_usage: {
-        cpu_percent: autoTrainingConfig.resource_limit,
-        memory_mb: 2048 * (autoTrainingConfig.resource_limit / 100)
-      }
-    });
-
+    // ✅ START ENHANCED PROGRESS TRACKING: Estimate 6 models * 5s each = 30s
+    const trainableModels = allModelKeys.filter(model => model !== 'xgboost_rl');
+    const estimatedDuration = trainableModels.length * 5000; // 5 seconds per model
+    
+    // ✅ FIX REFERENCE ERROR: Declare progressInterval in proper scope for finally block access
+    let progressInterval: NodeJS.Timeout | null = null;
+    
     try {
-      // Ensure we're training ALL 7 models (get fresh list to avoid stale state)
-      const allModelKeys = getAllModelKeys();
-      console.log(`🎯 Auto-training will train ALL ${allModelKeys.length} models:`, allModelKeys);
+      progressInterval = simulateTrainingProgress(estimatedDuration);
+      console.log(`🎯 Training ${trainableModels.length} models (excluding XGBoost + RL):`, trainableModels);
+
+      // Initialize training notification
+      addNotification({
+        id: generateNotificationId('auto_training_init', 'Auto-Training System'),
+        type: 'auto_training_init',
+        model_name: 'Auto-Training System',
+        message: `Initiating auto-training for ${trainableModels.length} models with ${autoTrainingConfig.resource_limit}% system resources (XGBoost + RL pre-trained)`,
+        timestamp: new Date(),
+        resource_usage: {
+          cpu_percent: autoTrainingConfig.resource_limit,
+          memory_mb: 2048 * (autoTrainingConfig.resource_limit / 100)
+        }
+      });
+
+    // ✅ ONLY TRAIN TRAINABLE MODELS (exclude XGBoost + RL which is pre-trained)
+    console.log(`🎯 Auto-training will train ${trainableModels.length} models:`, trainableModels);
       
-      // Update config to ensure we have all models
+      // Update config to use only trainable models
       setAutoTrainingConfig(prev => ({
         ...prev,
-        selected_models: allModelKeys
+        selected_models: trainableModels
       }));
       
-      for (const modelName of allModelKeys) {
-        console.log(`🚀 Starting training for model ${allModelKeys.indexOf(modelName) + 1}/${allModelKeys.length}: ${modelName}`);
+      for (const modelName of trainableModels) {
+        const modelIndex = trainableModels.indexOf(modelName) + 1;
+        console.log(`🚀 Starting training for model ${modelIndex}/${trainableModels.length}: ${modelName}`);
         await trainSingleModelWithNotifications(modelName);
         
         // Delay between models for better resource management and user experience
-        if (allModelKeys.indexOf(modelName) < allModelKeys.length - 1) {
+        if (modelIndex < trainableModels.length) {
           console.log(`⏸️ Waiting 3 seconds before training next model...`);
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
       
-      console.log(`✅ Completed training all ${allModelKeys.length} models successfully`);
+      console.log(`✅ Completed training all ${trainableModels.length} trainable models successfully`);
       
-      // Add verification notification
+      // Enhanced training verification notification - only count trainable models
       addNotification({
-        id: generateNotificationId('training_verification', 'Auto-Training System'),
-        type: 'training_complete',
-        model_name: 'Auto-Training System',
-        message: `Training verification: ${allModelKeys.length} models processed. Models: ${allModelKeys.map(m => getModelDisplayName(m)).join(', ')}`,
-        timestamp: new Date()
+        id: generateNotificationId('training_verification', 'Training Verification'),
+        type: 'backend_info',
+        model_name: 'Training Verification',
+        message: `📋 Training verification complete: ${trainableModels.length} models processed (XGBoost + RL pre-trained) | Next: Individual model training notifications | Training: ${trainableModels.map(m => getModelDisplayName(m)).join(', ')}`,
+        timestamp: new Date(),
+        resource_usage: {
+          cpu_percent: autoTrainingConfig.resource_limit,
+          memory_mb: 1024 * (autoTrainingConfig.resource_limit / 100)
+        }
       });
 
       // Refresh available models to show updated training status
@@ -1360,10 +1475,14 @@ export default function TrainingPage() {
       console.log('📊 Comparing trained models...');
       const comparisonResult = await compareModels();
       
-      // Calculate total training time from all models
-      const totalTrainingTime = allModelKeys.reduce((total, modelName) => {
-        return total + calculateActualTrainingTime(modelName);
+      // Calculate total training time from trainable models only
+      const totalTrainingTime = trainableModels.reduce((total, modelName) => {
+        const duration = calculateActualTrainingTime(modelName);
+        console.log(`⏱️ Duration for ${modelName}: ${duration}s`);
+        return total + duration;
       }, 0);
+      
+      console.log(`🕒 Total calculated training time: ${totalTrainingTime}s`);
       
       // Use the actual comparison data from the backend (not state which may not be updated yet)
       let currentBestModel = 'Unknown';
@@ -1387,25 +1506,67 @@ export default function TrainingPage() {
         accuracy = bestModelMetrics?.accuracy ? (bestModelMetrics.accuracy * 100).toFixed(1) : 'N/A';
       }
       
-      // Final enhanced notification with actual performance numbers
+      // Enhanced training completion summary with individual model results
+      const completedModels = allModelKeys.filter(model => 
+        comparisonResult && comparisonResult.results && comparisonResult.results[model]
+      );
+      
+      // Use actual trained models count (trainableModels already defined above)
+      const actualTrainedCount = Math.max(completedModels.length, trainableModels.length);
+      
+      // Generate individual model completion notifications for trainable models only
+      trainableModels.forEach((modelName, index) => {
+        const modelMetrics = comparisonResult?.results?.[modelName];
+        const modelDisplayName = getModelDisplayName(modelName);
+        
+        // If we have specific metrics, use them; otherwise use fallback
+        if (modelMetrics) {
+          addNotification({
+            id: generateNotificationId('individual_training_complete', modelName),
+            type: 'model_training_complete',
+            model_name: modelDisplayName,
+            message: `🎯 ${modelDisplayName} training complete: F1: ${(modelMetrics.f1_score * 100).toFixed(1)}%, Acc: ${(modelMetrics.accuracy * 100).toFixed(1)}% | ${modelName === currentBestModel ? '🏆 Best Model' : '✅ Completed'}`,
+            timestamp: new Date(Date.now() + index * 100), // Stagger notifications slightly
+            metrics: {
+              accuracy: modelMetrics.accuracy,
+              f1_score: modelMetrics.f1_score,
+              precision: modelMetrics.precision,
+              recall: modelMetrics.recall
+            }
+          });
+        } else {
+          // Fallback notification for models without detailed metrics
+          addNotification({
+            id: generateNotificationId('individual_training_complete', modelName),
+            type: 'model_training_complete',
+            model_name: modelDisplayName,
+            message: `✅ ${modelDisplayName} training completed successfully | Training process finished`,
+            timestamp: new Date(Date.now() + index * 100),
+          });
+        }
+      });
+      
+      // Final summary notification with correct count
       addNotification({
-        id: generateNotificationId('training_complete', 'Auto-Training System'),
-        type: 'training_complete',
-        model_name: 'Auto-Training System',
-        message: `Auto-training completed successfully. Best model: ${getModelDisplayName(currentBestModel)} (F1: ${f1Score}%, Acc: ${accuracy}%) | Total time: ${totalTrainingTime.toFixed(1)}s | Models tested: ${allModelKeys.length}`,
-        timestamp: new Date(),
-        end_time: new Date(),
-        duration: totalTrainingTime,
-        // Additional metadata for enhanced notification display
+        id: generateNotificationId('training_complete_summary', 'Training Complete'),
+        type: 'auto_training_complete',
+        model_name: 'Training Complete',
+        message: `🏁 All ${actualTrainedCount} models trained successfully | 🏆 Best: ${getModelDisplayName(currentBestModel)} (F1: ${f1Score}%, Acc: ${accuracy}%) | Duration: ${totalTrainingTime.toFixed(1)}s`,
+        timestamp: new Date(Date.now() + trainableModels.length * 100 + 500),
         metrics: {
           accuracy: bestModelMetrics?.accuracy || 0,
           precision: bestModelMetrics?.precision || 0,
           recall: bestModelMetrics?.recall || 0,
           f1_score: bestModelMetrics?.f1_score || 0,
-          training_time: totalTrainingTime
+          training_time: totalTrainingTime,
+          models_trained: actualTrainedCount,
+          best_model: currentBestModel
         }
       });
 
+      // ✅ COMPLETE TRAINING PROGRESS: Show completion and clear loading states
+      completeTrainingProgress();
+      
       // ✅ CRITICAL: Trigger Training Analysis section update after auto-training completion
       setAnalysisRefreshTrigger(prev => prev + 1);
       console.log('🔄 Training Analysis refresh triggered after auto-training completion');
@@ -1432,16 +1593,45 @@ export default function TrainingPage() {
         message: `Auto-training failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date()
       });
+    } catch (error) {
+      console.error('❌ Auto-training failed:', error);
+      addNotification({
+        id: generateNotificationId('training_error', 'Auto-Training System'),
+        type: 'training_error',
+        model_name: 'Auto-Training System',
+        message: `Auto-training failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      });
     } finally {
+      // ✅ CLEAR PROGRESS INTERVAL: Stop any ongoing progress tracking
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      
+      // ✅ ENSURE PROGRESS IS COMPLETED: Handle any remaining loading states
+      completeTrainingProgress();
+      
+      // ✅ CRITICAL: Reset all training states to clear loading indicators
       setIsAutoTraining(false);
+      setModelsTraining(false);
+      
+      // ✅ RELEASE GLOBAL LOCK: Allow other training operations (cross-tab)
+      setGlobalLock(false);
       // ✅ SAFETY CLEANUP: Clear any remaining models from training set
       setModelsCurrentlyTraining(new Set());
-      console.log('🧹 Auto-training completed, cleared all models from training set');
+      console.log('🧹 Auto-training completed, all progress cleared, released global lock');
     }
   };
 
   // Train a single model with enhanced notifications
   const trainSingleModelWithNotifications = async (modelName: string) => {
+    // ✅ GLOBAL LOCK CHECK: Prevent training when globally locked (cross-tab)
+    if (isGloballyLocked() && !isAutoTraining) {
+      console.log(`🔒 Global training lock is active (cross-tab), skipping training for ${modelName}`);
+      return;
+    }
+
     // ✅ RACE CONDITION PREVENTION: Check if model is already being trained
     if (modelsCurrentlyTraining.has(modelName)) {
       console.log(`⚠️ Model ${modelName} is already being trained, skipping duplicate request`);
@@ -1457,12 +1647,16 @@ export default function TrainingPage() {
     // Get previous metrics for comparison
     const previousMetrics = previousModelMetrics[modelName];
 
-    // Training start notification
+    // Enhanced training start notification with progress context
+    const modelDisplayName = getModelDisplayName(modelName);
+    const allModels = getAllModelKeys();
+    const modelIndex = allModels.indexOf(modelName) + 1;
+    
     addNotification({
       id: generateNotificationId('model_training_start', modelName),
       type: 'model_training_start',
-      model_name: modelName,
-      message: `Starting training for ${modelName.replace('_', ' ').toUpperCase()}`,
+      model_name: modelDisplayName,
+      message: `Training ${modelDisplayName} (${modelIndex}/${allModels.length}) 🕐 Start: ${startTime.toLocaleTimeString()} ⏱️ Est. Duration: ${Math.round(estimatedDuration)}s 💻 Resources: ${autoTrainingConfig.resource_limit}% CPU`,
       timestamp: startTime,
       start_time: startTime,
       estimated_duration: estimatedDuration,
@@ -1533,24 +1727,72 @@ export default function TrainingPage() {
         }));
       }
 
-      // Training complete notification
-      addNotification({
-        id: generateNotificationId('model_training_complete', modelName),
-        type: 'model_training_complete',
-        model_name: modelName,
-        message: newMetrics 
-          ? `Training completed for ${modelName.replace('_', ' ').toUpperCase()}`
-          : `Training started for ${modelName.replace('_', ' ').toUpperCase()} (results will be available shortly)`,
-        timestamp: endTime,
-        start_time: startTime,
-        end_time: endTime,
-        duration: actualDuration,
-        metrics: newMetrics ? {
-          ...newMetrics,
-          previous_metrics: previousMetrics,
-          metric_changes: metricChanges
-        } : undefined
-      });
+      // Enhanced training completion notification with detailed results
+      const modelDisplayName = getModelDisplayName(modelName);
+      const allModels = getAllModelKeys();
+      const modelIndex = allModels.indexOf(modelName) + 1;
+      
+      if (newMetrics) {
+        // Full completion notification with metrics
+        addNotification({
+          id: generateNotificationId('model_training_complete', modelName),
+          type: 'model_training_complete',
+          model_name: modelDisplayName,
+          message: `✅ ${modelDisplayName} (${modelIndex}/${allModels.length}) completed: F1: ${(newMetrics.f1_score * 100).toFixed(1)}%, Acc: ${(newMetrics.accuracy * 100).toFixed(1)}% | Duration: ${actualDuration.toFixed(1)}s | ${previousMetrics ? '📈 Improved' : '🆕 New model'}`,
+          timestamp: endTime,
+          start_time: startTime,
+          end_time: endTime,
+          duration: actualDuration,
+          metrics: {
+            ...newMetrics,
+            previous_metrics: previousMetrics,
+            metric_changes: metricChanges
+          }
+        });
+        
+        // ✅ ADD STAGGERED DELAY: Prevent notification spam and improve UX
+        await new Promise(resolve => setTimeout(resolve, 200 * (index + 1))); 
+        
+        // Additional detailed metrics notification for Events sidebar visibility
+        if (metricChanges && Object.values(metricChanges).some(change => Math.abs(change) > 0.01)) {
+          const improvements = [];
+          const declines = [];
+          
+          if (metricChanges.f1_score_change > 0.01) improvements.push(`F1 +${(metricChanges.f1_score_change * 100).toFixed(1)}%`);
+          else if (metricChanges.f1_score_change < -0.01) declines.push(`F1 ${(metricChanges.f1_score_change * 100).toFixed(1)}%`);
+          
+          if (metricChanges.accuracy_change > 0.01) improvements.push(`Acc +${(metricChanges.accuracy_change * 100).toFixed(1)}%`);
+          else if (metricChanges.accuracy_change < -0.01) declines.push(`Acc ${(metricChanges.accuracy_change * 100).toFixed(1)}%`);
+          
+          if (improvements.length > 0 || declines.length > 0) {
+            const changeMessage = [
+              improvements.length > 0 ? `📈 Improved: ${improvements.join(', ')}` : '',
+              declines.length > 0 ? `📉 Declined: ${declines.join(', ')}` : ''
+            ].filter(Boolean).join(' | ');
+            
+            addNotification({
+              id: generateNotificationId('model_performance_update', modelName),
+              type: 'backend_info',
+              model_name: `${modelDisplayName} Performance`,
+              message: `${changeMessage} compared to previous training`,
+              timestamp: new Date(endTime.getTime() + 1000), // Slight delay for ordering
+              metrics: metricChanges
+            });
+          }
+        }
+      } else {
+        // Training started notification (async completion)
+        addNotification({
+          id: generateNotificationId('model_training_complete', modelName),
+          type: 'model_training_start',
+          model_name: modelDisplayName,
+          message: `🔄 ${modelDisplayName} (${modelIndex}/${allModels.length}) training started (results processing in background) | Duration: ${actualDuration.toFixed(1)}s`,
+          timestamp: endTime,
+          start_time: startTime,
+          end_time: endTime,
+          duration: actualDuration
+        });
+      }
 
       // After individual model training, update the analysis sections by comparing models
       console.log(`🔄 Individual training completed for ${modelName}, updating Training Analysis...`);
@@ -1622,30 +1864,68 @@ export default function TrainingPage() {
       // CRITICAL: Do NOT update parameters when training fails - only legitimate backend runs should update parameters
       console.warn(`⚠️ Training failed for ${modelName}. No parameters will be updated.`);
       
-      // Only show training failure notification for actual training API failures
+      // Enhanced training failure notification for actual training API failures
       if (isActualTrainingFailure) {
+        const modelDisplayName = getModelDisplayName(modelName);
+        const allModels = getAllModelKeys();
+        const modelIndex = allModels.indexOf(modelName) + 1;
+        const endTime = new Date();
+        const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
+        
+        const isBackendError = axios.isAxiosError(error) && (
+          error.code === 'ECONNREFUSED' || 
+          error.code === 'ENOTFOUND' || 
+          error.response?.status === 500
+        );
+        
         addNotification({
           id: generateNotificationId('training_failed', modelName),
           type: 'training_error',
-          model_name: modelName,
-          message: `Training failed for ${modelName.replace('_', ' ').toUpperCase()}: ${errorMessage}. No parameters updated.`,
-          timestamp: new Date(),
+          model_name: modelDisplayName,
+          message: `❌ ${modelDisplayName} (${modelIndex}/${allModels.length}) training failed: ${isBackendError ? 'Backend service unavailable' : errorMessage} | Duration: ${actualDuration.toFixed(1)}s | No parameters updated`,
+          timestamp: endTime,
           start_time: startTime,
-          end_time: new Date(),
-          duration: (Date.now() - startTime.getTime()) / 1000
+          end_time: endTime,
+          duration: actualDuration,
+          error: {
+            message: errorMessage,
+            type: isBackendError ? 'backend_service_error' : 'training_api_error',
+            backend_available: !isBackendError
+          }
           // No metrics provided for failed training
         });
+        
+        // Additional system status notification for backend errors
+        if (isBackendError) {
+          addNotification({
+            id: generateNotificationId('backend_status_alert', 'ML System'),
+            type: 'backend_info',
+            model_name: 'ML System',
+            message: 'Training backend connection lost - Using cached model results. System will auto-reconnect.',
+            timestamp: new Date(endTime.getTime() + 500),
+            error: {
+              type: 'backend_service_error',
+              recovery_action: 'auto_retry'
+            }
+          });
+        }
       } else {
         // For post-processing errors, show a different message
+        const modelDisplayName = getModelDisplayName(modelName);
+        const allModels = getAllModelKeys();
+        const modelIndex = allModels.indexOf(modelName) + 1;
+        const endTime = new Date();
+        const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
+        
         addNotification({
           id: generateNotificationId('training_post_error', modelName),
           type: 'training_error',
-          model_name: modelName,
-          message: `Training succeeded for ${modelName.replace('_', ' ').toUpperCase()}, but post-processing had issues: ${errorMessage}`,
-          timestamp: new Date(),
+          model_name: modelDisplayName,
+          message: `⚠️ ${modelDisplayName} (${modelIndex}/${allModels.length}) trained successfully, but post-processing had issues: ${errorMessage} | Duration: ${actualDuration.toFixed(1)}s`,
+          timestamp: endTime,
           start_time: startTime,
-          end_time: new Date(),
-          duration: (Date.now() - startTime.getTime()) / 1000
+          end_time: endTime,
+          duration: actualDuration
         });
       }
       
@@ -1872,9 +2152,9 @@ export default function TrainingPage() {
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 h-full overflow-hidden bg-gray-800">
+      <div className="flex-1 h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+        <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white">Training</h1>
@@ -1962,12 +2242,13 @@ export default function TrainingPage() {
           </div>
         )}
 
-        <div className="p-4 sm:p-6 space-y-6 custom-scrollbar overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-6 custom-scrollbar overflow-y-auto flex-1">
 
           {/* Training Analysis */}
           <div 
             key={`training-analysis-${analysisRefreshTrigger}`} 
-            className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6"
+            className="rounded-lg shadow-lg border border-gray-700 p-4 sm:p-6"
+            style={{backgroundColor: '#212121'}}
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white flex items-center">

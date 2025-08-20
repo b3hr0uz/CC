@@ -64,6 +64,8 @@ interface NotificationContextType {
   addNotification: (notification: NotificationItem) => void;
   removeNotification: (id: string) => void;
   clearAllNotifications: () => void;
+  clearOldTrainingNotifications: () => void; // ✅ NEW: Manual cleanup function
+  clearBackgroundSystemSpam: () => void; // ✅ NEW: Clear background system spam
   notificationCounter: number;
 }
 
@@ -92,13 +94,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           end_time: notification.end_time ? new Date(notification.end_time) : undefined,
         }));
         
-        // 🧹 CLEANUP: Remove stale error notifications (older than 1 hour)
+        // 🧹 AGGRESSIVE CLEANUP: Remove ALL old training notifications from before the race condition fix
         const now = Date.now();
         const ONE_HOUR = 60 * 60 * 1000;
+        const RACE_CONDITION_FIX_TIME = Date.now() - (6 * 60 * 60 * 1000); // 6 hours ago (before the fix)
+        
         const cleanedNotifications = notificationsWithDates.filter((notification: NotificationItem) => {
           const age = now - notification.timestamp.getTime();
+          const notificationTime = notification.timestamp.getTime();
           
-          // Remove old training errors and backend service errors
+          // Remove ALL training-related notifications from before the fix
+          if (notificationTime < RACE_CONDITION_FIX_TIME && 
+              (notification.type.includes('training') || 
+               notification.type.includes('auto_training') || 
+               notification.message.includes('Training') ||
+               notification.message.includes('Backend service error'))) {
+            console.log(`🧹 Removed old pre-fix notification: ${notification.type} for ${notification.model_name}`);
+            return false;
+          }
+          
+          // Remove old training errors and backend service errors (older than 1 hour)
           if ((notification.type === 'training_error' || notification.message.includes('Backend service error')) && age > ONE_HOUR) {
             console.log(`🧹 Removed stale error notification: ${notification.type} for ${notification.model_name} (${Math.round(age / 1000 / 60)} minutes old)`);
             return false;
@@ -125,6 +140,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         
         console.log(`✅ Successfully loaded ${cleanedNotifications.length} persistent notifications (${removedCount} stale errors removed)`);
         console.log(`🔢 Notification counter set to: ${maxId + 1}`);
+        
+        // ✅ AUTO-CLEANUP: Remove background system spam on app startup
+        setTimeout(() => {
+          const bgSpamCount = cleanedNotifications.filter(n => 
+            n.model_name === 'Background System' || 
+            (n.model_name.includes('Background') && 
+             (n.model_name.includes('Dashboard') || n.model_name.includes('Assistant') || n.model_name.includes('Training')))
+          ).length;
+          
+          if (bgSpamCount > 5) {
+            console.log(`🧹 Auto-cleaning ${bgSpamCount} background system spam notifications on startup`);
+            setNotifications(prev => prev.filter(n => 
+              !(n.model_name === 'Background System' || 
+                (n.model_name.includes('Background') && 
+                 (n.model_name.includes('Dashboard') || n.model_name.includes('Assistant') || n.model_name.includes('Training'))))
+            ));
+          }
+        }, 3000); // Clean up after 3 seconds
       } else {
         console.log('📭 No stored notifications found - starting fresh');
       }
@@ -235,6 +268,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const recentDuplicate = prev.find(existing => {
         const timeDiff = now - existing.timestamp.getTime();
         
+        // CRITICAL: Background System notifications - prevent duplicates within 10 minutes
+        if (notification.model_name === 'Background System' && existing.model_name === 'Background System') {
+          // For background initialization completion - only allow one per 10 minutes
+          if (notification.message.includes('successfully initialized') && 
+              existing.message.includes('successfully initialized')) {
+            return timeDiff < 10 * 60 * 1000; // 10 minutes
+          }
+          // For background initialization start - only allow one per 5 minutes
+          if (notification.message.includes('Initializing all application components') && 
+              existing.message.includes('Initializing all application components')) {
+            return timeDiff < 5 * 60 * 1000; // 5 minutes
+          }
+        }
+        
+        // Background page-specific notifications - prevent duplicates within 2 minutes
+        if ((notification.model_name.includes('Background') || existing.model_name.includes('Background')) &&
+            notification.model_name === existing.model_name &&
+            notification.type === existing.type) {
+          return timeDiff < 2 * 60 * 1000; // 2 minutes
+        }
+        
         // For email sync notifications - prevent duplicates within 30 seconds
         if (notification.type === 'email_fetch_complete' && existing.type === 'email_fetch_complete') {
           return timeDiff < 30000; // 30 seconds
@@ -304,11 +358,57 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     console.log('✅ All notifications cleared');
   };
 
+  // ✅ NEW: Clear old training notifications manually
+  const clearOldTrainingNotifications = () => {
+    console.log('🧹 Manually clearing all old training notifications');
+    setNotifications(prev => {
+      const filtered = prev.filter(notification => 
+        !notification.type.includes('training') && 
+        !notification.type.includes('auto_training') &&
+        !notification.message.includes('Training') &&
+        !notification.message.includes('Backend service error')
+      );
+      console.log(`🧹 Removed ${prev.length - filtered.length} training notifications`);
+      return filtered;
+    });
+  };
+
+  // ✅ NEW: Clear background system notification spam
+  const clearBackgroundSystemSpam = () => {
+    console.log('🧹 Clearing background system notification spam');
+    setNotifications(prev => {
+      const now = Date.now();
+      const filtered = prev.filter(notification => {
+        // Remove all old background system notifications (keep only the most recent one of each type)
+        if (notification.model_name === 'Background System') {
+          return false; // Remove all background system notifications for now
+        }
+        
+        // Remove duplicate background page notifications
+        if (notification.model_name.includes('Background') && 
+            (notification.model_name.includes('Dashboard') || 
+             notification.model_name.includes('Assistant') || 
+             notification.model_name.includes('Training'))) {
+          const age = now - notification.timestamp.getTime();
+          return age < 60000; // Keep only notifications from last minute
+        }
+        
+        return true;
+      });
+      
+      const removedCount = prev.length - filtered.length;
+      console.log(`🧹 Removed ${removedCount} background system spam notifications`);
+      return filtered;
+    });
+  };
+
   const value = {
     notifications,
     addNotification,
     removeNotification,
     clearAllNotifications,
+    clearOldTrainingNotifications, // ✅ NEW: Manual cleanup function
+    clearBackgroundSystemSpam, // ✅ NEW: Clear background system spam
     notificationCounter,
   };
 

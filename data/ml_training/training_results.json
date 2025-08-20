@@ -21,7 +21,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:46:17.137647",
+    "timestamp": "2025-08-19T03:01:23.439930",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -47,7 +47,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:24:33.752333",
+    "timestamp": "2025-08-19T02:35:26.805006",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -73,7 +73,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:39:40.736800",
+    "timestamp": "2025-08-19T02:35:10.823249",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -99,7 +99,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:08:12.863986",
+    "timestamp": "2025-08-19T02:35:16.495326",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -125,7 +125,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:39:46.060486",
+    "timestamp": "2025-08-19T02:35:24.900510",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   },
@@ -151,7 +151,7 @@
     "training_time": 0.0,
     "k_folds": 5,
     "dataset_source": "UCI_Spambase",
-    "timestamp": "2025-08-19T01:39:34.021272",
+    "timestamp": "2025-08-19T02:35:00.292474",
     "model_version": "1.0.0-mock",
     "legitimate_training": true
   }

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AppLayout from '../components/AppLayout';
 import { useNotifications } from '../contexts/NotificationContext';
+import { usePageLoading } from '../contexts/PageLoadingContext';
 import { 
   Mail, RefreshCw, AlertCircle, 
   CheckCircle, Eye, ThumbsUp, ThumbsDown,
@@ -28,6 +29,57 @@ interface ExtendedEmailData extends EmailData {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const { addNotification, notificationCounter } = useNotifications();
+  const { updateDashboardLoading, addBackgroundProcess, removeBackgroundProcess } = usePageLoading();
+
+  // Initial page loading simulation with guard to prevent duplicates
+  useEffect(() => {
+    let isCancelled = false;
+
+    const simulateDashboardLoading = async () => {
+      if (isCancelled) return;
+
+      updateDashboardLoading({ 
+        isLoading: true, 
+        progress: 0, 
+        status: 'Initializing Dashboard...' 
+      });
+
+      // Simulate loading steps
+      const steps = [
+        { progress: 20, status: 'Loading user session...', delay: 300 },
+        { progress: 40, status: 'Checking email permissions...', delay: 400 },
+        { progress: 60, status: 'Preparing email interface...', delay: 300 },
+        { progress: 80, status: 'Loading models...', delay: 200 },
+        { progress: 100, status: 'Dashboard Ready', delay: 200 }
+      ];
+
+      for (const step of steps) {
+        if (isCancelled) return;
+        await new Promise(resolve => setTimeout(resolve, step.delay));
+        if (isCancelled) return;
+        updateDashboardLoading({ 
+          progress: step.progress, 
+          status: step.status,
+          isLoading: step.progress < 100
+        });
+      }
+    };
+
+    if (status === 'loading') {
+      simulateDashboardLoading();
+    } else if (status === 'authenticated') {
+      // Quick ready state for authenticated users
+      updateDashboardLoading({ 
+        isLoading: false, 
+        progress: 100, 
+        status: 'Dashboard Ready' 
+      });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [status, updateDashboardLoading]); // Re-added updateDashboardLoading but it's now stable
 
   // Generate unique notification ID
   const generateNotificationId = (type: string, modelName: string) => {
@@ -127,6 +179,14 @@ export default function DashboardPage() {
   // Handle RL feedback submission (supports both new feedback and changes)
   const handleFeedback = async (emailId: string, feedback: 'spam' | 'ham') => {
     setFeedbackSubmitting(emailId);
+    
+    // Track feedback submission process
+    addBackgroundProcess('dashboard', 'RL Feedback');
+    updateDashboardLoading({ 
+      progress: 20, 
+      status: 'Submitting feedback...' 
+    });
+    
     try {
       const email = emails.find(e => e.id === emailId);
       if (!email) return;
@@ -173,6 +233,9 @@ export default function DashboardPage() {
           } : null);
         }
 
+        // Update progress
+        updateDashboardLoading({ progress: 80, status: 'Feedback submitted...' });
+
         // Different notifications based on action type
         if (isChangingFeedback) {
           addNotification({
@@ -213,6 +276,12 @@ export default function DashboardPage() {
       });
     } finally {
       setFeedbackSubmitting(null);
+      // Clean up feedback process tracking
+      removeBackgroundProcess('dashboard', 'RL Feedback');
+      updateDashboardLoading({ 
+        progress: 100, 
+        status: 'Dashboard Ready' 
+      });
     }
   };
 
@@ -290,16 +359,27 @@ export default function DashboardPage() {
   });
 
   const handleSyncEmails = async () => {
-        setLoading(true);
+    setLoading(true);
+    
+    // Track email sync process
+    addBackgroundProcess('dashboard', 'Email Sync');
+    updateDashboardLoading({ 
+      isLoading: true, 
+      progress: 10, 
+      status: 'Syncing emails...' 
+    });
+    
     try {
       // Show start notification
-          addNotification({
+      addNotification({
         id: generateNotificationId('sync_start', 'EmailSync'),
-      type: 'email_fetch_start',
-        message: 'Fetching latest emails...',
-      timestamp: new Date(),
-        model_name: selectedModel
+        type: 'email_fetch_start',
+        message: 'Fetching latest emails from Gmail...',
+        timestamp: new Date(),
+        model_name: 'Gmail Sync'
       });
+      
+      updateDashboardLoading({ progress: 25, status: 'Fetching from Gmail...' });
       
       // Actually call the API to fetch emails (default 100 emails)
       const response = await fetch(`/api/emails?limit=${currentLimit}`, {
@@ -317,6 +397,8 @@ export default function DashboardPage() {
       const responseData = await response.json();
       const { emails: emailsData, message: responseMessage, isDemoMode } = responseData;
       
+      updateDashboardLoading({ progress: 45, status: 'Processing emails...' });
+      
       // Handle demo mode response
       if (isDemoMode) {
         setEmails([]);
@@ -328,24 +410,56 @@ export default function DashboardPage() {
           timestamp: new Date(),
           model_name: selectedModel
         });
+        removeBackgroundProcess('dashboard', 'Email Sync');
+        updateDashboardLoading({ 
+          isLoading: false, 
+          progress: 100, 
+          status: 'Dashboard Ready' 
+        });
         return;
       }
+      
+      updateDashboardLoading({ progress: 60, status: 'Classifying emails...' });
+      
+      // Track email classification process
+      addBackgroundProcess('dashboard', 'Email Classification');
       
       // Classify emails using the backend (only for real users)
       const classifiedEmails = await classifyEmails(emailsData);
       
+      removeBackgroundProcess('dashboard', 'Email Classification');
+      
       // Update the emails state
       setEmails(classifiedEmails);
+      
+      updateDashboardLoading({ progress: 90, status: 'Finalizing...' });
       
       addNotification({
         id: generateNotificationId('sync_complete', 'EmailSync'),
         type: 'email_fetch_complete',
-        message: `Successfully synced ${emailsData.length} emails`,
+        message: `Successfully synced ${emailsData.length} emails from Gmail`,
         timestamp: new Date(),
-        model_name: selectedModel
+        model_name: 'Gmail Sync'
+      });
+      
+      // Complete the loading process
+      removeBackgroundProcess('dashboard', 'Email Sync');
+      updateDashboardLoading({ 
+        isLoading: false, 
+        progress: 100, 
+        status: 'Dashboard Ready' 
       });
     } catch (error) {
       console.error('Sync failed:', error);
+      
+      // Clean up loading state on error
+      removeBackgroundProcess('dashboard', 'Email Sync');
+      removeBackgroundProcess('dashboard', 'Email Classification');
+      updateDashboardLoading({ 
+        isLoading: false, 
+        progress: 100, 
+        status: 'Dashboard Ready' 
+      });
       
       // Show error notification
       addNotification({
@@ -464,10 +578,10 @@ export default function DashboardPage() {
       
       addNotification({
         id: generateNotificationId('auto_sync_enabled', 'AutoSync'),
-        type: 'email_fetch_start',
+        type: 'backend_info',
         message: 'Auto-sync enabled: Emails will sync every 5 minutes',
         timestamp: new Date(),
-        model_name: 'AutoSync'
+        model_name: 'Auto-Sync Service'
       });
     }
   }, [status, session, autoSyncEnabled]);
@@ -508,9 +622,9 @@ export default function DashboardPage() {
 
   return (
     <AppLayout showNotificationSidebar={true}>
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-800">
+      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Simplified Header */}
-        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+        <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex justify-between items-center">
             <div className="flex flex-col">
               <h1 className="text-xl md:text-2xl lg:text-2xl font-bold text-white">Dashboard</h1>

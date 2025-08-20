@@ -4,6 +4,8 @@ import './globals.css'
 import SessionProvider from '../components/providers/SessionProvider'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { SidebarProvider } from './contexts/SidebarContext'
+import { PageLoadingProvider } from './contexts/PageLoadingContext'
+import { BackgroundInitializationProvider } from './contexts/BackgroundInitializationContext'
 import { Toaster } from 'react-hot-toast'
 import PagePreloader from './components/PagePreloader'
 import ServerWarmup from './components/ServerWarmup'
@@ -32,19 +34,23 @@ export default function RootLayout({
         <NotificationProvider>
           <SessionProvider>
             <SidebarProvider>
-              <main>{children}</main>
-              <PagePreloader />
-              <ServerWarmup />
-              <Toaster 
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#333',
-                    color: '#fff',
-                  },
-                }}
-              />
+              <PageLoadingProvider>
+                <BackgroundInitializationProvider>
+                  <main>{children}</main>
+                  <PagePreloader />
+                  <ServerWarmup />
+                  <Toaster 
+                    position="top-right"
+                    toastOptions={{
+                      duration: 4000,
+                      style: {
+                        background: '#333',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+                </BackgroundInitializationProvider>
+              </PageLoadingProvider>
             </SidebarProvider>
           </SessionProvider>
         </NotificationProvider>

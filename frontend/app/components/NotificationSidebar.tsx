@@ -16,7 +16,7 @@ export default function NotificationSidebar({
   title = "Events",
   isVisible = true 
 }: NotificationSidebarProps) {
-  const { notifications, removeNotification, clearAllNotifications } = useNotifications();
+  const { notifications, removeNotification, clearAllNotifications, clearBackgroundSystemSpam } = useNotifications();
   
   if (!isVisible) return null;
 
@@ -72,7 +72,52 @@ export default function NotificationSidebar({
     }
   };
 
-  const getNotificationCategory = (type: string) => {
+  const getNotificationCategory = (type: string, modelName: string) => {
+    // Special handling for polished notification categories
+    if (modelName === 'System Initialization' || modelName === 'System Ready') {
+      return 'Startup';
+    }
+    
+    if (modelName === 'Dashboard' || modelName.includes('Dashboard')) {
+      return 'Dashboard';
+    }
+    
+    if (modelName === 'AI Assistant' || modelName.includes('Assistant')) {
+      return 'Assistant';
+    }
+    
+    if (modelName === 'Training System' || modelName.includes('Training')) {
+      return 'Training';
+    }
+    
+    if (modelName === 'Gmail Sync' || modelName.includes('Gmail')) {
+      return 'Email';
+    }
+    
+    if (modelName === 'Auto-Sync Service' || modelName.includes('Auto-Sync')) {
+      return 'Service';
+    }
+    
+    if (modelName === 'Gmail API' || modelName.includes('Gmail')) {
+      return 'Email';
+    }
+    
+    if (modelName === 'Ollama AI' || modelName.includes('Ollama')) {
+      return 'AI';
+    }
+    
+    if (modelName === 'AI Fallback' || modelName === 'AI Assistant') {
+      return 'AI';
+    }
+    
+    if (modelName === 'ML Backend' || modelName === 'ML System') {
+      return 'ML';
+    }
+    
+    if (modelName === 'System Startup' || modelName === 'Application Ready') {
+      return 'System';
+    }
+    
     switch (type) {
       case 'training_start':
       case 'model_training_start':
@@ -91,6 +136,8 @@ export default function NotificationSidebar({
       case 'model_classification_start':
       case 'model_classification_complete':
         return 'Classification';
+      case 'backend_info':
+        return 'System';
       default:
         return 'System';
     }
@@ -111,13 +158,26 @@ export default function NotificationSidebar({
             </span>
           )}
         </div>
-        {notifications.length > 0 && clearAllNotifications && (
-          <button
-            onClick={clearAllNotifications}
-            className="text-gray-400 hover:text-white text-sm underline"
-          >
-            Clear All
-          </button>
+        {notifications.length > 0 && (
+          <div className="flex space-x-2">
+            {clearBackgroundSystemSpam && (
+              <button
+                onClick={clearBackgroundSystemSpam}
+                className="text-gray-400 hover:text-white text-xs underline"
+                title="Clear background system spam notifications"
+              >
+                Clear Spam
+              </button>
+            )}
+            {clearAllNotifications && (
+              <button
+                onClick={clearAllNotifications}
+                className="text-gray-400 hover:text-white text-sm underline"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -145,7 +205,7 @@ export default function NotificationSidebar({
                       {notification.model_name.replace('_', ' ').toUpperCase()}
                     </span>
                     <span className="text-xs opacity-75 font-medium">
-                      {getNotificationCategory(notification.type)}
+                      {getNotificationCategory(notification.type, notification.model_name)}
                     </span>
                   </div>
                 </div>

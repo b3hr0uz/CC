@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { usePageLoading } from '../contexts/PageLoadingContext';
 import { 
   BarChart3, Settings, LogOut,
   Home, Bot, Menu, Loader
@@ -16,6 +17,7 @@ export default function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
   const pathname = usePathname();
   const { notifications } = useNotifications();
+  const { dashboard, assistant, training } = usePageLoading();
 
   // Check if training is currently active
   const isTrainingActive = notifications.some(notification => 
@@ -29,6 +31,64 @@ export default function Sidebar() {
   const LoadingSpinner = ({ size = 'h-4 w-4' }: { size?: string }) => (
     <Loader className={`${size} animate-spin`} />
   );
+
+  // Loading progress indicator component
+  const LoadingProgressIndicator = ({ 
+    progress, 
+    isLoading, 
+    backgroundProcesses, 
+    size = 'small' 
+  }: { 
+    progress: number; 
+    isLoading: boolean; 
+    backgroundProcesses: string[]; 
+    size?: 'small' | 'medium' 
+  }) => {
+    if (!isLoading && backgroundProcesses.length === 0) return null;
+
+    const isSmall = size === 'small';
+    const radius = isSmall ? 8 : 10;
+    const strokeWidth = isSmall ? 2 : 2.5;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDasharray = circumference;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+    return (
+      <div className={`relative ${isSmall ? 'w-4 h-4' : 'w-5 h-5'}`} title={`${progress}% - ${backgroundProcesses.join(', ') || 'Loading...'}`}>
+        <svg className="transform -rotate-90" width={isSmall ? 16 : 20} height={isSmall ? 16 : 20}>
+          {/* Background circle */}
+          <circle
+            cx={isSmall ? 8 : 10}
+            cy={isSmall ? 8 : 10}
+            r={radius}
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            className="opacity-20"
+          />
+          {/* Progress circle */}
+          <circle
+            cx={isSmall ? 8 : 10}
+            cy={isSmall ? 8 : 10}
+            r={radius}
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeDasharray={strokeDasharray}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-300 opacity-80"
+            style={{
+              strokeLinecap: 'round',
+            }}
+          />
+        </svg>
+        {/* Center dot for activity indication */}
+        <div className={`absolute inset-0 flex items-center justify-center`}>
+          <div className={`${isSmall ? 'w-1 h-1' : 'w-1.5 h-1.5'} bg-current rounded-full ${isLoading ? 'animate-pulse' : ''}`} />
+        </div>
+      </div>
+    );
+  };
 
   const handleSignOut = async () => {
     try {
@@ -50,11 +110,11 @@ export default function Sidebar() {
     }
   };
 
-  // Main navigation items (top section)
+  // Main navigation items (top section) with loading states
   const mainNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Assistant', href: '/assistant', icon: Bot },
-    { name: 'Training', href: '/training', icon: BarChart3 },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, loadingState: dashboard },
+    { name: 'Assistant', href: '/assistant', icon: Bot, loadingState: assistant },
+    { name: 'Training', href: '/training', icon: BarChart3, loadingState: training },
   ];
 
   // Bottom navigation items (above sign out)
@@ -84,11 +144,13 @@ export default function Sidebar() {
           {mainNavigation.map((item) => {
             const Icon = item.icon;
             const isTraining = item.name === 'Training';
+            const hasActivity = item.loadingState.isLoading || item.loadingState.backgroundProcesses.length > 0;
+            
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                title={item.name}
+                title={`${item.name}${hasActivity ? ` - ${item.loadingState.status}` : ''}`}
                 className={`p-2 rounded-lg transition-colors relative ${
                   isActive(item.href)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
@@ -96,8 +158,21 @@ export default function Sidebar() {
                 }`}
               >
                 <Icon className="h-5 w-5" />
-                {/* Loading spinner overlay for Training icon */}
-                {isTraining && isTrainingActive && (
+                
+                {/* Loading progress indicator overlay */}
+                {hasActivity && (
+                  <div className="absolute -top-1 -right-1">
+                    <LoadingProgressIndicator
+                      progress={item.loadingState.progress}
+                      isLoading={item.loadingState.isLoading}
+                      backgroundProcesses={item.loadingState.backgroundProcesses}
+                      size="small"
+                    />
+                  </div>
+                )}
+                
+                {/* Fallback training spinner for backward compatibility */}
+                {isTraining && isTrainingActive && !hasActivity && (
                   <div className="absolute -top-1 -right-1">
                     <LoadingSpinner size="h-3 w-3" />
                   </div>
@@ -173,6 +248,8 @@ export default function Sidebar() {
           {mainNavigation.map((item) => {
             const Icon = item.icon;
             const isTraining = item.name === 'Training';
+            const hasActivity = item.loadingState.isLoading || item.loadingState.backgroundProcesses.length > 0;
+            
             return (
               <Link
                 key={item.name}
@@ -187,10 +264,31 @@ export default function Sidebar() {
                   <Icon className="h-5 w-5 mr-3" />
                   {item.name}
                 </div>
-                {/* Loading spinner in rightmost area for Training */}
-                {isTraining && isTrainingActive && (
-                  <LoadingSpinner size="h-4 w-4" />
-                )}
+                
+                {/* Right side loading indicators and progress */}
+                <div className="flex items-center space-x-2">
+                  {/* Loading progress percentage */}
+                  {hasActivity && (
+                    <span className="text-xs opacity-70 min-w-[32px]">
+                      {item.loadingState.progress}%
+                    </span>
+                  )}
+                  
+                  {/* Loading progress indicator */}
+                  {hasActivity && (
+                    <LoadingProgressIndicator
+                      progress={item.loadingState.progress}
+                      isLoading={item.loadingState.isLoading}
+                      backgroundProcesses={item.loadingState.backgroundProcesses}
+                      size="medium"
+                    />
+                  )}
+                  
+                  {/* Fallback training spinner for backward compatibility */}
+                  {isTraining && isTrainingActive && !hasActivity && (
+                    <LoadingSpinner size="h-4 w-4" />
+                  )}
+                </div>
               </Link>
             );
           })}

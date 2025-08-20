@@ -4,20 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Sidebar from '../components/Sidebar';
-import NotificationSidebar from '../components/NotificationSidebar';
-import { NotificationProvider } from '../contexts/NotificationContext';
+import AppLayout from '../components/AppLayout';
+import { useNotifications } from '../contexts/NotificationContext';
+import { usePageLoading } from '../contexts/PageLoadingContext';
+import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
 import { 
   Settings, Shield, Mail, Database, 
   Save, RefreshCw, AlertCircle, CheckCircle,
   Lock, User, Camera, MapPin, 
   Calendar, Globe, Edit,
-  Download, Trash2
+  Download, Trash2, Bell, Monitor
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { addNotification } = useNotifications();
+  const { updateDashboardLoading } = usePageLoading();
+  const { initializationStatus } = useBackgroundInitialization();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -33,880 +37,688 @@ export default function SettingsPage() {
     emailNotifications: true,
     spamAlerts: true,
     dailySummary: false,
+    realTimeUpdates: true,
     
     // Privacy Settings
     dataRetention: '30', // days
     shareAnalytics: false,
+    cookieConsent: true,
     
     // Model Settings
-    defaultModel: 'logistic_regression',
+    defaultModel: 'xgboost_rl',
     confidenceThreshold: 0.8,
     autoRetrain: true,
+    trainingInterval: 45,
     
     // Display Settings
     language: 'en',
     timezone: 'UTC',
+    theme: 'dark',
+    compactMode: false,
     
     // Security Settings
     twoFactorAuth: false,
-    sessionTimeout: '1440' // minutes
+    sessionTimeout: '30',
+    loginAlerts: true,
+    
+    // Advanced Settings
+    debugMode: false,
+    betaFeatures: false,
+    telemetryEnabled: false,
   });
 
-
-
-  // Account Management state - use real user data from session
   const [profile, setProfile] = useState({
-    name: session?.user?.name || 'User',
-    email: session?.user?.email || 'user@example.com',
-    location: 'Palo Alto, CA', // Default location as requested
-    timezone: 'Pacific Time', // Default timezone as requested  
-    memberSince: '2025-01-10', // Set to January 10, 2025 as shown in image
-    avatar: session?.user?.image || '/api/placeholder/100/100'
+    name: session?.user?.name || '',
+    email: session?.user?.email || '',
+    location: '',
+    timezone: 'UTC',
+    profilePicture: session?.user?.image || null,
+    joinedDate: session ? new Date(session.expires).toISOString().split('T')[0] : '',
   });
-
-  // Update profile when session loads
-  useEffect(() => {
-    if (session?.user) {
-      // Format name as shown in the image: "Behrou. Barati B"
-      let displayName = session.user?.name || 'User';
-      if (displayName === 'Behrouz Barati B') {
-        displayName = 'Behrou. Barati B'; // Format to match the image
-      }
-      
-      setProfile(prev => ({
-        ...prev,
-        name: displayName,
-        email: session.user?.email || 'user@example.com',
-        avatar: session.user?.image || '/api/placeholder/100/100'
-      }));
-    }
-  }, [session]);
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  // Modal states
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showPassword, setShowPassword] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
+  const handleSettingChange = (key: string, value: any) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  };
 
-  // Form states for modals
-  const [emailForm, setEmailForm] = useState({
-    newEmail: '',
-    confirmEmail: '',
-    password: ''
-  });
-
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-
-  // Calculate real account stats based on user activity
-  const [accountStats, setAccountStats] = useState({
-    emailsProcessed: 15847, // Keep the value from image
-    accuracyRate: 94.2, // Keep the value from image
-    lastActive: '2025-01-11T10:30:00Z', // Keep the value from image (1/11/2025)
-    feedbackProvided: 127 // Keep the value from image
-  });
-
-  // Update account stats with real user data
-  useEffect(() => {
-    if (session?.user) {
-      // Calculate stats based on user's actual activity
-      // For now, keep the values shown in the image but make them dynamic in the future
-      const now = new Date();
-      setAccountStats(prev => ({
-        ...prev,
-        lastActive: now.toISOString(), // Update last active to current time
-        // In a real app, these would be calculated from database:
-        // - emailsProcessed: count of emails user has processed
-        // - accuracyRate: calculated from user feedback and model performance
-        // - feedbackProvided: count of user feedback submissions
-      }));
-    }
-  }, [session]);
-
-  const handleSettingChange = (key: string, value: string | boolean | number) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  const handleProfileChange = (key: string, value: string) => {
+    setProfile(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
+    setSaveStatus('idle');
+
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Add success notification
+      addNotification({
+        id: `settings-save-${Date.now()}`,
+        type: 'backend_info',
+        model_name: 'Settings',
+        message: '✅ Settings saved successfully - All preferences updated',
+        timestamp: new Date(),
+      });
+
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
+    } catch (error) {
       setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      
+      addNotification({
+        id: `settings-error-${Date.now()}`,
+        type: 'backend_info',
+        model_name: 'Settings',
+        message: '❌ Failed to save settings - Please try again',
+        timestamp: new Date(),
+      });
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleResetToDefaults = () => {
-    setSettings({
-      emailNotifications: true,
-      spamAlerts: true,
-      dailySummary: false,
-      dataRetention: '30',
-      shareAnalytics: false,
-      defaultModel: 'logistic_regression',
-      confidenceThreshold: 0.8,
-      autoRetrain: true,
-      language: 'en',
-      timezone: 'UTC',
-      twoFactorAuth: false,
-      sessionTimeout: '1440'
-    });
-  };
-
-  // Profile Management Handlers
-  const handleProfileUpdate = (key: string, value: string) => {
-    setProfile(prev => ({
-      ...prev,
-      [key]: value
-    }));
   };
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
+    
     try {
-      // Simulate API call for profile update
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSaveStatus('success');
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsEditingProfile(false);
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAccountAction = (action: string) => {
-    // Handle different account actions by opening modals
-    switch (action) {
-      case 'change-email':
-        setActiveModal('change-email');
-        break;
-      case 'change-password':
-        setActiveModal('change-password');
-        break;
-      case 'export-data':
-        setActiveModal('export-data');
-        break;
-      case 'delete-account':
-        setActiveModal('delete-account');
-        break;
-      default:
-        console.log('Unknown action:', action);
-    }
-  };
-
-  // Modal handlers
-  const closeModal = () => {
-    setActiveModal(null);
-    // Reset forms
-    setEmailForm({ newEmail: '', confirmEmail: '', password: '' });
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    setShowPassword({ current: false, new: false, confirm: false });
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleEmailChange = async () => {
-    if (emailForm.newEmail !== emailForm.confirmEmail) {
-      alert('Email addresses do not match');
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setProfile(prev => ({ ...prev, email: emailForm.newEmail }));
-      setSaveStatus('success');
-      closeModal();
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handlePasswordChange = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert('Passwords do not match');
-      return;
-    }
-    
-    if (passwordForm.newPassword.length < 8) {
-      alert('Password must be at least 8 characters long');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSaveStatus('success');
-      closeModal();
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDataExport = async () => {
-    setIsSaving(true);
-    try {
-      // Simulate data export
-      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Create mock CSV data
-      const csvData = `Email ID,Subject,Classification,Confidence,Date
-1,Welcome to ContextCleanse,ham,0.95,2025-01-01
-2,URGENT: Claim your prize,spam,0.98,2025-01-02
-3,Weekly team update,ham,0.89,2025-01-03`;
-      
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'contextcleanse-data-export.csv';
-      a.click();
-      window.URL.revokeObjectURL(url);
-      
-      setSaveStatus('success');
-      closeModal();
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      addNotification({
+        id: `profile-save-${Date.now()}`,
+        type: 'backend_info',
+        model_name: 'Profile',
+        message: '✅ Profile updated successfully',
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      addNotification({
+        id: `profile-error-${Date.now()}`,
+        type: 'backend_info',
+        model_name: 'Profile',
+        message: '❌ Failed to update profile - Please try again',
+        timestamp: new Date(),
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleAccountDeletion = async () => {
-    setIsSaving(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Account deletion initiated. You will receive a confirmation email.');
-      closeModal();
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+  const handleAccountAction = async (action: string) => {
+    addNotification({
+      id: `account-${action}-${Date.now()}`,
+      type: 'backend_info',
+      model_name: 'Account',
+      message: `🔧 ${action.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} functionality will be available in the next update`,
+      timestamp: new Date(),
     });
   };
 
-  // Show loading spinner while session is loading
   if (status === 'loading') {
     return (
-      <div className="flex h-screen bg-gray-800">
-        <Sidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-white">Loading your settings...</p>
-          </div>
+      <AppLayout showNotificationSidebar={true}>
+        <div className="flex-1 flex items-center justify-center" style={{backgroundColor: '#212121'}}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
-  // Don't render if not authenticated (redirect will happen in useEffect)
   if (status === 'unauthenticated') {
-    return null;
+    return null; // Will redirect via useEffect
   }
 
   return (
-    <NotificationProvider>
-      <div className="flex h-screen bg-gray-800">
-        <Sidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          {/* Header */}
-          <header className="bg-gray-800 border-b border-gray-600 px-6 py-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-white flex items-center">
-                  <Settings className="mr-3 text-blue-600" />
-                  Settings
-                </h1>
-                <p className="text-sm text-white">Manage your preferences and system configuration</p>
-              </div>
-              
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleResetToDefaults}
-                  className="flex items-center px-4 py-2 text-white hover:text-white border border-gray-300 rounded-lg transition-colors"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reset to Defaults
-                </button>
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={isSaving}
-                  className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors"
-                >
-                  {isSaving ? (
+    <AppLayout showNotificationSidebar={true}>
+      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
+        {/* Header */}
+        <header className="border-b border-gray-600 px-6 py-4 flex-shrink-0" style={{backgroundColor: '#212121'}}>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-white flex items-center">
+                <Settings className="h-6 w-6 mr-2 text-blue-400" />
+                Settings
+              </h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Manage your account and application preferences
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleSaveSettings}
+                disabled={isSaving}
+                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                {isSaving ? (
+                  <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
+                    Saving...
+                  </>
+                ) : (
+                  <>
                     <Save className="h-4 w-4 mr-2" />
-                  )}
-                  {isSaving ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
-            </div>
-            
-            {/* Save Status */}
-            {saveStatus !== 'idle' && (
-              <div className={`mt-4 p-3 rounded-lg flex items-center ${
-                saveStatus === 'success' ? 'bg-gray-800 text-white border border-gray-600' : 'bg-gray-800 text-white border border-gray-600'
-              }`}>
-                {saveStatus === 'success' ? (
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 mr-2" />
+                    Save All
+                  </>
                 )}
-                {saveStatus === 'success' ? 'Settings saved successfully!' : 'Failed to save settings. Please try again.'}
-              </div>
-            )}
-          </header>
-
-          {/* Settings Content */}
-          <div className="p-6 space-y-6">
-            {/* Email Settings */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center mb-6">
-                <Mail className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-white">Email Settings</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Email Notifications</label>
-                    <p className="text-sm text-gray-500">Receive email alerts for important events</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.emailNotifications}
-                      onChange={(e) => handleSettingChange('emailNotifications', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.emailNotifications 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.emailNotifications ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Spam Alerts</label>
-                    <p className="text-sm text-gray-500">Get notified when spam is detected</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.spamAlerts}
-                      onChange={(e) => handleSettingChange('spamAlerts', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.spamAlerts 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.spamAlerts ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Daily Summary</label>
-                    <p className="text-sm text-gray-500">Receive a daily email summary</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.dailySummary}
-                      onChange={(e) => handleSettingChange('dailySummary', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.dailySummary 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.dailySummary ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
-                </div>
-              </div>
+              </button>
             </div>
+          </div>
 
-            {/* Privacy Settings */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center mb-6">
-                <Shield className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-white">Privacy Settings</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Data Retention (days)</label>
-                  <select
-                    value={settings.dataRetention}
-                    onChange={(e) => handleSettingChange('dataRetention', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                  >
-                    <option value="7">7 days</option>
-                    <option value="30">30 days</option>
-                    <option value="90">90 days</option>
-                    <option value="365">1 year</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Share Analytics</label>
-                    <p className="text-sm text-gray-500">Help improve our service with usage data</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.shareAnalytics}
-                      onChange={(e) => handleSettingChange('shareAnalytics', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.shareAnalytics 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.shareAnalytics ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
-                </div>
-              </div>
+          {/* Save Status */}
+          {saveStatus !== 'idle' && (
+            <div className={`mt-4 p-3 rounded-lg flex items-center ${
+              saveStatus === 'success' ? 'border border-green-600' : 'border border-red-600'
+            }`} style={{backgroundColor: '#1a1a1a'}}>
+              {saveStatus === 'success' ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+                  <span className="text-green-300">Settings saved successfully!</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                  <span className="text-red-300">Failed to save settings. Please try again.</span>
+                </>
+              )}
             </div>
+          )}
+        </header>
 
-            {/* Model Settings */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center mb-6">
-                <Database className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-white">Model Settings</h2>
-              </div>
-              
-              <div className="space-y-4">
+        {/* Settings Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8" style={{backgroundColor: '#212121'}}>
+          {/* Email & Notification Settings */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center mb-6">
+              <Bell className="h-5 w-5 text-blue-400 mr-2" />
+              <h2 className="text-lg font-semibold text-white">Email & Notifications</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Default Model</label>
-                  <select
-                    value={settings.defaultModel}
-                    onChange={(e) => handleSettingChange('defaultModel', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                  >
-                    <option value="logistic_regression">Logistic Regression</option>
-                    <option value="gradient_boosting">Gradient Boosting</option>
-                    <option value="naive_bayes">Naive Bayes</option>
-                    <option value="neural_network">Neural Network</option>
-                  </select>
+                  <p className="text-white font-medium">Email Notifications</p>
+                  <p className="text-gray-400 text-sm">Receive updates about your emails and classifications</p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Confidence Threshold: {Math.round(settings.confidenceThreshold * 100)}%
-                  </label>
+                <div className="relative">
                   <input
-                    type="range"
-                    min="0.5"
-                    max="0.95"
-                    step="0.05"
-                    value={settings.confidenceThreshold}
-                    onChange={(e) => handleSettingChange('confidenceThreshold', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-gray-800 border border-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                    type="checkbox"
+                    checked={settings.emailNotifications}
+                    onChange={(e) => handleSettingChange('emailNotifications', e.target.checked)}
+                    className="sr-only"
                   />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Auto-Retrain</label>
-                    <p className="text-sm text-gray-500">Automatically retrain model with new data</p>
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.emailNotifications ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('emailNotifications', !settings.emailNotifications)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.emailNotifications ? 'transform translate-x-5' : ''
+                    }`}></div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.autoRetrain}
-                      onChange={(e) => handleSettingChange('autoRetrain', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.autoRetrain 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.autoRetrain ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
                 </div>
               </div>
-            </div>
 
-            {/* Display Settings */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center mb-6">
-                <Globe className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-white">Display Settings</h2>
-              </div>
-              
-              <div className="space-y-4">
-
-
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Language</label>
-                  <select
-                    value={settings.language}
-                    onChange={(e) => handleSettingChange('language', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                  >
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                    <option value="fr">Français</option>
-                    <option value="de">Deutsch</option>
-                  </select>
+                  <p className="text-white font-medium">Spam Alerts</p>
+                  <p className="text-gray-400 text-sm">Get notified when suspicious emails are detected</p>
                 </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.spamAlerts}
+                    onChange={(e) => handleSettingChange('spamAlerts', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.spamAlerts ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('spamAlerts', !settings.spamAlerts)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.spamAlerts ? 'transform translate-x-5' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </div>
 
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Timezone</label>
-                  <select
-                    value={settings.timezone}
-                    onChange={(e) => handleSettingChange('timezone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                  >
-                    <option value="UTC">UTC</option>
-                    <option value="EST">Eastern Time</option>
-                    <option value="PST">Pacific Time</option>
-                    <option value="CST">Central Time</option>
-                    <option value="MST">Mountain Time</option>
-                  </select>
+                  <p className="text-white font-medium">Real-time Updates</p>
+                  <p className="text-gray-400 text-sm">Live updates in the Events sidebar</p>
                 </div>
-              </div>
-            </div>
-
-            {/* Security Settings */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center mb-6">
-                <Shield className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-lg font-semibold text-white">Security Settings</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Two-Factor Authentication</label>
-                    <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.realTimeUpdates}
+                    onChange={(e) => handleSettingChange('realTimeUpdates', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.realTimeUpdates ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('realTimeUpdates', !settings.realTimeUpdates)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.realTimeUpdates ? 'transform translate-x-5' : ''
+                    }`}></div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.twoFactorAuth}
-                      onChange={(e) => handleSettingChange('twoFactorAuth', e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                      settings.twoFactorAuth 
-                        ? 'bg-gray-800 border-2 border-gray-600' 
-                        : 'bg-gray-800 border-2 border-gray-600'
-                    }`}>
-                      <div className={`dot absolute left-1 top-1 bg-gray-800 w-4 h-4 rounded-full transition-transform ${
-                        settings.twoFactorAuth ? 'transform translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </label>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Session Timeout (minutes)</label>
-                  <select
-                    value={settings.sessionTimeout}
-                    onChange={(e) => handleSettingChange('sessionTimeout', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                  >
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="60">1 hour</option>
-                    <option value="240">4 hours</option>
-                    <option value="1440">24 hours</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Management */}
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <User className="h-5 w-5 text-blue-600 mr-2" />
-                  <h2 className="text-lg font-semibold text-white">Account Management</h2>
-                </div>
-                
-                {isEditingProfile ? (
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setIsEditingProfile(false)}
-                      className="px-4 py-2 text-white hover:text-white dark:hover:text-gray-100 border border-gray-600 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={isSaving}
-                      className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black disabled:bg-gray-800 dark:disabled:bg-black text-white border border-gray-600 rounded-lg transition-colors"
-                    >
-                      {isSaving ? (
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4 mr-2" />
-                      )}
-                      {isSaving ? 'Saving...' : 'Save Profile'}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsEditingProfile(true)}
-                    className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 rounded-lg transition-colors"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Profile
-                  </button>
-                )}
-              </div>
-
-              {/* Profile Information */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1">
-                  {/* Avatar */}
-                  <div className="relative">
-                    {profile.avatar && profile.avatar !== '/api/placeholder/100/100' ? (
-                      <Image 
-                        src={profile.avatar} 
-                        alt={profile.name}
-                        width={80}
-                        height={80}
-                        className="w-20 h-20 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-20 h-20 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center">
-                        <User className="h-10 w-10 text-blue-600 dark:text-blue-400" />
-                      </div>
-                    )}
-                    {isEditingProfile && (
-                      <button className="absolute bottom-0 right-0 p-1 bg-gray-800 hover:bg-gray-800 dark:hover:bg-black text-white border border-gray-600 rounded-full transition-colors">
-                        <Camera className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Full Name</label>
-                      {isEditingProfile ? (
-                        <input
-                          type="text"
-                          value={profile.name}
-                          onChange={(e) => handleProfileUpdate('name', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                          placeholder="Enter your full name"
-                        />
-                      ) : (
-                        <p className="text-white">{profile.name}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Email Address</label>
-                      <div className="flex items-center">
-                        <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                        <div>
-                          <p className="text-white">{profile.email}</p>
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-800 border border-gray-600 text-white">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Verified
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Location</label>
-                      {isEditingProfile ? (
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                          <input
-                            type="text"
-                            value={profile.location}
-                            onChange={(e) => handleProfileUpdate('location', e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
-                            placeholder="Enter your location"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                          <p className="text-white">{profile.location}</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Member Since</label>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                        <p className="text-white">{formatDate(profile.memberSince)}</p>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Timezone</label>
-                      <div className="flex items-center">
-                        <Globe className="h-4 w-4 text-gray-400 mr-2" />
-                        <p className="text-white">{profile.timezone}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Statistics */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{accountStats.emailsProcessed.toLocaleString()}</p>
-                  <p className="text-xs text-white">Emails Processed</p>
-                </div>
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{accountStats.accuracyRate}%</p>
-                  <p className="text-xs text-white">Model Accuracy</p>
-                </div>
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{accountStats.feedbackProvided}</p>
-                  <p className="text-xs text-white">Feedback Given</p>
-                </div>
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-white">
-                    {new Date(accountStats.lastActive).toLocaleDateString()}
-                  </p>
-                  <p className="text-xs text-white">Last Active</p>
-                </div>
-              </div>
-
-              {/* Account Actions */}
-              <div>
-                <h3 className="text-md font-semibold text-white mb-4">Account Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => handleAccountAction('change-email')}
-                    className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-white">Change Email</p>
-                      <p className="text-xs text-gray-500">Update your email address</p>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={() => handleAccountAction('change-password')}
-                    className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-white">Change Password</p>
-                      <p className="text-xs text-gray-500">Update your password</p>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={() => handleAccountAction('export-data')}
-                    className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    <Download className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-white">Export Data</p>
-                      <p className="text-xs text-gray-500">Download your account data</p>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={() => handleAccountAction('delete-account')}
-                    className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-800 dark:hover:bg-black transition-colors"
-                  >
-                    <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400 mr-3" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-red-900 dark:text-red-300">Delete Account</p>
-                      <p className="text-xs text-red-500 dark:text-red-400">Permanently delete your account</p>
-                    </div>
-                  </button>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Privacy Settings */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center mb-6">
+              <Shield className="h-5 w-5 text-blue-400 mr-2" />
+              <h2 className="text-lg font-semibold text-white">Privacy & Data</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-white font-medium mb-2">Data Retention Period</label>
+                <select
+                  value={settings.dataRetention}
+                  onChange={(e) => handleSettingChange('dataRetention', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="365">1 year</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Share Usage Analytics</p>
+                  <p className="text-gray-400 text-sm">Help improve the service by sharing anonymous usage data</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.shareAnalytics}
+                    onChange={(e) => handleSettingChange('shareAnalytics', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.shareAnalytics ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('shareAnalytics', !settings.shareAnalytics)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.shareAnalytics ? 'transform translate-x-5' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Model Settings */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center mb-6">
+              <Database className="h-5 w-5 text-blue-400 mr-2" />
+              <h2 className="text-lg font-semibold text-white">ML Model Configuration</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-white font-medium mb-2">Default Model</label>
+                <select
+                  value={settings.defaultModel}
+                  onChange={(e) => handleSettingChange('defaultModel', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="logistic_regression">Logistic Regression</option>
+                  <option value="naive_bayes">Naive Bayes</option>
+                  <option value="neural_network">Neural Network</option>
+                  <option value="random_forest">Random Forest</option>
+                  <option value="svm">Support Vector Machine</option>
+                  <option value="xgboost">XGBoost</option>
+                  <option value="xgboost_rl">XGBoost + RL (Recommended)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">
+                  Confidence Threshold: {(settings.confidenceThreshold * 100).toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="0.99"
+                  step="0.01"
+                  value={settings.confidenceThreshold}
+                  onChange={(e) => handleSettingChange('confidenceThreshold', parseFloat(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{backgroundColor: '#212121'}}
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Training Interval (minutes)</label>
+                <select
+                  value={settings.trainingInterval}
+                  onChange={(e) => handleSettingChange('trainingInterval', parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes (Default)</option>
+                  <option value="60">1 hour</option>
+                  <option value="120">2 hours</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Auto Retrain Models</p>
+                  <p className="text-gray-400 text-sm">Automatically retrain models with new data</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoRetrain}
+                    onChange={(e) => handleSettingChange('autoRetrain', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.autoRetrain ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('autoRetrain', !settings.autoRetrain)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.autoRetrain ? 'transform translate-x-5' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Display Settings */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center mb-6">
+              <Monitor className="h-5 w-5 text-blue-400 mr-2" />
+              <h2 className="text-lg font-semibold text-white">Display & Interface</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-white font-medium mb-2">Language</label>
+                <select
+                  value={settings.language}
+                  onChange={(e) => handleSettingChange('language', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-white font-medium mb-2">Timezone</label>
+                <select
+                  value={settings.timezone}
+                  onChange={(e) => handleSettingChange('timezone', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="Europe/London">London</option>
+                  <option value="Europe/Paris">Paris</option>
+                  <option value="Asia/Tokyo">Tokyo</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Compact Mode</p>
+                  <p className="text-gray-400 text-sm">Reduce spacing and padding for more content</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.compactMode}
+                    onChange={(e) => handleSettingChange('compactMode', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.compactMode ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('compactMode', !settings.compactMode)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.compactMode ? 'transform translate-x-5' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Security Settings */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center mb-6">
+              <Lock className="h-5 w-5 text-blue-400 mr-2" />
+              <h2 className="text-lg font-semibold text-white">Security</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Two-Factor Authentication</p>
+                  <p className="text-gray-400 text-sm">Add an extra layer of security to your account</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={settings.twoFactorAuth}
+                    onChange={(e) => handleSettingChange('twoFactorAuth', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    settings.twoFactorAuth ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  onClick={() => handleSettingChange('twoFactorAuth', !settings.twoFactorAuth)}>
+                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      settings.twoFactorAuth ? 'transform translate-x-5' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-white font-medium mb-2">Session Timeout</label>
+                <select
+                  value={settings.sessionTimeout}
+                  onChange={(e) => handleSettingChange('sessionTimeout', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
+                  style={{backgroundColor: '#212121'}}
+                >
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="60">1 hour</option>
+                  <option value="480">8 hours</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Management */}
+          <div className="rounded-lg shadow p-6 border border-gray-700" style={{backgroundColor: '#1a1a1a'}}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <User className="h-5 w-5 text-blue-400 mr-2" />
+                <h2 className="text-lg font-semibold text-white">Account Information</h2>
+              </div>
+              <div className="flex items-center space-x-2">
+                {isEditingProfile ? (
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    {isSaving ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingProfile(true)}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Profile Picture & Basic Info */}
+              <div className="space-y-4">
+                <div className="relative">
+                  {profile.profilePicture ? (
+                    <Image
+                      src={profile.profilePicture}
+                      alt="Profile"
+                      width={80}
+                      height={80}
+                      className="rounded-full border border-gray-600"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 border border-gray-600 rounded-full flex items-center justify-center" style={{backgroundColor: '#212121'}}>
+                      <User className="h-10 w-10 text-blue-400" />
+                    </div>
+                  )}
+                  {isEditingProfile && (
+                    <button className="absolute bottom-0 right-0 p-1 bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-colors">
+                      <Camera className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Profile Details */}
+              <div className="md:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-white font-medium mb-2">Full Name</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profile.name}
+                      onChange={(e) => handleProfileChange('name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-white"
+                      style={{backgroundColor: '#212121'}}
+                    />
+                  ) : (
+                    <p className="text-gray-300">{profile.name || 'Not set'}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-white font-medium mb-2">Email</label>
+                  <p className="text-gray-300">{profile.email}</p>
+                </div>
+                <div>
+                  <label className="block text-white font-medium mb-2">Location</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profile.location}
+                      onChange={(e) => handleProfileChange('location', e.target.value)}
+                      placeholder="City, Country"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-white"
+                      style={{backgroundColor: '#212121'}}
+                    />
+                  ) : (
+                    <p className="text-gray-300">{profile.location || 'Not set'}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Account Statistics */}
+            <div className="mt-6 pt-6 border-t border-gray-600">
+              <h3 className="text-md font-semibold text-white mb-4">Account Statistics</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-400">127</p>
+                  <p className="text-xs text-gray-400">Emails Processed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-400">23</p>
+                  <p className="text-xs text-gray-400">Spam Detected</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-400">92%</p>
+                  <p className="text-xs text-gray-400">Accuracy</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">14</p>
+                  <p className="text-xs text-gray-400">Days Active</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Actions */}
+            <div className="mt-6 pt-6 border-t border-gray-600">
+              <h3 className="text-md font-semibold text-white mb-4">Account Actions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                  onClick={() => handleAccountAction('change-email')}
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <Mail className="h-5 w-5 text-blue-400 mr-3" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white">Change Email</p>
+                    <p className="text-xs text-gray-400">Update your email address</p>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => handleAccountAction('change-password')}
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <Lock className="h-5 w-5 text-blue-400 mr-3" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white">Change Password</p>
+                    <p className="text-xs text-gray-400">Update your password</p>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => handleAccountAction('export-data')}
+                  className="flex items-center p-4 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <Download className="h-5 w-5 text-blue-400 mr-3" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white">Export Data</p>
+                    <p className="text-xs text-gray-400">Download your account data</p>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => handleAccountAction('delete-account')}
+                  className="flex items-center p-4 border border-red-600 rounded-lg hover:bg-red-900/20 transition-colors"
+                >
+                  <Trash2 className="h-5 w-5 text-red-400 mr-3" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-red-300">Delete Account</p>
+                    <p className="text-xs text-red-400">Permanently delete your account</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        {/* Events Sidebar */}
-        <NotificationSidebar 
-          title="Events"
-        />
       </div>
-    </NotificationProvider>
+    </AppLayout>
   );
-} 
+}

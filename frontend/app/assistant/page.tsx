@@ -9,6 +9,10 @@ import {
 } from 'lucide-react';
 import AppLayout from '../components/AppLayout';
 import { useNotifications } from '../contexts/NotificationContext';
+import { usePageLoading } from '../contexts/PageLoadingContext';
+import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
+import OllamaSetup from '../components/OllamaSetup';
+import OllamaModelManager from '../components/OllamaModelManager';
 import axios from 'axios';
 
 interface EmailEmbedding {
@@ -142,6 +146,8 @@ export default function AssistantPage() {
   
   // Access global notification system for training events and metrics synchronization
   const { notifications } = useNotifications();
+  const { updateAssistantLoading, addBackgroundProcess, removeBackgroundProcess } = usePageLoading();
+  const { initializationStatus } = useBackgroundInitialization();
   
   // GLOBAL SYNC: Listen for training events and update model performance across all pages
   useEffect(() => {
@@ -206,6 +212,7 @@ export default function AssistantPage() {
   
   // UI states
   const [showSettings, setShowSettings] = useState(false);
+  const [showModelManager, setShowModelManager] = useState(false);
   const [isLoadingEmbeddings, setIsLoadingEmbeddings] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   
@@ -219,6 +226,55 @@ export default function AssistantPage() {
       return;
     }
   }, [session, status, router]);
+
+  // Initial page loading simulation with guard to prevent duplicates
+  useEffect(() => {
+    let isCancelled = false;
+
+    const simulateAssistantLoading = async () => {
+      if (isCancelled) return;
+
+      updateAssistantLoading({ 
+        isLoading: true, 
+        progress: 0, 
+        status: 'Initializing Assistant...' 
+      });
+
+      const steps = [
+        { progress: 15, status: 'Loading AI models...', delay: 400 },
+        { progress: 30, status: 'Checking Ollama status...', delay: 500 },
+        { progress: 50, status: 'Initializing RAG system...', delay: 600 },
+        { progress: 70, status: 'Loading email embeddings...', delay: 400 },
+        { progress: 90, status: 'Preparing chat interface...', delay: 300 },
+        { progress: 100, status: 'Assistant Ready', delay: 200 }
+      ];
+
+      for (const step of steps) {
+        if (isCancelled) return;
+        await new Promise(resolve => setTimeout(resolve, step.delay));
+        if (isCancelled) return;
+        updateAssistantLoading({ 
+          progress: step.progress, 
+          status: step.status,
+          isLoading: step.progress < 100
+        });
+      }
+    };
+
+    if (status === 'loading') {
+      simulateAssistantLoading();
+    } else if (status === 'authenticated') {
+      updateAssistantLoading({ 
+        isLoading: false, 
+        progress: 100, 
+        status: 'Assistant Ready' 
+      });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [status, updateAssistantLoading]); // Re-added updateAssistantLoading but it's now stable
 
   // Initialize on component mount
   useEffect(() => {
@@ -785,9 +841,9 @@ Please provide a helpful response based on the email context provided.`;
   return (
     <AppLayout showNotificationSidebar={true}>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-800">
+      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0">
+        <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white flex items-center">
@@ -805,6 +861,14 @@ Please provide a helpful response based on the email context provided.`;
                 </span>
               </div>
               
+              {/* Model Manager Button */}
+              <button
+                onClick={() => setShowModelManager(!showModelManager)}
+                className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+              >
+                Models
+              </button>
+              
               {/* Settings Toggle */}
               <button
                 onClick={() => setShowSettings(!showSettings)}
@@ -815,6 +879,20 @@ Please provide a helpful response based on the email context provided.`;
             </div>
           </div>
         </header>
+
+        {/* Model Manager Panel */}
+        {showModelManager && (
+          <div className="p-4 border-b border-gray-600">
+            <OllamaModelManager
+              onModelChange={(modelName) => {
+                setSelectedModel(modelName);
+                setShowModelManager(false);
+                checkOllamaStatus(); // Refresh status after model change
+              }}
+              onClose={() => setShowModelManager(false)}
+            />
+          </div>
+        )}
 
         {/* Settings Panel */}
         {showSettings && (
@@ -862,6 +940,17 @@ Please provide a helpful response based on the email context provided.`;
                   </div>
                   
                   {/* Setup Instructions (when Ollama is not available) */}
+                  {!ollamaStatus.available && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => setShowSettings(false)}
+                        className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      >
+                        Show Setup Guide
+                      </button>
+                    </div>
+                  )}
+                  
                   {!ollamaStatus.available && ollamaStatus.setupInstructions && ollamaStatus.setupInstructions.length > 0 && (
                     <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700 rounded-lg">
                       <h4 className="text-amber-400 font-medium mb-2 flex items-center">
@@ -1018,6 +1107,16 @@ Please provide a helpful response based on the email context provided.`;
               </div>
             </div>
           </div>
+        )}
+
+        {/* Ollama Setup Guide (when not available) */}
+        {!ollamaStatus.available && !showSettings && (
+          <OllamaSetup 
+            onOllamaReady={() => {
+              // Refresh Ollama status when ready
+              checkOllamaStatus();
+            }} 
+          />
         )}
 
         {/* Chat Messages */}
