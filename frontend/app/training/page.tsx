@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import AppLayout from '../components/AppLayout';
+
 import { useNotifications, TrainingNotification } from '../contexts/NotificationContext';
 import { usePageLoading } from '../contexts/PageLoadingContext';
 import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
@@ -2201,9 +2201,7 @@ export default function TrainingPage() {
 
 
   return (
-    <AppLayout showNotificationSidebar={true}>
-      {/* Main Content */}
-      <div className="flex-1 h-full overflow-y-auto custom-scrollbar" style={{backgroundColor: '#212121'}}>
+    <div className="flex-1 h-full overflow-y-auto custom-scrollbar" style={{backgroundColor: '#212121'}}>
         {/* Header */}
         <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
@@ -3015,7 +3013,5 @@ export default function TrainingPage() {
         </div>
       </div>
         </div> {/* End Scrollable Content Area */}
-      
-    </AppLayout>
   );
 }

@@ -7,7 +7,7 @@ import {
   Bot, Send, Loader2, Search, Database, 
   Settings, RefreshCw, Zap, Activity, Download, AlertCircle
 } from 'lucide-react';
-import AppLayout from '../components/AppLayout';
+
 import { useNotifications } from '../contexts/NotificationContext';
 import { usePageLoading } from '../contexts/PageLoadingContext';
 import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
@@ -922,9 +922,7 @@ Please provide a helpful response based on the email context provided.`;
   }
 
   return (
-    <AppLayout showNotificationSidebar={true}>
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Header */}
         <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
@@ -1316,7 +1314,5 @@ Please provide a helpful response based on the email context provided.`;
           </div>
         </div>
       </div>
-      
-    </AppLayout>
   );
 }

@@ -900,7 +900,7 @@ async def submit_user_feedback(feedback: UserFeedback):
             
             # Save feedback to file for persistence
             import os
-            feedback_file = "data/user_feedback.json"
+            feedback_file = "data/ml_training/user_feedback.json"
             os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
             
             existing_feedback = []
@@ -939,7 +939,7 @@ async def get_feedback_stats():
         incorrect_feedback = len([f for f in user_feedback_storage if f["feedback_type"] == "incorrect"])
         
         # Load from file as well
-        feedback_file = "data/user_feedback.json"
+        feedback_file = "data/ml_training/user_feedback.json"
         file_feedback = []
         if os.path.exists(feedback_file):
             with open(feedback_file, 'r') as f:

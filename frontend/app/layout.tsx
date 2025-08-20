@@ -6,6 +6,7 @@ import { NotificationProvider } from './contexts/NotificationContext'
 import { SidebarProvider } from './contexts/SidebarContext'
 import { PageLoadingProvider } from './contexts/PageLoadingContext'
 import { BackgroundInitializationProvider } from './contexts/BackgroundInitializationContext'
+import { AppNavigationProvider } from './contexts/AppNavigationContext'
 import { Toaster } from 'react-hot-toast'
 import PagePreloader from './components/PagePreloader'
 import ServerWarmup from './components/ServerWarmup'
@@ -36,7 +37,8 @@ export default function RootLayout({
             <SidebarProvider>
               <PageLoadingProvider>
                 <BackgroundInitializationProvider>
-                  <main>{children}</main>
+                  <AppNavigationProvider>
+                    <main>{children}</main>
                   <PagePreloader />
                   <ServerWarmup />
                   <Toaster 
@@ -49,6 +51,7 @@ export default function RootLayout({
                       },
                     }}
                   />
+                  </AppNavigationProvider>
                 </BackgroundInitializationProvider>
               </PageLoadingProvider>
             </SidebarProvider>

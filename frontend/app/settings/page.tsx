@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import AppLayout from '../components/AppLayout';
+
 import { useNotifications } from '../contexts/NotificationContext';
 import { usePageLoading } from '../contexts/PageLoadingContext';
 import { useBackgroundInitialization } from '../contexts/BackgroundInitializationContext';
@@ -161,11 +161,9 @@ export default function SettingsPage() {
 
   if (status === 'loading') {
     return (
-      <AppLayout showNotificationSidebar={true}>
-        <div className="flex-1 flex items-center justify-center" style={{backgroundColor: '#212121'}}>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </AppLayout>
+      <div className="flex-1 flex items-center justify-center" style={{backgroundColor: '#212121'}}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
@@ -174,8 +172,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <AppLayout showNotificationSidebar={true}>
-      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Header */}
         <header className="border-b border-gray-600 px-6 py-4 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex justify-between items-center">
@@ -719,6 +716,5 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

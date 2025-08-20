@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AppLayout from '../components/AppLayout';
+
 import { useNotifications } from '../contexts/NotificationContext';
 import { usePageLoading } from '../contexts/PageLoadingContext';
 import { 
@@ -621,8 +621,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <AppLayout showNotificationSidebar={true}>
-      <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{backgroundColor: '#212121'}}>
         {/* Simplified Header */}
         <header className="border-b border-gray-600 px-4 py-4 lg:px-6 flex-shrink-0" style={{backgroundColor: '#212121'}}>
           <div className="flex justify-between items-center">
@@ -1160,6 +1159,6 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-    </AppLayout>
+      </div>
   );
 } 

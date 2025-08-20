@@ -263,7 +263,7 @@ async def submit_feedback(feedback: FeedbackRequest):
         
         # Save feedback to file for persistence (in production, use proper database)
         try:
-            feedback_file = "data/user_feedback.json"
+            feedback_file = "data/ml_training/user_feedback.json"
             os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
             
             existing_feedback = []
@@ -615,7 +615,7 @@ async def get_optimal_kfold():
     """Get optimal k-fold configuration for cross-validation"""
     try:
         # Return optimal k-fold configuration based on dataset size
-        feedback_file = "data/user_feedback.json"
+        feedback_file = "data/ml_training/user_feedback.json"
         file_feedback = []
         if os.path.exists(feedback_file):
             with open(feedback_file, 'r') as f:

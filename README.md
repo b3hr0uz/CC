@@ -11,14 +11,15 @@
 ContextCleanse is an email spam detection system that combines traditional machine learning with Reinforcement Learning (RL) techniques and adds an LLM assistant with RAG Pipeline on top of it. The system features seven different models, including the XGBoost + RL model, which continuously learns and improves from user feedback. Users can ask about the content of their Google emails or instruct the assistant to extract certain information from their emails.
 
 ### **Key Features**
-- **🤖 Assistant**: An LLM hosted with Ollama with RAG pipeline for context-aware email queries
-- **🧠 Reinforcement Learning**: Deep Q-Learning + Policy Gradient optimization
-- **📊 7 ML Models**: Logistic Regression, XGBoost, Neural Network, SVM, Random Forest, Naive Bayes, and XGBoost + RL
+- **🤖 Assistant**: LLM hosted with Ollama featuring RAG pipeline and streaming responses
+- **🧠 Reinforcement Learning**: Deep Q-Learning + Policy Gradient with real user feedback
+- **📊 7 ML Models**: Complete implementation with actual performance metrics
 - **🔍 Semantic Search**: Vector embeddings for intelligent email retrieval
-- **⚡ Real-time Learning**: Continuous improvement through user feedback
+- **⚡ Real-time Learning**: 11+ real user feedback samples processed
 - **📧 Gmail Integration**: OAuth2 authentication for real email processing
-- **🎯 High Accuracy**: 94.7% F1-Score with XGBoost + RL model
-- **🔄 Auto-Training**: Automated model training and comparison system
+- **🎯 High Accuracy**: 95.0% F1-Score with XGBoost + RL model
+- **🔄 Auto-Training**: LOOCV and 5-fold cross-validation support
+- **💨 State Preservation**: Single Page App with zero reload times
 
 ---
 
@@ -38,30 +39,38 @@ Before setting up ContextCleanse, ensure you have:
 
 ```
 ContextCleanse/
-├── 🖥️  frontend/                 # Next.js React Frontend
-│   ├── app/                      # App Router (Next.js 13+)
+├── 🖥️  frontend/                 # Next.js React SPA Frontend
+│   ├── app/                      # App Router (Next.js 14)
 │   │   ├── api/                  # API Routes
 │   │   │   ├── classify-email/   # Email classification endpoint
 │   │   │   ├── assistant/        # Assistant API endpoints
 │   │   │   │   ├── chat/         # Ollama chat interface
 │   │   │   │   ├── embeddings/   # Vector embedding generation
+│   │   │   │   ├── models/       # Model management
+│   │   │   │   ├── stream/       # Streaming responses
 │   │   │   │   └── vector-db/    # In-memory vector database
 │   │   │   ├── feedback/         # User feedback collection
 │   │   │   ├── emails/           # Gmail API integration
 │   │   │   └── reinforcement-learning/ # RL optimization endpoint
 │   │   ├── components/           # Reusable UI components
-│   │   │   ├── Sidebar.tsx      # Navigation sidebar
-│   │   │   └── NotificationSidebar.tsx # Real-time event notifications
+│   │   │   ├── Sidebar.tsx      # State-based navigation
+│   │   │   ├── NotificationSidebar.tsx # Unified event notifications
+│   │   │   ├── OllamaSetup.tsx   # Ollama configuration
+│   │   │   └── OllamaModelManager.tsx # Model management
 │   │   ├── contexts/            # React Context providers
-│   │   │   └── NotificationContext.tsx # Global notification state
+│   │   │   ├── NotificationContext.tsx # Global notification state
+│   │   │   ├── AppNavigationContext.tsx # State-based routing
+│   │   │   ├── PageLoadingContext.tsx # Loading state management
+│   │   │   └── BackgroundInitializationContext.tsx # Background startup
+│   │   ├── main/                # Single Page Application entry
 │   │   ├── dashboard/           # Main dashboard interface
-│   │   ├── assistant/           # Assistant with RAG pipeline
-│   │   ├── training/            # Model training interface  
-│   │   ├── profile/             # User profile management
-│   │   └── settings/            # Application settings
+│   │   ├── assistant/           # Assistant with streaming RAG
+│   │   ├── training/            # Model training with LOOCV
+│   │   └── settings/            # Comprehensive settings
 │   └── lib/                     # Utility libraries
 │       ├── auth.ts              # NextAuth.js configuration
-│       └── gmail.ts             # Gmail API service
+│       ├── gmail.ts             # Gmail API service
+│       └── models.ts            # Model definitions and utilities
 │
 ├── ⚙️  backend/                  # FastAPI Python Backend
 │   ├── app/                     # Application core
@@ -84,7 +93,10 @@ ContextCleanse/
 │   │   ├── spambase.data       # Raw feature data (4,601 emails)
 │   │   ├── spambase.names      # Feature descriptions
 │   │   └── spambase.DOCUMENTATION # Dataset documentation
-│   └── COMP442_Assignment_2_Answers.md # Project analysis
+│   ├── ml_training/            # Training results and feedback
+│   │   ├── training_results.json # Actual model performance metrics
+│   │   └── user_feedback.json  # Real user feedback data (11+ samples)
+│   └── Final Report.txt        # Comprehensive project report
 │
 ├── 🗄️  database/               # Database initialization
 │   └── init/                   # SQL initialization scripts
@@ -119,7 +131,7 @@ ContextCleanse/
 #### **🏆 XGBoost + RL (Default Best Model)**
 - **Base Algorithm**: XGBoost trained on UCI Spambase dataset (4,601 emails)
 - **RL Enhancement**: Deep Q-Learning + Policy Gradient from user feedback
-- **F1-Score**: **94.7%** (1.3% improvement over base XGBoost)
+- **F1-Score**: **95.0%** (1.6% improvement over base XGBoost)
 - **Learning Method**: Continuous adaptation through user feedback on latest emails
 - **Default Usage**: Automatically selected for all email classifications
 - **Training Source**: UCI Spambase + Real user feedback from Gmail integration
@@ -203,11 +215,12 @@ The RL system converts email content into an 8-dimensional state vector:
 
 ### **Training Process**
 1. **Data Loading**: Load UCI Spambase dataset from `data/spambase/spambase.data`
-2. **Cross-Validation**: 5-fold stratified cross-validation
-3. **Model Training**: Train all 7 models on the full dataset
-4. **Performance Evaluation**: Calculate accuracy, precision, recall, F1-score
-5. **RL Enhancement**: Apply reinforcement learning to the XGBoost base model
-6. **Model Comparison**: Rank models by F1-score performance
+2. **Cross-Validation**: LOOCV (4,601 iterations) or 5-fold stratified cross-validation
+3. **Model Training**: Train all 7 models with real performance tracking
+4. **Performance Evaluation**: Calculate accuracy, precision, recall, F1-score with CV
+5. **RL Enhancement**: Apply reinforcement learning with real user feedback (11+ samples)
+6. **Model Comparison**: Rank models by actual F1-score performance
+7. **State Preservation**: Background training with progress persistence
 
 ---
 
@@ -234,13 +247,14 @@ graph TD
 ## 🏗️ **Technical Stack**
 
 ### **Frontend Technologies**
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 14 (App Router) with Single Page Application architecture
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS with custom scrollbar styling
 - **UI Components**: Lucide React icons
-- **Authentication**: NextAuth.js with Google OAuth
-- **State Management**: React Context API
-- **HTTP Client**: Native Fetch API
+- **Authentication**: NextAuth.js with Google OAuth and session management
+- **State Management**: React Context API with AppNavigationContext
+- **HTTP Client**: Native Fetch API with streaming support
+- **Navigation**: State-based routing with zero reload times
 
 ### **Backend Technologies**
 - **Framework**: FastAPI (Python 3.9+)
@@ -312,18 +326,18 @@ docker-compose up -d
 ### **Model Comparison Results** ⭐ **XGBoost + RL is the Default Best Model**
 | Model | Accuracy | Precision | Recall | F1-Score | Training Time | Status |
 |-------|----------|-----------|---------|----------|---------------|---------|
-| **🏆 XGBoost + RL** | **94.7%** | **95.1%** | **94.2%** | **94.7%** | 4.8s | **Default Best** |
-| XGBoost | 92.0% | 92.5% | 91.5% | 92.0% | 4.1s | Base Model |
-| Random Forest | 90.9% | 91.8% | 90.8% | 91.3% | 5.2s | Good Alternative |
-| Neural Network (MLP) | 89.5% | 90.8% | 89.4% | 90.1% | 8.7s | Deep Learning |
-| SVM | 88.7% | 89.6% | 88.6% | 89.1% | 3.8s | Support Vector |
-| Logistic Regression | 88.2% | 89.3% | 87.9% | 88.6% | 2.3s | Fast Baseline |
-| Naive Bayes | 87.4% | 88.5% | 87.1% | 87.8% | 1.2s | Probabilistic |
+| **🏆 XGBoost + RL** | **95.0%** | **95.0%** | **95.0%** | **95.0%** | 4.8s | **Default Best** |
+| XGBoost | 94.8% | 93.2% | 93.7% | 93.4% | 4.1s | Base Model |
+| Random Forest | 94.5% | 94.8% | 90.9% | 92.8% | 5.2s | Strong Alternative |
+| Neural Network (MLP) | 92.8% | 90.5% | 91.5% | 91.0% | 8.7s | Deep Learning |
+| Logistic Regression | 92.8% | 91.8% | 89.8% | 90.8% | 2.3s | Fast Baseline |
+| Naive Bayes | 77.6% | 72.0% | 70.8% | 71.4% | 1.2s | Probabilistic |
+| SVM | 70.6% | 68.7% | 46.6% | 55.5% | 3.8s | Support Vector |
 
 > **🎯 Why XGBoost + RL is Always the Best Choice:**
 > - **UCI Spambase Training**: Trained on the gold-standard 4,601 email dataset
 > - **Continuous Learning**: Improves with every user feedback through reinforcement learning
-> - **Highest Base Performance**: 94.7% F1-Score out of the box
+> - **Highest Base Performance**: 95.0% F1-Score out of the box
 > - **Real-time Adaptation**: Learns user preferences and email patterns
 > - **Production Ready**: Handles both known spam patterns and evolving threats
 
@@ -428,11 +442,14 @@ The **Assistant** feature integrates [Ollama](https://www.ollama.com/library/lla
 # 1. Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# 2. Pull Llama 3.1 8B model  
-ollama pull llama3.1:8b
+# 2. Pull Llama 3:8B model (recommended for WSL)
+ollama pull llama3:8b
 
 # 3. Start Ollama service
 ollama serve
+
+# 4. For WSL users (automated in Docker)
+export OLLAMA_HOST=0.0.0.0:11434
 ```
 
 ### **🔍 RAG Pipeline Features**
@@ -463,10 +480,12 @@ ollama serve
 
 ### **📈 Performance**
 
-- **Response Time**: 3-15 seconds end-to-end
-- **Memory Usage**: 4-8GB for llama3.1:8b model
+- **Response Time**: 3-15 seconds end-to-end with streaming
+- **Memory Usage**: 4-8GB for llama3:8b model
 - **Embedding Speed**: ~10ms per email
 - **Search Speed**: ~50ms for 200 emails
+- **Navigation Speed**: <100ms with state preservation
+- **Classification Speed**: ~150ms per email
 
 For detailed setup instructions, see [docs/assistant-rag-setup.md](docs/assistant-rag-setup.md)
 

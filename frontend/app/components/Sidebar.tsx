@@ -1,13 +1,12 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { usePageLoading } from '../contexts/PageLoadingContext';
+import { useAppNavigation } from '../contexts/AppNavigationContext';
 import { 
   BarChart3, Settings, LogOut,
   Home, Bot, Menu, Loader
@@ -15,9 +14,9 @@ import {
 
 export default function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
-  const pathname = usePathname();
   const { notifications } = useNotifications();
   const { dashboard, assistant, training } = usePageLoading();
+  const { activePage, navigateToPage, isPageActive } = useAppNavigation();
 
   // Check if training is currently active
   const isTrainingActive = notifications.some(notification => 
@@ -112,17 +111,19 @@ export default function Sidebar() {
 
   // Main navigation items (top section) with loading states
   const mainNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, loadingState: dashboard },
-    { name: 'Assistant', href: '/assistant', icon: Bot, loadingState: assistant },
-    { name: 'Training', href: '/training', icon: BarChart3, loadingState: training },
+    { name: 'Dashboard', page: 'dashboard' as const, icon: Home, loadingState: dashboard },
+    { name: 'Assistant', page: 'assistant' as const, icon: Bot, loadingState: assistant },
+    { name: 'Training', page: 'training' as const, icon: BarChart3, loadingState: training },
   ];
 
   // Bottom navigation items (above sign out)
   const bottomNavigation = [
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Settings', page: 'settings' as const, icon: Settings },
   ];
 
-  const isActive = (href: string) => pathname === href;
+  const handleNavigation = (page: string) => {
+    navigateToPage(page as any);
+  };
 
   // Collapsed (narrow icon-only) sidebar
   if (isCollapsed) {
@@ -147,12 +148,12 @@ export default function Sidebar() {
             const hasActivity = item.loadingState.isLoading || item.loadingState.backgroundProcesses.length > 0;
             
             return (
-              <Link
+              <button
                 key={item.name}
-                href={item.href}
+                onClick={() => handleNavigation(item.page)}
                 title={`${item.name}${hasActivity ? ` - ${item.loadingState.status}` : ''}`}
                 className={`p-2 rounded-lg transition-colors relative ${
-                  isActive(item.href)
+                  isPageActive(item.page)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
                     : 'text-gray-400 hover:text-white hover:bg-gray-700'
                 }`}
@@ -197,18 +198,18 @@ export default function Sidebar() {
           {bottomNavigation.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
+              <button
                 key={item.name}
-                href={item.href}
+                onClick={() => handleNavigation(item.page)}
                 title={item.name}
                 className={`p-2 rounded-lg transition-colors ${
-                  isActive(item.href)
+                  isPageActive(item.page)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
                     : 'text-gray-400 hover:text-white hover:bg-gray-700'
                 }`}
               >
                 <Icon className="h-5 w-5" />
-              </Link>
+              </button>
             );
           })}
 
@@ -251,11 +252,11 @@ export default function Sidebar() {
             const hasActivity = item.loadingState.isLoading || item.loadingState.backgroundProcesses.length > 0;
             
             return (
-              <Link
+              <button
                 key={item.name}
-                href={item.href}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(item.href)
+                onClick={() => handleNavigation(item.page)}
+                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full text-left ${
+                  isPageActive(item.page)
                     ? 'bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-600'
                     : 'text-black dark:text-white hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white'
                 }`}
@@ -289,7 +290,7 @@ export default function Sidebar() {
                     <LoadingSpinner size="h-4 w-4" />
                   )}
                 </div>
-              </Link>
+              </button>
             );
           })}
         </div>
